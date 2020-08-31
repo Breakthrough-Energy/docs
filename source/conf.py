@@ -84,14 +84,14 @@ html_theme = 'alabaster'
 # documentation.
 #
 html_theme_options = {
-   'description': 'A Global Good project',
+   'description': 'A Breakthrough Energy project',
    'fixed_sidebar': 'false',
    'sidebar_width': '20%',
    'page_width': '80%',
    'page_width': 'auto',
    'github_button': 'true',
-   'github_user': 'intvenlab',
-   'github_repo': 'PreREISE'
+   'github_user': 'Breakthrough-Energy',
+   'github_repo': 'docs'
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,

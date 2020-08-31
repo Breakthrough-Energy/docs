@@ -24,8 +24,8 @@ warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
 # -- Project information -----------------------------------------------------
 
-project = 'REM'
-copyright = '2019, Renewable Energy Modeling group'
+project = 'CEM'
+copyright = '2020, Clean Energy Modeling group'
 author = 'Yixing Xu, Kaspar Mueller, Dan Livengood, Benjamin Rouille d\'Orfeuil'
 
 # The short X.Y version
@@ -113,7 +113,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'REMdoc'
+htmlhelp_basename = 'CEMdoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -140,7 +140,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'rem.tex', 'REM Documentation',
+    (master_doc, 'rem.tex', 'CEM Documentation',
      'Y. Xu, K. Mueller, D. Livengood, B. Rouille d\'Orfeuil', 'manual'),
 ]
 
@@ -150,7 +150,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'rem', 'REM Documentation',
+    (master_doc, 'cem', 'CEM Documentation',
      [author], 1)
 ]
 
@@ -161,8 +161,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'rem', 'REM Documentation',
-     author, 'REM Group', 'Power flow studies in U.S. electrical grid',
+    (master_doc, 'cem', 'CEM Documentation',
+     author, 'CEM Group', 'Power flow studies in U.S. electrical grid',
      'Miscellaneous'),
 ]
 

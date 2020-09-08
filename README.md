@@ -10,3 +10,9 @@ specific package: `tox -e [package]`. The `package` argument should be one of
 (prereise,powersimdata,postreise) which can be seen by running `tox -l` to list
 possibilities.
 
+## Docker
+It may be easier to build locally using docker due to mac os issues.
+
+```
+docker-compose up --build
+```

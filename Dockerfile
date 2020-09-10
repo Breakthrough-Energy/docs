@@ -1,7 +1,7 @@
 FROM python:3.8.3
 
 WORKDIR /docs
-RUN pip install --no-cache-dir tox
+RUN pip install --no-cache-dir --upgrade pip tox
 COPY . .
 
-ENTRYPOINT ["tox"]
+ENTRYPOINT ["tox", "-p", "auto", "-o"]

@@ -19,14 +19,18 @@ Use GitHub to report bugs.
 ## Working with the code
 1. Fork the repository you want to contribute to.
 [Fork a repository](https://docs.github.com/en/github/getting-started-with-github/fork-a-repo)
-2. Clone your fork
+#### 2. Clone your fork
+
 ```
 git clone https://github.com/<your-username>/repo.git
 ```
-3. Set upstream to project repository
+
+### 3. Set upstream to project repository
+
 ```
 git remote add upstream https://github.com/Breakthrough-Energy/repo.git
 ```
+
 4. Create a feature branch
 ``` 
 git checkout -b <feature-name>
@@ -53,12 +57,12 @@ The reviewer will make sure the guidelines are followed.
 ## Coding standards
 ### Write testable code @Merrielle
 
-Provide short form of [Writing testable code](Software-Development-Guidelines#Writing-testable-code) and link to the long form
+Provide short form of [Writing testable code](writing_testable_code.md) and link to the long form
 ### Provide test with you code @dmuldrew
 
 Describe minimal requirements for test coverage and provide link to testing guidelines.
 
-Improve [Testing Guidelines](Testing-Guidelines-for-Python-and-Matlab)
+Improve [Testing Guidelines](testing_guidelines.md)
 
 ## Pip8/black @jonh
 ## Import formatting @ben
@@ -66,7 +70,7 @@ Improve [Testing Guidelines](Testing-Guidelines-for-Python-and-Matlab)
 
 # Contribute your changes
 ## Commit messaging
-[Semantic commit messages](Software-Development-Guidelines#semantic-commit-messages)
+[Semantic commit messages](software_development_guidelines.html#semantic-commit-messages)
 ## Push your code
 
 ## Pull request

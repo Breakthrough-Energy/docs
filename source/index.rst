@@ -12,7 +12,7 @@ Let's start with a quick presentation of the group and project.
    powersimdata_package.md
    prereise_package.md
    postreise_package.md
-   dev/Contribution-Guidelines.md
+   dev/contribution-guidelines.md
 
 Table of Contents
 =================
@@ -22,7 +22,7 @@ Table of Contents
    powersimdata_package.md
    prereise_package.md
    postreise_package.md
-   dev/Contribution-Guidelines.md
+   dev/contribution_guidelines.md
 Code
 ====
 * :ref:`genindex`

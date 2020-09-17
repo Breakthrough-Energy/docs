@@ -1,12 +1,14 @@
 # Index
-1. [Working with git](Software-Development-Guidelines#working-with-git)
-2. [Semantic Commit Messages](Software-Development-Guidelines#Semantic-Commit-Messages)
-3. [Pull Request Etiquette](https://github.com/Breakthrough-Energy/REISE/wiki/Pull-Request-Etiquette)
-4. [Writing testable code](https://github.com/intvenlab/REISE/wiki/Writing-testable-code)
-5. [Cleaning Code](Software-Development-Guidelines#cleaning-code-before-code-goes-back-into-develop)
-6. [Document Code](Software-Development-Guidelines#document-code-before-code-goes-back-into-develop)
+1. [Working with git](#working-with-git)
+2. [Semantic Commit Messages](#semantic-commit-messages)
+3. [Pull Request Etiquette](pull_request_etiquette.md)
+4. [Writing testable code](writing_testable_code.md)
+5. [Cleaning Code](#cleaning-code-before-code-goes-back-into-develop)
+6. [Document Code](#document-code-before-code-goes-back-into-develop)
 
-# Working with git
+
+
+# <a name="working-with-git"></a> Working with git
 We loosely follow this branching model:
 https://nvie.com/posts/a-successful-git-branching-model/
 
@@ -16,7 +18,7 @@ The main take on this is:
   - ``` git checkout username/featurename ```
 * When work done rebase feature branch on _develop_.
   - ``` git pull --rebase origin develop ```
-* Create a pull request to merge back into _develop_ (See [Pull Request Etiquette](https://github.com/Breakthrough-Energy/REISE/wiki/Pull-Request-Etiquette)).
+* Create a pull request to merge back into _develop_ (See [Pull Request Etiquette](pull_request_etiquette.md)).
 * The pull request requires a code review by at least one other person.
 * Main reviewer decides on type of merge to be performed.
   * fast-forward(```git merge```) or no-fast-forward ```git merge --no-ff```.
@@ -29,7 +31,10 @@ https://medium.com/@porteneuve/getting-solid-at-git-rebase-vs-merge-4fa1a48c53aa
 ### Git Training
  - [Git Tutorial](https://www.atlassian.com/git/tutorials)
  - [Interactive git branch](https://learngitbranching.js.org/)
-## Semantic Commit Messages
+
+
+
+## <a name="semantic-commit-messages"></a> Semantic Commit Messages
 
 ```
 feat: add hat wobble
@@ -63,7 +68,7 @@ https://github.com/intvenlab/REISE/wiki/Writing-testable-code
 # Writing Tests
 Add tests when contributing new code. Follow this guideline:
 https://github.com/intvenlab/REISE/wiki/Testing-Guidelines-for-Python-and-Matlab
-# Cleaning Code (before code goes back into _develop_)
+# <a name="cleaning-code-before-code-goes-back-into-develop"></a> Cleaning Code (before code goes back into _develop_)
 * Remove content that is not necessary.
 * Remove paths to external (outside of the package) folders.
 * Use relative paths within a package.
@@ -75,7 +80,7 @@ https://github.com/intvenlab/REISE/wiki/Testing-Guidelines-for-Python-and-Matlab
   * pip install isort
   * isort test.py
 * Notebooks go into demo folder only.
-# Document Code (before code goes back into develop)
+# <a name="document-code-before-code-goes-back-into-develop"></a> Document Code (before code goes back into develop)
 * Description of the method goes into the README.md.
 * Describe the operations of functions or classes with docstrings.
   * For docstring use reSt in order to use Sphinx. Here is a [CheatSheet](http://thomas-cokelaer.info/tutorials/sphinx/rest_syntax.html#explicit-links).

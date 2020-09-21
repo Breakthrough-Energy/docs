@@ -56,6 +56,15 @@ git rebase -i HEAD~n
 Provide a short form of the PR guideline
 
 ### How to install
+#### System requirements
+There are many options when it comes to python environments, but we follow a few general guidelines.
+The most important is having a virtual environment for each project, which can be created manually or
+managed with pipenv. Currently we support python 3.7 or greater. Another tool to consider is [pyenv](https://github.com/pyenv/pyenv)
+which, especially on Mac OS/Linux, allows creating a user level python installation that is isolated from
+the system packages. The best way to set this up from scratch is to use the automatic installer, then
+install the version of python you want to use for creating virtual environments and follow their guide
+for shell customization, which is needed to use pyenv by default.
+
 #### Pipenv
 When there is a Pipfile in the repository, dependencies can be installed
 using [pipenv](https://github.com/pypa/pipenv) by running `pipenv install` in that directory. 
@@ -69,7 +78,7 @@ using pipenv first.
 #### Pytest
 Pytest is installed as a dependency so all that's needed to run tests is to follow the steps above
 then activate your virtual environment (if using one, which is recommended) and run `pytest [options]`.
-Some tests may require infrastructure that is not publibly available. In this case, passing `-m not integration` 
+Some tests may require infrastructure that is not publicly available. In this case, passing `-m not integration` 
 to the pytest command should select only the tests that can run without these external dependencies.
 
 #### Tox
@@ -96,7 +105,7 @@ Describe minimal requirements for test coverage and provide link to testing guid
 Improve [Testing Guidelines](testing_guidelines.md)
 
 #### Code style
-Code is formatted according to the [black](https://github.com/psf/black) code style and validated before changes are
+Code is formatted according to the [black](https://github.com/psf/black) code style and validated by github before changes are
 merged. Therefore to avoid manually trying to satisfy the automated check, we recommend installing `black` locally and running
 it before committing changes. Their site describes editor integrations that may simplify this. Additionally, if using `tox`,
 the installation and formatting will be handled automatically, so no extra work is necessary.

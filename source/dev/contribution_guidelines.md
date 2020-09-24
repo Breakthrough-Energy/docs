@@ -1,8 +1,8 @@
 # Contribution guidelines
 Welcome! Thank your for your interest in this project. We recommend that you visit our
 [website](link_to_website) first if you did not yet have a chance to do so. You will
-find there a nice overview of our goals, the questions we try to answer and
-visualizations that clearly communicate our results.
+find a nice overview of our goals, the questions we try to answer and
+visualizations that communicate our results.
 
 There are several ways to contribute to this project. You can report bugs, file feature
 requests, work on existing issues, etc. To coordinate and structure your contribution
@@ -10,19 +10,16 @@ to this project we have created these guidelines.
 
 To communicate with the team, use the following communication channels. If you are contributing code to this project read on how to contribute to the code base. We have defined coding standards for the project that include formatting, testing, code documentation as well as basic guidelines how to write testable code.
 Each section contains links to references that help you familiarize with the topic if this is new to you.
-Thank you very much for contributing to this project.
+Thank you for contributing to this project.
 
 
 
 ## Communication channels
-### Slack
-We use Slack for general communication about the project as well as code development. This is the best way to get in touch with individual people within the project to get information.
+### Email
+If you have general questions about the model or software development please contact us under <modelinfo@breakthroughenergy.org>
 
-### Mailing list (Still need to be discussed)
-We use the mailing list to keep you up do date with the latest information about releases as well as information about the project
-
-### Report bugs
-Use GitHub to report bugs.
+### Report bugs and propose features
+Use GitHub to report bugs and propose features. 
 
 
 ## Working with the code

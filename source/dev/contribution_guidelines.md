@@ -96,8 +96,33 @@ The reviewer will make sure the guidelines are followed.
 
 ### Coding standards
 
-#### Write testable code @Merrielle
-Provide short form of [Writing testable code](writing_testable_code.md) and link to the long form
+#### Write testable code
+
+When contributing code to the project, we ask that you include tests to the best of your ability. Tests can be relatively painless depending on how your code is organized. Here are some guidelines for how to write code that makes testing easy:
+
+* Use the **Single Responsibility Principle** to keep functions simple
+    * Functions only have one responsibility and therefore one reason to change
+    * Responsibilities can include getting data, processing data, outputting data
+* **Avoid mutable global state**, including mutable static properties and singletons
+    * Functions that use global state are hard to debug because global state can be changed from anywhere in the codebase
+    * Global constants are fine, though be wary as some languages do not enforce them as such
+* **Avoid Side effects** such as:
+    * modifying a non-local variable
+    * modifying a static local variable
+    * modifying a mutable argument passed by reference
+    * performing I/O
+    * calling other side-effect functions
+* Use **dependency injection** and **higher order functions** to isolate code from non-deterministic behavior such as:
+    * Calls to the OS
+    * Calls to random number generators
+    * Solution: use dependency injection and higher order functions to isolate code
+* **Use pure functions** whenever possible - no side effects or non-deterministic behavior
+    * Given the same inputs, the function will always have the same output
+* **Impurity is inevitable** - we need to read files, databases, get user input, etc
+    * But you can keep impure code as far away from your functions as possible
+    * Break hard-coded dependencies so you can swap them out when testing
+
+A more detailed guideline can be found here: [Writing testable code](writing_testable_code.md)
 
 #### Provide test with you code @dmuldrew
 Describe minimal requirements for test coverage and provide link to testing guidelines.

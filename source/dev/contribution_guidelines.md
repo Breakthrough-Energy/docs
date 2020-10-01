@@ -124,10 +124,45 @@ When contributing code to the project, we ask that you include tests to the best
 
 A more detailed guideline can be found here: [Writing testable code](writing_testable_code.md)
 
-#### Provide test with you code @dmuldrew
+#### Provide test with your code @dmuldrew
 Describe minimal requirements for test coverage and provide link to testing guidelines.
 
-Improve [Testing Guidelines](testing_guidelines.md)
+For this project we decided to rely upon the `pytest` package (see https://docs.pytest.org/en/stable/getting-started.html) for our testing framework. `pytest` also supports the built-in `unittest` framework which we accept as well. Generally `pytest` reduces boilerplate code and uses simple Python asserts, though depending on the complexity of the testing situation, the more rigid structure of `unittest` can sometimes be preferable. 
+
+We also use mock objects to help reduce external code dependencies. For instance, here's a sample test of a function to return grid generator ids by plant type which makes use a mock grid dataframe:
+``` python
+import pytest
+
+def test_multiple_hierarchical_index():
+    # simple grid mock for testing
+    mock_grid = MockGrid()
+    # get ids for solar plants in the mock grid
+    plants = get_plantids_by_resource_type(mock_grid, 'solar')
+
+    expected_plants = [101, 103, 104]
+    assert plants == expected_plants
+    
+class MockGrid:
+    def __init__(self):
+        self.plant = pd.DataFrame( {'plant_id': [101,102,103,104,105],
+                                    'type': ['solar','wind','solar','solar','thermal'],\
+                                    'zone_id': [1,2,3,1,3],\
+                                    'GenMWMax':[200,150,100,300,120],\
+                                    'Pmin':    [20,30,25,100,20],\
+                                    'Pmax':    [40,80,50,150,80]})
+        self.plant.set_index('plant_id', inplace=True)
+```
+
+The unit tests for our code are grouped locally in a tests folder located at the same level as the module being tested. To discover and run our existing repo tests, use the command `pytest` at the base directory of our repos. All test files need to prefixed with "test" to be discoverable by pytest. Within the test files themselves test functions should be named test_{description of the test executed}.
+
+We expect the following types of tests to be included with any code submission:
+1. Tests that demonstrate that the expected feature is working. In addition to providing a health monitor for the feature, this will help others understand and modify the code in the future.
+2. Tests that check error validation which prevents the feature from failing, i.e. missing or unrealistic function parameters. Particular emphasis is needed for edge cases which are hard to detect in the program output.
+3. Every bug fix needs an accompanying test for the problem.
+
+In order to get wider input on useful tests for our project, feel free to propose tests cases in a form other than explicit code, and we will consider them for inclusion.
+
+[Testing Guidelines](testing_guidelines.md)
 
 #### Code style
 Code is formatted according to the [black](https://github.com/psf/black) code style and validated by github before changes are

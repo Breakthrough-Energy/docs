@@ -3,26 +3,31 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Renewable Energy Modeling
+BE Sciences Software
 *************************
 
-Let's start with a quick presentation of the group and project.
+.. include::
+   introduction.rst
+
 
 .. mdinclude::
+   user/installation_guide.md
+   dev/contribution_guidelines.md
    powersimdata_package.md
    prereise_package.md
    postreise_package.md
-   dev/contribution-guidelines.md
+
 
 Table of Contents
 =================
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
+   user/installation_guide.md
+   dev/contribution_guidelines.md
    powersimdata_package.md
    prereise_package.md
    postreise_package.md
-   dev/contribution_guidelines.md
 Code
 ====
 * :ref:`genindex`

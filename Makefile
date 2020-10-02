@@ -20,5 +20,7 @@ help:
 
 clean:
 	mv source/index.rst source/index.rst.tmp
+	mv source/introduction.rst source/introduction.rst.tmp
 	rm source/*.rst
 	mv source/index.rst.tmp source/index.rst
+	mv source/introduction.rst.tmp source/introduction.rst

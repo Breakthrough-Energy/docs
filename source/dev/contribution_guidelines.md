@@ -1,8 +1,8 @@
 # Contribution guidelines
 Welcome! Thank your for your interest in this project. We recommend that you visit our
-[website](link_to_website) first if you did not yet have a chance to do so. You will
-find there a nice overview of our goals, the questions we try to answer and
-visualizations that clearly communicate our results.
+[website](https://science.breakthroughenergy.org/) first if you did not yet have a chance to do so. You will
+find a nice overview of our goals, the questions we try to answer and
+visualizations that communicate our results.
 
 There are several ways to contribute to this project. You can report bugs, file feature
 requests, work on existing issues, etc. To coordinate and structure your contribution
@@ -10,19 +10,16 @@ to this project we have created these guidelines.
 
 To communicate with the team, use the following communication channels. If you are contributing code to this project read on how to contribute to the code base. We have defined coding standards for the project that include formatting, testing, code documentation as well as basic guidelines how to write testable code.
 Each section contains links to references that help you familiarize with the topic if this is new to you.
-Thank you very much for contributing to this project.
+Thank you for contributing to this project.
 
 
 
 ## Communication channels
-### Slack
-We use Slack for general communication about the project as well as code development. This is the best way to get in touch with individual people within the project to get information.
+### Email
+If you have general questions about the model or software development please contact us under <modelinfo@breakthroughenergy.org>
 
-### Mailing list (Still need to be discussed)
-We use the mailing list to keep you up do date with the latest information about releases as well as information about the project
-
-### Report bugs
-Use GitHub to report bugs.
+### Report bugs and propose features
+Use [GitHub](https://github.com/Breakthrough-Energy) to report bugs and propose features. 
 
 
 ## Working with the code
@@ -54,25 +51,6 @@ git rebase -i HEAD~n
 ```
 ##### 8. Open a pull request when the feature including tests and documentation is ready.
 Provide a short form of the PR guideline
-
-### How to install
-#### System requirements
-There are many options when it comes to python environments, but we follow a few general guidelines.
-The most important is having a virtual environment for each project, which can be created manually or
-managed with pipenv. Currently we support python 3.7 or greater. Another tool to consider is [pyenv](https://github.com/pyenv/pyenv)
-which, especially on Mac OS/Linux, allows creating a user level python installation that is isolated from
-the system packages. The best way to set this up from scratch is to use the automatic installer, then
-install the version of python you want to use for creating virtual environments and follow their guide
-for shell customization, which is needed to use pyenv by default.
-
-#### Pipenv
-When there is a Pipfile in the repository, dependencies can be installed
-using [pipenv](https://github.com/pypa/pipenv) by running `pipenv install` in that directory. 
-Instructions for how to get pipenv itself can be found on their website. Alternatively, if 
-there is a requirements.txt that can be used as well - `pip install -r requirements.txt`. Both
-methods should install the same set of packages, however, automated testing is done using pipenv
-to ensure reproducibility, so if you encounter package related issues it's recommended to troubleshoot
-using pipenv first.
 
 ### How to run
 #### Pytest
@@ -127,7 +105,7 @@ A more detailed guideline can be found here: [Writing testable code](writing_tes
 #### Provide test with your code @dmuldrew
 Describe minimal requirements for test coverage and provide link to testing guidelines.
 
-For this project we decided to rely upon the `pytest` package (see https://docs.pytest.org/en/stable/getting-started.html) for our testing framework. `pytest` also supports the built-in `unittest` framework which we accept as well. Generally `pytest` reduces boilerplate code and uses simple Python asserts, though depending on the complexity of the testing situation, the more rigid structure of `unittest` can sometimes be preferable. 
+For this project we decided to rely upon the `pytest` package (see [https://docs.pytest.org/en/stable/getting-started.html](https://docs.pytest.org/en/stable/getting-started.html)) for our testing framework. `pytest` also supports the built-in `unittest` framework which we accept as well. Generally `pytest` reduces boilerplate code and uses simple Python asserts, though depending on the complexity of the testing situation, the more rigid structure of `unittest` can sometimes be preferable. 
 
 We also use mock objects to help reduce external code dependencies. For instance, here's a sample test of a function to return grid generator ids by plant type which makes use a mock grid dataframe:
 ``` python

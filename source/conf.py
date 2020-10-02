@@ -26,9 +26,9 @@ warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
 # -- Project information -----------------------------------------------------
 
-project = "CEM"
-copyright = "2020, Clean Energy Modeling group"
-author = "Yixing Xu, Kaspar Mueller, Dan Livengood, Benjamin Rouille d'Orfeuil"
+project = "BE Sciences Logo here"
+copyright = "2020, Breakthrough Energy"
+author = "TBD"
 
 # The short X.Y version
 version = "1.0"
@@ -87,7 +87,7 @@ html_theme = "alabaster"
 # documentation.
 #
 html_theme_options = {
-    "description": "A Breakthrough Energy project",
+    "description": "A Breakthrough Energy initiative",
     "fixed_sidebar": "false",
     "sidebar_width": "20%",
     "page_width": "80%",

@@ -19,7 +19,7 @@ Thank you for contributing to this project.
 If you have general questions about the model or software development please contact us under <modelinfo@breakthroughenergy.org>
 
 ### Report bugs and propose features
-Use GitHub to report bugs and propose features. 
+Use [GitHub](https://github.com/Breakthrough-Energy) to report bugs and propose features. 
 
 
 ## Working with the code
@@ -105,7 +105,7 @@ A more detailed guideline can be found here: [Writing testable code](writing_tes
 #### Provide test with your code @dmuldrew
 Describe minimal requirements for test coverage and provide link to testing guidelines.
 
-For this project we decided to rely upon the `pytest` package (see https://docs.pytest.org/en/stable/getting-started.html) for our testing framework. `pytest` also supports the built-in `unittest` framework which we accept as well. Generally `pytest` reduces boilerplate code and uses simple Python asserts, though depending on the complexity of the testing situation, the more rigid structure of `unittest` can sometimes be preferable. 
+For this project we decided to rely upon the `pytest` package (see [https://docs.pytest.org/en/stable/getting-started.html](https://docs.pytest.org/en/stable/getting-started.html)) for our testing framework. `pytest` also supports the built-in `unittest` framework which we accept as well. Generally `pytest` reduces boilerplate code and uses simple Python asserts, though depending on the complexity of the testing situation, the more rigid structure of `unittest` can sometimes be preferable. 
 
 We also use mock objects to help reduce external code dependencies. For instance, here's a sample test of a function to return grid generator ids by plant type which makes use a mock grid dataframe:
 ``` python

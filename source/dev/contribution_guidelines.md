@@ -128,7 +128,7 @@ class MockGrid:
         self.plant.set_index('plant_id', inplace=True)
 ```
 
-The unit tests for our code are grouped locally in a tests folder located at the same level as the module being tested. To discover and run our existing repo tests, use the command `pytest` at the base directory of our repos. All test files need to prefixed with "test" to be discoverable by `pytest`. Within the test files themselves test functions should be named test_{description of the test executed}.
+The unit tests for our code are grouped locally in a **tests** folder located at the same level as the module being tested. To discover and run our existing repo tests, use the command `pytest` at the base directory of our repos. All test files need to prefixed with **test** to be discoverable by `pytest`. Within the test files themselves test functions should be named `test_{description of the test executed}`, e.g., `test_multiple_hierarchical_index`.
 
 We expect the following types of tests to be included with any code submission:
 1. Tests that demonstrate that the expected feature is working. In addition to providing a health monitor for the feature, this will help others understand and modify the code in the future.
@@ -142,7 +142,49 @@ In order to get wider input on useful tests for our project, feel free to propos
 #### Code style
 Code is formatted according to the [black] code style and validated by GitHub before changes are merged. Therefore to avoid manually trying to satisfy the automated check, we recommend installing `black` locally and running it before committing changes. Their site describes editor integrations that may simplify this. Additionally, if using `tox`, the installation and formatting will be handled automatically, so no extra work is necessary.
 
-#### Import formatting @ben
+#### Import formatting
+In very short:
+* don't use wildcard imports;
+* do use absolute imports;
+* run `isort` via `tox`.
+
+If you need more context and examples, you can keep reading.
+
+We follow [PEP 8][PEP 8 imports] when importing modules. In short, the following rules must be followed:
+* imports should be on separate lines:
+```python
+import numpy
+import pandas
+import pytest
+```
+however, when importing modules from the same package or functions/classes/variables from the same module, it is ok to write:
+```python
+from powersimdata.input import grid, change_table
+from postreise.analyze.time import change_time_zone, resample_time_series
+```
+where `grid` and `change_table` are modules whereas `change_time_zone` and `resample_time_series` are functions defined in the `time` module.
+* use absolute imports. For example, if you need to create a `Grid` object in a module located at the same level as the `grid` module, use:
+```python
+from powersimdata.input.grid import Grid
+grid = Grid(["western"])
+```
+and not:
+```python
+from grid import Grid
+grid = Grid(["western"])
+```
+* imports are always put at the top of the file. We require that imports are alphabetically sorted, and automatically separated into sections and by type. If you run:
+```
+tox -e checkformatting
+```
+in the directory enclosing the **tox.ini** file, you will be notified of any irregularity. Note that it is the `isort` package accomplishes this task (see the [isort] documentation for more information).
+* We don't use wildcards import, e.g.:
+```
+from powersimdata.network.usa_tamu.constants.zones import *
+```
+since it will be unclear which names are present in the namespace, confusing both readers and many automated tools. Another good reason to avoid wildcards is to prevent collisions. Finally, even if we don't use wild cards, we list the modules by setting the `__all__` variable in an **\_\_init\_\_.py** file.
+
+
 
 #### Code documentation @ben
 
@@ -161,6 +203,8 @@ Code is formatted according to the [black] code style and validated by GitHub be
 [black]: https://github.com/psf/black
 [Fork]: https://docs.github.com/en/github/getting-started-with-github/fork-a-repo
 [GitHub]: https://github.com/Breakthrough-Energy
+[isort]: https://pycqa.github.io/isort/
 [PEP 8]: https://www.python.org/dev/peps/pep-0008/
+[PEP 8 imports]: https://www.python.org/dev/peps/pep-0008/#imports
 [pytest]: https://docs.pytest.org/en/stable/getting-started.html
 [tox]: https://tox.readthedocs.io

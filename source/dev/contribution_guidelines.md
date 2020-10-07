@@ -19,7 +19,7 @@ Thank you for contributing to this project.
 If you have general questions about the model or software development please contact us under <modelinfo@breakthroughenergy.org>
 
 ### Report bugs and propose features
-Use [GitHub](https://github.com/Breakthrough-Energy) to report bugs and propose features. 
+Use [GitHub](https://github.com/Breakthrough-Energy) to report bugs and propose features.
 
 
 ## Working with the code
@@ -56,7 +56,7 @@ Provide a short form of the PR guideline
 #### Pytest
 Pytest is installed as a dependency so all that's needed to run tests is to follow the steps above
 then activate your virtual environment (if using one, which is recommended) and run `pytest [options]`.
-Some tests may require infrastructure that is not publicly available. In this case, passing `-m not integration` 
+Some tests may require infrastructure that is not publicly available. In this case, passing `-m not integration`
 to the pytest command should select only the tests that can run without these external dependencies.
 
 #### Tox
@@ -102,12 +102,12 @@ When contributing code to the project, we ask that you include tests to the best
 
 A more detailed guideline can be found here: [Writing testable code](writing_testable_code.md)
 
-#### Provide test with your code @dmuldrew
+#### Provide test with your code
 Describe minimal requirements for test coverage and provide link to testing guidelines.
 
-For this project we decided to rely upon the `pytest` package (see [https://docs.pytest.org/en/stable/getting-started.html](https://docs.pytest.org/en/stable/getting-started.html)) for our testing framework. `pytest` also supports the built-in `unittest` framework which we accept as well. Generally `pytest` reduces boilerplate code and uses simple Python asserts, though depending on the complexity of the testing situation, the more rigid structure of `unittest` can sometimes be preferable. 
+For this project we decided to rely upon the `pytest` package (see [https://docs.pytest.org/en/stable/getting-started.html](https://docs.pytest.org/en/stable/getting-started.html)) for our testing framework. `pytest` also supports the built-in `unittest` framework which we accept as well. Generally `pytest` reduces boilerplate code and uses simple Python asserts, though depending on the complexity of the testing situation, the more rigid structure of `unittest` can sometimes be preferable.
 
-We also use mock objects to help reduce external code dependencies. For instance, here's a sample test of a function to return grid generator ids by plant type which makes use a mock grid dataframe:
+We also use mock objects to help reduce external code dependencies. For instance, here's a sample test of a function to return grid generator ids by plant type which makes use a mock grid data frame:
 ``` python
 import pytest
 
@@ -119,19 +119,18 @@ def test_multiple_hierarchical_index():
 
     expected_plants = [101, 103, 104]
     assert plants == expected_plants
-    
+
 class MockGrid:
     def __init__(self):
-        self.plant = pd.DataFrame( {'plant_id': [101,102,103,104,105],
-                                    'type': ['solar','wind','solar','solar','thermal'],\
-                                    'zone_id': [1,2,3,1,3],\
-                                    'GenMWMax':[200,150,100,300,120],\
-                                    'Pmin':    [20,30,25,100,20],\
-                                    'Pmax':    [40,80,50,150,80]})
+        self.plant = pd.DataFrame({'plant_id': [101, 102, 103, 104, 105],
+                                   'type': ['solar', 'wind', 'solar', 'solar', 'thermal'],
+                                   'zone_id': [1, 2, 3, 1, 3],
+                                   'Pmin': [20, 30, 25, 100, 20],
+                                   'Pmax': [40, 80, 50, 150, 80]})
         self.plant.set_index('plant_id', inplace=True)
 ```
 
-The unit tests for our code are grouped locally in a tests folder located at the same level as the module being tested. To discover and run our existing repo tests, use the command `pytest` at the base directory of our repos. All test files need to prefixed with "test" to be discoverable by pytest. Within the test files themselves test functions should be named test_{description of the test executed}.
+The unit tests for our code are grouped locally in a tests folder located at the same level as the module being tested. To discover and run our existing repo tests, use the command `pytest` at the base directory of our repos. All test files need to prefixed with "test" to be discoverable by `pytest`. Within the test files themselves test functions should be named test_{description of the test executed}.
 
 We expect the following types of tests to be included with any code submission:
 1. Tests that demonstrate that the expected feature is working. In addition to providing a health monitor for the feature, this will help others understand and modify the code in the future.

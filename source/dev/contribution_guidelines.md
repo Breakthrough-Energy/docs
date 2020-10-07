@@ -1,15 +1,10 @@
 # Contribution guidelines
-Welcome! Thank your for your interest in this project. We recommend that you visit our
-[website](https://science.breakthroughenergy.org/) first if you did not yet have a chance to do so. You will
-find a nice overview of our goals, the questions we try to answer and
-visualizations that communicate our results.
+Welcome! Thank your for your interest in this project. We recommend that you visit our [website][bes] first if you did not yet have a chance to do so. You will find a nice overview of our goals, the questions we try to answer and visualizations that communicate our results.
 
-There are several ways to contribute to this project. You can report bugs, file feature
-requests, work on existing issues, etc. To coordinate and structure your contribution
-to this project we have created these guidelines.
+There are several ways to contribute to this project. You can report bugs, file feature requests, work on existing issues, etc. To coordinate and structure your contribution to this project we have created these guidelines.
 
-To communicate with the team, use the following communication channels. If you are contributing code to this project read on how to contribute to the code base. We have defined coding standards for the project that include formatting, testing, code documentation as well as basic guidelines how to write testable code.
-Each section contains links to references that help you familiarize with the topic if this is new to you.
+To communicate with the team, use the following communication channels. If you are contributing code to this project read on how to contribute to the code base. We have defined coding standards for the project that include formatting, testing, code documentation as well as basic guidelines how to write testable code. Each section contains links to references that help you familiarize with the topic if this is new to you.
+
 Thank you for contributing to this project.
 
 
@@ -19,13 +14,13 @@ Thank you for contributing to this project.
 If you have general questions about the model or software development please contact us under <modelinfo@breakthroughenergy.org>
 
 ### Report bugs and propose features
-Use [GitHub](https://github.com/Breakthrough-Energy) to report bugs and propose features.
+Use [GitHub] to report bugs and propose features.
 
 
 ## Working with the code
 ### Get the repo
 ##### 1. Fork the repository you want to contribute to.
-[Fork a repository](https://docs.github.com/en/github/getting-started-with-github/fork-a-repo)
+[Fork a repository][Fork]
 ##### 2. Clone your fork
 ```
 git clone https://github.com/<your-username>/repo.git
@@ -53,24 +48,27 @@ git rebase -i HEAD~n
 Provide a short form of the PR guideline
 
 ### How to run
-#### Pytest
-Pytest is installed as a dependency so all that's needed to run tests is to follow the steps above
-then activate your virtual environment (if using one, which is recommended) and run `pytest [options]`.
-Some tests may require infrastructure that is not publicly available. In this case, passing `-m not integration`
-to the pytest command should select only the tests that can run without these external dependencies.
+#### [Pytest]
+`pytest` is installed as a dependency so all that's needed to run tests is to follow the steps above then activate your virtual environment (if using one, which is recommended) and run:
+```
+pytest [options]
+```
+Some tests may require infrastructure that is not publicly available. In this case, passing `-m not integration` to the command should select only the tests that can run without these external dependencies.
 
-#### Tox
-If a tox.ini file exists in the repository, this presents the simplest option for validating changes locally.
-In this case, after doing `pip install tox` in your global environment, you can simply run `tox` to use the default
-workflow. You can also select a subset of checks by running `tox -l` which will output a list of options, then
-pass those as a comma separated list, e.g. `tox -e pytest,format`. Note: this may have side effects when it comes
-to code formatting.
+#### [Tox]
+If a **tox.ini** file exists in the repository, this presents the simplest option for validating changes locally. In this case, after doing:
+ ```
+ pip install tox
+ ```
+in your global environment, you can simply run `tox` to use the default workflow. You can also select a subset of checks by running `tox -l` which will output a list of options, then pass those as a comma separated list, e.g.:
+```
+tox -e pytest,format
+```
+Note that this may have side effects when it comes to code formatting.
 
 
 ## Contributing to code base
-In order for the code to be well structured, documented and tested we want to follow some guidelines.
-When creating a pull request the following items should be addressed.
-The reviewer will make sure the guidelines are followed.
+In order for the code to be well structured, documented and tested we want to follow some guidelines. When creating a pull request the following items should be addressed. The reviewer will make sure the guidelines are followed.
 
 ### Coding standards
 
@@ -105,10 +103,10 @@ A more detailed guideline can be found here: [Writing testable code](writing_tes
 #### Provide test with your code
 Describe minimal requirements for test coverage and provide link to testing guidelines.
 
-For this project we decided to rely upon the `pytest` package (see [https://docs.pytest.org/en/stable/getting-started.html](https://docs.pytest.org/en/stable/getting-started.html)) for our testing framework. `pytest` also supports the built-in `unittest` framework which we accept as well. Generally `pytest` reduces boilerplate code and uses simple Python asserts, though depending on the complexity of the testing situation, the more rigid structure of `unittest` can sometimes be preferable.
+For this project we decided to rely upon the `pytest` package for our testing framework. `pytest` also supports the built-in `unittest` framework which we accept as well. Generally `pytest` reduces boilerplate code and uses simple Python asserts, though depending on the complexity of the testing situation, the more rigid structure of `unittest` can sometimes be preferable.
 
 We also use mock objects to help reduce external code dependencies. For instance, here's a sample test of a function to return grid generator ids by plant type which makes use a mock grid data frame:
-``` python
+```python
 import pytest
 
 def test_multiple_hierarchical_index():
@@ -142,10 +140,7 @@ In order to get wider input on useful tests for our project, feel free to propos
 [Testing Guidelines](testing_guidelines.md)
 
 #### Code style
-Code is formatted according to the [black](https://github.com/psf/black) code style and validated by github before changes are
-merged. Therefore to avoid manually trying to satisfy the automated check, we recommend installing `black` locally and running
-it before committing changes. Their site describes editor integrations that may simplify this. Additionally, if using `tox`,
-the installation and formatting will be handled automatically, so no extra work is necessary.
+Code is formatted according to the [black] code style and validated by GitHub before changes are merged. Therefore to avoid manually trying to satisfy the automated check, we recommend installing `black` locally and running it before committing changes. Their site describes editor integrations that may simplify this. Additionally, if using `tox`, the installation and formatting will be handled automatically, so no extra work is necessary.
 
 #### Import formatting @ben
 
@@ -161,3 +156,11 @@ the installation and formatting will be handled automatically, so no extra work 
 #### Push your code
 
 #### Pull request
+
+[bes]: https://science.breakthroughenergy.org/
+[black]: https://github.com/psf/black
+[Fork]: https://docs.github.com/en/github/getting-started-with-github/fork-a-repo
+[GitHub]: https://github.com/Breakthrough-Energy
+[PEP 8]: https://www.python.org/dev/peps/pep-0008/
+[pytest]: https://docs.pytest.org/en/stable/getting-started.html
+[tox]: https://tox.readthedocs.io

@@ -148,14 +148,12 @@ In very short:
 * do use absolute imports;
 * run `isort` via `tox`.
 
-More context and examples are given in the [Importing Guidelines](import_guidelines.md).
+More context and examples can be found [here](import_guidelines.md).
 
+#### Code documentation
+All functions and methods of classes must be documented with a [docstring][PEP 257], i.e., a string literal located right below the declaration of the above-mentioned objects. It then becomes the `__doc__` special attribute of that object and can be accessed in a Python interpreter using the Python `help` function.
 
-
-
-#### Code documentation @ben
-
-
+There are multiple docstring formats. For this project, we adopted the `Sphinx` format since it allows to enable the [Sphinx's autodoc extension][Sphinx autodoc] to generate documentation for the code together with this website. We present the `Sphinx` docstring format [here](code_documentation.md).
 
 ### Submit your changes
 
@@ -170,7 +168,8 @@ More context and examples are given in the [Importing Guidelines](import_guideli
 [black]: https://github.com/psf/black
 [Fork]: https://docs.github.com/en/github/getting-started-with-github/fork-a-repo
 [GitHub]: https://github.com/Breakthrough-Energy
-[isort]: https://pycqa.github.io/isort/
 [PEP 8]: https://www.python.org/dev/peps/pep-0008/
+[PEP 257]: https://www.python.org/dev/peps/pep-0257/
 [pytest]: https://docs.pytest.org/en/stable/getting-started.html
+[Sphinx autodoc]: https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html
 [tox]: https://tox.readthedocs.io

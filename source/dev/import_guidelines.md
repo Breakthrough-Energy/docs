@@ -35,3 +35,4 @@ from powersimdata.network.usa_tamu.constants.zones import *
 since it will be unclear which names are present in the namespace, confusing both readers and many automated tools. Another good reason to avoid wildcards is to prevent collisions. Finally, even if we don't use wild cards, we list the modules by setting the `__all__` variable in an **\_\_init\_\_.py** file.
 
 [PEP 8 imports]: https://www.python.org/dev/peps/pep-0008/#imports
+[isort]: https://pycqa.github.io/isort/

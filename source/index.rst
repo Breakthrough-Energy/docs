@@ -28,11 +28,3 @@ Table of Contents
    powersimdata_package.md
    prereise_package.md
    postreise_package.md
-Code
-====
-* :ref:`genindex`
-* :ref:`modindex`
-
-Other
-=====
-* :ref:`search`

@@ -17,11 +17,9 @@ Breakthrough Energy Sciences Software
    prereise_package.md
    postreise_package.md
 
-
-Table of Contents
-=================
 .. toctree::
    :maxdepth: 3
+   :hidden:
 
    user/installation_guide.md
    dev/contribution_guidelines.md

@@ -3,26 +3,28 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Breakthrough Energy Sciences Software
-*************************
+Facilitating the Energy Transition
+**********************************
+You are familiar with our mission and you just want to install the software, add features or access the documentation? The quick links below will then come up handy:
+
+* :doc:`user/installation_guide`
+* :doc:`dev/contribution_guide`
+* :ref:`modindex`
+
 
 .. include::
    introduction.rst
 
-
-.. mdinclude::
-   user/installation_guide.md
-   dev/contribution_guidelines.md
-   powersimdata_package.md
-   prereise_package.md
-   postreise_package.md
+.. include::
+   installation.rst
 
 .. toctree::
    :maxdepth: 3
    :hidden:
 
    user/installation_guide.md
-   dev/contribution_guidelines.md
+   dev/contribution_guide.md
    powersimdata_package.md
    prereise_package.md
    postreise_package.md
+   reisejl_package.md

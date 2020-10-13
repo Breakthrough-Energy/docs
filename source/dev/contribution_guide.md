@@ -1,4 +1,4 @@
-# Contribution guidelines
+# Contribution Guide
 Welcome! Thank your for your interest in this project. We recommend that you visit our [website][bes] first if you did not yet have a chance to do so. You will find a nice overview of our goals, the questions we try to answer and visualizations that communicate our results.
 
 There are several ways to contribute to this project. You can report bugs, file feature requests, work on existing issues, etc. To coordinate and structure your contribution to this project we have created these guidelines.
@@ -137,7 +137,7 @@ We expect the following types of tests to be included with any code submission:
 
 In order to get wider input on useful tests for our project, feel free to propose tests cases in a form other than explicit code, and we will consider them for inclusion.
 
-[Testing Guidelines](testing_guidelines.md)
+[Testing Guidelines](testing_guide.md)
 
 #### Code style
 Code is formatted according to the [black] code style and validated by GitHub before changes are merged. Therefore to avoid manually trying to satisfy the automated check, we recommend installing `black` locally and running it before committing changes. Their site describes editor integrations that may simplify this. Additionally, if using `tox`, the installation and formatting will be handled automatically, so no extra work is necessary.
@@ -148,7 +148,7 @@ In very short:
 * do use absolute imports;
 * run `isort` via `tox`.
 
-More context and examples can be found [here](import_guidelines.md).
+More context and examples can be found [here](import_guide.md).
 
 #### Code documentation
 All functions and methods of classes must be documented with a [docstring][PEP 257], i.e., a string literal located right below the declaration of the above-mentioned objects. It then becomes the `__doc__` special attribute of that object and can be accessed in a Python interpreter using the Python `help` function.
@@ -158,7 +158,7 @@ There are multiple docstring formats. For this project, we adopted the `Sphinx` 
 ### Submit your changes
 
 #### Commit messaging
-[Semantic commit messages](software_development_guidelines.html#semantic-commit-messages)
+[Semantic commit messages](git_message_guide.md)
 
 #### Push your code
 

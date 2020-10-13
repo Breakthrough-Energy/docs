@@ -1,4 +1,4 @@
-# Getting Up and Running
+# Installation Guide
 We present here, the two types of installation of our software, the i) client-server and ii) the laptop/desktop. Also, we go through the system requirements for both installations.
 
 
@@ -9,11 +9,13 @@ In that case, you will use [PowerSimData] to create and run scenarios. This is t
 ### On Laptop/Desktop
 + generate authentication keys (SSH keys) using the `ssh-keygen` program;
 + fork the [PowerSimData](https://github.com/Breakthrough-Energy/PowerSimData) package;
-+ create a `PowerSimData/powersimdata/utility/.server_user` file enclosing your server username;
-+ enter the server address in `PowerSimData/powersimdata/utility/server_setup.py`.
++ create a ***PowerSimData/powersimdata/utility/.server_user*** file enclosing your server username;
++ enter the server address in ***PowerSimData/powersimdata/utility/server_setup.py***;
 + install Python and its dependencies using [pyenv] and [pipenv] as explained in the section dedicated to [Python](#python).
 
 ### On Server
+* copy the generated public key in your ***~/.ssh/authorized_keys*** file.
+* install Gurobi.
 * create the following directories:
   * **DATA_ROOT_DIR**: the root of the file system.
   * **EXECUTE_DIR**: scenario inputs and outputs will be stored there. Note that these files are temporary files and are not necessary to load an already ran scenario.
@@ -23,17 +25,16 @@ In that case, you will use [PowerSimData] to create and run scenarios. This is t
   * **MODEL_DIR**: this folder encloses the simulation engine.
 * create the ***ScenarioList.csv*** and ***ExecuteList.csv*** files in **DATA_ROOT_DIR**.
 * fork the [REISE.jl](https://github.com/Breakthrough-Energy/REISE.jl) package on the server into **MODEL_DIR** and install it following the instructions in the README. Note that the Julia Programming Language and Python will need to be installed on the server;
-* copy your Gurobi license file in your home folder.
 
-The scenario framework can then be used to create, execute, extract and analyze a scenario. The README of the package goes over these steps.
+Before using the scenario framework, you need to update the path to the variables in ***PowerSimData/powersimdata/utility/server_setup.py*** file. Note that the **LOCAL_DIR** does not be updated if having a **ScenarioData** directory in your home folder is a good place to store scenario data. You can now create, execute, extract and analyze scenarios. The README of [PowerSimData] goes over these steps.
 
 
 ## 2. Laptop/Desktop Installation
 The installation is simpler in that case since there is no communication with the server. You will still need to install Julia and Python:
 * install Python as explained in [here](#python).
+* install Gurobi.
 * fork the [REISE.jl](https://github.com/Breakthrough-Energy/REISE.jl) package and follow the instruction in the README.
 * Download the scenario input data from [zenodo] and run a scenario following the instructions in the README. The input data consist of the demand, hydro, solar and wind profiles as `csv` files together with the grid as a `MAT-file`. The files have been produced for a benchmark scenario that the Breakthrough Energy Sciences team has previously ran. There are a couple of things you need to know before starting; i) the model has high spatial and temporal resolution and, consequently, the run time can be quite extensive; ii) it generates a large amount of data. For this reason, we recommend that you don't run the simulation for more than a couple of weeks.
-
 
 We understand the research is pretty limited with this option. Once again future releases will allow to run on the cloud. Meanwhile, we hope that you will contribute to this project by requesting/developing new features.
 

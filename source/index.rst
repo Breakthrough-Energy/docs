@@ -3,12 +3,14 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Breakthrough Energy Sciences Software
-*************************
+Facilitating the Energy Transition
+**********************************
 
 .. include::
    introduction.rst
 
+.. include::
+   installation.rst
 
 .. mdinclude::
    user/installation_guide.md
@@ -26,3 +28,4 @@ Breakthrough Energy Sciences Software
    powersimdata_package.md
    prereise_package.md
    postreise_package.md
+   reisejl_package.md

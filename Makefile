@@ -19,7 +19,5 @@ help:
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 clean:
-	rm -r build
-	cat .makeignore | while read line; do mv $$line $$line.tmp; done
-	rm source/*.rst
-	cat .makeignore | while read line; do mv $$line.tmp $$line; done
+	./clean.sh
+	

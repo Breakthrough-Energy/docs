@@ -1,79 +1,17 @@
 # Contribution Guide
-Welcome! Thank your for your interest in this project. We recommend that you visit our [website][bes] first if you did not yet have a chance to do so. You will find a nice overview of our goals, the questions we try to answer and visualizations that communicate our results.
+We are thrilled you decided to join the Breakthrough Energy Sciences community and help to develop and improve this software! We wrote the following guidelines to ensure that your contribution is consistent with our coding standards and hence facilitate its merging to the code base. But first things first, go to the [Installation Guide][installation] to get the software up and running.
 
-There are several ways to contribute to this project. You can report bugs, file feature requests, work on existing issues, etc. To coordinate and structure your contribution to this project we have created these guidelines.
+There are several ways to contribute to this project. You can report bugs, file feature requests, work on existing issues, etc. In order to keep the code base well structured, documented and testable we have written guidelines. When creating a pull request the following items should be addressed. The reviewer will make sure the guidelines are followed.
 
-To communicate with the team, use the following communication channels. If you are contributing code to this project read on how to contribute to the code base. We have defined coding standards for the project that include formatting, testing, code documentation as well as basic guidelines how to write testable code. Each section contains links to references that help you familiarize with the topic if this is new to you.
-
-Thank you for contributing to this project.
+Thank you for joining the Breakthrough Energy Sciences community!
 
 
-
-## Communication channels
-### Email
-If you have general questions about the model or software development please contact us under <modelinfo@breakthroughenergy.org>
-
-### Report bugs and propose features
-Use [GitHub] to report bugs and propose features.
+## 1. Communication
+Use [GitHub] to report bugs and propose features. Also, do not hesitate to contact us on our Slack workspace or by email at <modelinfo@breakthroughenergy.org> if you should have any questions.
 
 
-## Working with the code
-### Get the repo
-##### 1. Fork the repository you want to contribute to.
-[Fork a repository][Fork]
-##### 2. Clone your fork
-```
-git clone https://github.com/<your-username>/repo.git
-```
-##### 3. Set upstream to project repository
-```
-git remote add upstream https://github.com/Breakthrough-Energy/repo.git
-```
-##### 4. Create a feature branch
-```
-git checkout -b <feature-name>
-```
-##### 5. Commit and push your work to your fork
-##### 6. Prepare for pull request
-Rebase
-```
-git fetch upstream
-git rebase upstream/develop
-```
-##### 7. Clean up personal commit history
-```
-git rebase -i HEAD~n
-```
-##### 8. Open a pull request when the feature including tests and documentation is ready.
-Provide a short form of the PR guideline
-
-### How to run
-#### [Pytest]
-`pytest` is installed as a dependency so all that's needed to run tests is to follow the steps above then activate your virtual environment (if using one, which is recommended) and run:
-```
-pytest [options]
-```
-Some tests may require infrastructure that is not publicly available. In this case, passing `-m not integration` to the command should select only the tests that can run without these external dependencies.
-
-#### [Tox]
-If a **tox.ini** file exists in the repository, this presents the simplest option for validating changes locally. In this case, after doing:
- ```
- pip install tox
- ```
-in your global environment, you can simply run `tox` to use the default workflow. You can also select a subset of checks by running `tox -l` which will output a list of options, then pass those as a comma separated list, e.g.:
-```
-tox -e pytest,format
-```
-Note that this may have side effects when it comes to code formatting.
-
-
-## Contributing to code base
-In order for the code to be well structured, documented and tested we want to follow some guidelines. When creating a pull request the following items should be addressed. The reviewer will make sure the guidelines are followed.
-
-### Coding standards
-
-#### Write testable code
-
+## 2. Coding Standards
+### Write Testable Code
 When contributing code to the project, we ask that you include tests to the best of your ability. Tests can be relatively painless depending on how your code is organized. Here are some guidelines for how to write code that makes testing easy:
 
 * Use the **Single Responsibility Principle** to keep functions simple
@@ -100,7 +38,8 @@ When contributing code to the project, we ask that you include tests to the best
 
 A more detailed guideline can be found here: [Writing testable code](writing_testable_code.md)
 
-#### Provide test with your code
+
+### Test your Code
 Describe minimal requirements for test coverage and provide link to testing guidelines.
 
 For this project we decided to rely upon the `pytest` package for our testing framework. `pytest` also supports the built-in `unittest` framework which we accept as well. Generally `pytest` reduces boilerplate code and uses simple Python asserts, though depending on the complexity of the testing situation, the more rigid structure of `unittest` can sometimes be preferable.
@@ -139,10 +78,12 @@ In order to get wider input on useful tests for our project, feel free to propos
 
 [Testing Guidelines](testing_guide.md)
 
-#### Code style
-Code is formatted according to the [black] code style and validated by GitHub before changes are merged. Therefore to avoid manually trying to satisfy the automated check, we recommend installing `black` locally and running it before committing changes. Their site describes editor integrations that may simplify this. Additionally, if using `tox`, the installation and formatting will be handled automatically, so no extra work is necessary.
 
-#### Import formatting
+### Format your Code
+Code is formatted according to the [black] code style and validated by GitHub before changes are merged. Therefore to avoid manually trying to satisfy the automated check, we recommend installing `black` locally and running it before committing changes. Their site describes editor integrations that may simplify this. Additionally, if using `tox` as explained in the [installation], the installation and formatting will be handled automatically, so no extra work is necessary.
+
+
+### Rules when Importing Packages
 In very short:
 * don't use wildcard imports;
 * do use absolute imports;
@@ -150,26 +91,78 @@ In very short:
 
 More context and examples can be found [here](import_guide.md).
 
-#### Code documentation
+
+### Document your Code
 All functions and methods of classes must be documented with a [docstring][PEP 257], i.e., a string literal located right below the declaration of the above-mentioned objects. It then becomes the `__doc__` special attribute of that object and can be accessed in a Python interpreter using the Python `help` function.
 
 There are multiple docstring formats. For this project, we adopted the `Sphinx` format since it allows to enable the [Sphinx's autodoc extension][Sphinx autodoc] to generate documentation for the code together with this website. We present the `Sphinx` docstring format [here](code_documentation.md).
 
-### Submit your changes
 
-#### Commit messaging
-[Semantic commit messages](git_message_guide.md)
+## 3. Working with Git
+### Sync your Fork
+Keep your fork up-to-date with the upstream repository:
+```bash
+git fetch upstream
+git checkout develop
+git merge upstream/develop
+```
 
-#### Push your code
 
-#### Pull request
+### Branching
+We recommend that you follow the branching model exposed [here][branching]. The main take on this is:
+* branch off from `develop` to create a feature branch:
+  ```bash
+  git checkout -b YOUR_USERNAME/FEATURE_NAME upstream/develop
+  ```
+* after syncing your fork, move your branch to the newest `HEAD` of `develop` using:
+  ```bash
+  git pull --rebase origin develop
+  ```
+
+  Note that the more you wait to rebase the more you risk to deal with merge conflicts. We recommend that you rebase onto `develop` frequently.
+
+
+### Commit message
+This is how we structure our commit messages:
+```
+feat: add hat wobble
+^--^  ^------------^
+|     |
+|     +-> Summary in present tense.
+|
++-------> Type: chore, docs, feat, fix, refactor, style, or test.
+```
+
+- `chore`: (updating grunt tasks etc; no production code change)
+- `ci`: (changes to the CI configuration files and scripts)
+- `docs`: (changes to the documentation)
+- `feat`: (new feature for the user, not a new feature for build script)
+- `fix`: (bug fix for the user, not a fix to a build script)
+- `perf`: (code change that improves performance)
+- `refactor`: (refactoring production code, eg. renaming a variable)
+- `style`: (formatting, missing semi colons, etc; no production code change)
+- `test`: (adding missing tests, refactoring tests; no production code change)
+
+as suggested [here][git message]. Note that you must follow this semantic if you want to merge your branch into our code base. We like to keep our commit history clean.
+
+
+### Clean up personal commit history
+If you did not follow our commit message convention or your commit history is messy, use the interactive rebase tool (see this [website][git rebase] for more details) to revise your commit history. You will be able to reword, drop and meld commits. In short:
+```bash
+git rebase -i upstream/BRANCH
+```
+where `BRANCH` is the name of the branch you branched off, e.g., `develop`.
+
+
+## 4. Pull request
 
 [bes]: https://science.breakthroughenergy.org/
 [black]: https://github.com/psf/black
-[Fork]: https://docs.github.com/en/github/getting-started-with-github/fork-a-repo
+[branching]: https://nvie.com/posts/a-successful-git-branching-model/
 [GitHub]: https://github.com/Breakthrough-Energy
+[git message]: https://seesparkbox.com/foundry/semantic_commit_messages
+[git rebase]: https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History
+[installation]: ../user/installation_guide
 [PEP 8]: https://www.python.org/dev/peps/pep-0008/
 [PEP 257]: https://www.python.org/dev/peps/pep-0257/
-[pytest]: https://docs.pytest.org/en/stable/getting-started.html
 [Sphinx autodoc]: https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html
-[tox]: https://tox.readthedocs.io

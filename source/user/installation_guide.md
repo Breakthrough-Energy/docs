@@ -53,7 +53,7 @@ Scenarios will be created, executed and extracted differently depending on the i
 ```bash
 pytest [options]
 ```
-Some tests may require infrastructure that is not publicly available. In this case, passing `-m not integration` to the command should select only the tests that can run without these external dependencies. Check the [pytest] website if you want to know more about it.
+Some tests may require infrastructure that is not publicly available. In this case, passing `-m "not integration"` to the command should select only the tests that can run without these external dependencies. Check the [pytest] website if you want to know more about it.
 
 
 #### Tox

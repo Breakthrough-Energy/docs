@@ -40,43 +40,19 @@ A more detailed guideline can be found here: [Writing testable code](writing_tes
 
 
 ### Test your Code
-Describe minimal requirements for test coverage and provide link to testing guidelines.
+For this project we decided to rely upon the `pytest` (check their [website][pytest]) package for our testing framework. `pytest` also supports the built-in `unittest` framework which we accept as well. Generally `pytest` reduces boilerplate code and uses simple Python asserts, though depending on the complexity of the testing situation, the more rigid structure of `unittest` can sometimes be preferable.
 
-For this project we decided to rely upon the `pytest` package for our testing framework. `pytest` also supports the built-in `unittest` framework which we accept as well. Generally `pytest` reduces boilerplate code and uses simple Python asserts, though depending on the complexity of the testing situation, the more rigid structure of `unittest` can sometimes be preferable.
-
-We also use mock objects to help reduce external code dependencies. For instance, here's a sample test of a function to return grid generator ids by plant type which makes use a mock grid data frame:
-```python
-import pytest
-
-def test_multiple_hierarchical_index():
-    # simple grid mock for testing
-    mock_grid = MockGrid()
-    # get ids for solar plants in the mock grid
-    plants = get_plantids_by_resource_type(mock_grid, 'solar')
-
-    expected_plants = [101, 103, 104]
-    assert plants == expected_plants
-
-class MockGrid:
-    def __init__(self):
-        self.plant = pd.DataFrame({'plant_id': [101, 102, 103, 104, 105],
-                                   'type': ['solar', 'wind', 'solar', 'solar', 'thermal'],
-                                   'zone_id': [1, 2, 3, 1, 3],
-                                   'Pmin': [20, 30, 25, 100, 20],
-                                   'Pmax': [40, 80, 50, 150, 80]})
-        self.plant.set_index('plant_id', inplace=True)
+The unit tests for our code are grouped locally in a **tests** folder located at the same level as the module being tested. All the tests of a package can be run using:
+```bash
+pytest .
 ```
+at the base directory of the repository. Note that some tests in some packages may require infrastructure not available to the public. These tests can be deselected by passing `-m "not integration"` to the above command. You can check if this marker is available in the ***pytest.ini*** file in the root folder of the repository.
 
-The unit tests for our code are grouped locally in a **tests** folder located at the same level as the module being tested. To discover and run our existing repo tests, use the command `pytest` at the base directory of our repos. All test files need to prefixed with **test** to be discoverable by `pytest`. Within the test files themselves test functions should be named `test_{description of the test executed}`, e.g., `test_multiple_hierarchical_index`.
+In order to be discoverable by `pytest`, all the test files need to be prefixed with ***test***. In addition, within the test files themselves test functions should have name starting with ***test***, e.g., `test_scale_capacity_argument_type `, where `scale_capacity` is the function being tested and `argument_type` is the test that is performed on this function.
 
-We expect the following types of tests to be included with any code submission:
-1. Tests that demonstrate that the expected feature is working. In addition to providing a health monitor for the feature, this will help others understand and modify the code in the future.
-2. Tests that check error validation which prevents the feature from failing, i.e. missing or unrealistic function parameters. Particular emphasis is needed for edge cases which are hard to detect in the program output.
-3. Every bug fix needs an accompanying test for the problem.
+ Finally, we have built [mock object] to reduce external code dependencies in our testing framework. You are highly encouraged to use them when writing your tests.
 
-In order to get wider input on useful tests for our project, feel free to propose tests cases in a form other than explicit code, and we will consider them for inclusion.
-
-[Testing Guidelines](testing_guide.md)
+ Best practices for writing tests with `pytest` and a presentation of the mock objects can be found in our [Testing Guide](testing_guide.md).
 
 
 ### Format your Code
@@ -163,6 +139,8 @@ where `BRANCH` is the name of the branch you branched off, e.g., `develop`.
 [git message]: https://seesparkbox.com/foundry/semantic_commit_messages
 [git rebase]: https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History
 [installation]: ../user/installation_guide
+[mock object]: https://en.wikipedia.org/wiki/Mock_object
 [PEP 8]: https://www.python.org/dev/peps/pep-0008/
 [PEP 257]: https://www.python.org/dev/peps/pep-0257/
+[pytest]: https://docs.pytest.org/en/stable/getting-started.html
 [Sphinx autodoc]: https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html

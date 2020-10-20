@@ -1,4 +1,4 @@
-Our mission
+Our Mission
 ===========
 
 We are a team of research scientists and software engineers who aim to help facilitating the energy transition by developing a model of the U.S electric grid that can integrate clean energy technologies and predict how the system will perform. We belong to the `Breakthrough Energy <https://www.breakthroughenergy.org/>`_ Community and have already conducted several studies that are presented on our `website <https://science.breakthroughenergy.org/>`_. You will find there a nice overview of our goals, the questions we try to answer, the model we developed and cool visualizations that clearly communicate our results.

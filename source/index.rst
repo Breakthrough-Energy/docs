@@ -18,6 +18,9 @@ You are familiar with our mission and you just want to install the software, add
 .. include::
    installation.rst
 
+.. include::
+   communication.rst
+
 .. toctree::
    :maxdepth: 3
    :hidden:

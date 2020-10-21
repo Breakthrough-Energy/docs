@@ -40,7 +40,7 @@ A more detailed guideline can be found here: [Writing testable code](writing_tes
 
 
 ### Test your Code
-For this project we decided to rely upon the `pytest` (check their [website][pytest]) package for our testing framework. `pytest` also supports the built-in `unittest` framework which we accept as well. Generally `pytest` reduces boilerplate code and uses simple Python asserts, though depending on the complexity of the testing situation, the more rigid structure of `unittest` can sometimes be preferable.
+For this project we decided to rely upon the `pytest` (check their [website][pytest]) package for our testing framework. `pytest` also supports the built-in `unittest` framework which we accept as well. Generally `pytest` reduces boilerplate code and uses simple Python asserts. However, depending on the complexity of the testing situation, the more rigid structure of `unittest` can sometimes be preferable.
 
 The unit tests for our code are grouped locally in a **tests** folder located at the same level as the module being tested. All the tests of a package can be run using:
 ```bash
@@ -61,9 +61,9 @@ Code is formatted according to the [black] code style and validated by GitHub be
 
 ### Rules when Importing Packages
 In very short:
-* don't use wildcard imports;
-* do use absolute imports;
-* run `isort` via `tox`.
+* Do not use wildcard imports
+* Do use absolute imports
+* Run `isort` via `tox`
 
 More context and examples can be found [here](import_guide.md).
 
@@ -86,15 +86,14 @@ git merge upstream/develop
 
 ### Branching
 We recommend that you follow the branching model exposed [here][branching]. The main take on this is:
-* branch off from `develop` to create a feature branch:
+* Branch off from `develop` to create a feature branch:
   ```bash
   git checkout -b YOUR_USERNAME/FEATURE_NAME upstream/develop
   ```
-* after syncing your fork, move your branch to the newest `HEAD` of `develop` using:
+* After syncing your fork, move your branch to the newest `HEAD` of `develop` using:
   ```bash
   git pull --rebase origin develop
   ```
-
   Note that the more you wait to rebase the more you risk to deal with merge conflicts. We recommend that you rebase onto `develop` frequently.
 
 

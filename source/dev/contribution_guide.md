@@ -7,16 +7,16 @@ Thank you for joining the Breakthrough Energy Sciences community!
 
 
 ## How to Contribute
-1. First things firs, go to the [Installation Guide][installation] to get the software up and running
-2. Get familiar with our Git/GitHub workflow (click [here](fork_guide.md) for more details)
-3. Develop your feature
-4. Format your code
-5. Document your code
-6. Make a pull request (see the guide [here](fork_guide.md))
+1. First things first, go to the [Installation Guide](../user/installation_guide.md) to get the software up and running
+2. Get familiar with our Git/GitHub workflow (click [here][git guide] for more details)
+3. Develop your feature (go to [this section](#develop-your-feature))
+4. Format your code (as explained in [this section](#format-your-code))
+5. Document your code (see section dedicated to docstring [here](#document-your-code))
+6. Make a pull request (see the guide [here][git guide])
 
 
 ### Develop your Feature
-First, we recommend reading this [guide](writing_testable_code.md) to ensure your code is well designed.
+First, we recommend reading this [guide](coding_guide.md) to ensure your code is well designed.
 
 Second, test your feature. The unit tests for our code are grouped locally in a **tests** folder located at the same level as the module being tested. All the tests of a package can be run using:
 ```bash
@@ -56,9 +56,9 @@ Use [GitHub] to report bugs and propose features. Also, do not hesitate to conta
 [black]: https://github.com/psf/black
 [branching]: https://nvie.com/posts/a-successful-git-branching-model/
 [GitHub]: https://github.com/Breakthrough-Energy
+[git guide]: ../user/git_guide
 [git message]: https://seesparkbox.com/foundry/semantic_commit_messages
 [git rebase]: https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History
-[installation]: ../user/installation_guide
 [PEP 8]: https://www.python.org/dev/peps/pep-0008/
 [PEP 257]: https://www.python.org/dev/peps/pep-0257/
 [pytest]: https://docs.pytest.org/en/stable/getting-started.html

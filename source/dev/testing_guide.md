@@ -51,12 +51,12 @@ def test_calculate_square_root_argument_type():
     arg = ((4), [16], {9})
     for a in arg:
         with pytest.raises(TypeError):
-            calculate_squre_root(a)
+            calculate_square_root(a)
 
 
 def test_calculate_square_root_argument_value():
     with pytest.raises(ValueError):
-        calculate_squre_root(-9)
+        calculate_square_root(-9)
 
 
 def test_calculate_square_root():

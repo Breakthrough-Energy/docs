@@ -1,11 +1,35 @@
-This material is a summary of the content of this article:
-https://www.toptal.com/qa/how-to-write-testable-code-and-why-it-matters
-For more details, go read it!
+# Coding Standards
+This guide presents some guidelines to write well designed code.
+
+In short:
+* Use the **Single Responsibility Principle** to keep functions simple
+    * Functions only have one responsibility and therefore one reason to change
+    * Responsibilities can include getting data, processing data, outputting data
+* **Avoid mutable global state**, including mutable static properties and singletons
+    * Functions that use global state are hard to debug because global state can be changed from anywhere in the codebase
+    * Global constants are fine, though be wary as some languages do not enforce them as such
+* **Avoid Side effects** such as:
+    * modifying a non-local variable
+    * modifying a static local variable
+    * modifying a mutable argument passed by reference
+    * performing I/O
+    * calling other side-effect functions
+* Use **dependency injection** and **higher order functions** to isolate code from non-deterministic behavior such as:
+    * Calls to the OS
+    * Calls to random number generators
+    * Solution: use dependency injection and higher order functions to isolate code
+* **Use pure functions** whenever possible - no side effects or non-deterministic behavior
+    * Given the same inputs, the function will always have the same output
+* **Impurity is inevitable** - we need to read files, databases, get user input, etc
+    * But you can keep impure code as far away from your functions as possible
+    * Break hard-coded dependencies so you can swap them out when testing
+
+This material is a summary of the content of this [article]. For more details, go read it!
 
 Developers often think that their struggles writing unit tests are caused by a lack of some fundamental testing knowledge or secret unit testing techniques. Unit tests should be quite easy; the real problems that complicate unit testing, and introduce expensive complexity, are a result of poorly-designed, untestable code. Writing unit tests and generating testable code is not just about making testing less troublesome, but about making the code itself more robust, and easier to maintain.
 
-## What's a unit test?
 
+## What's a Unit Test?
 Unit test: a method that instantiates a small portion of our application and verifies its behavior **independently from other parts**. It does not test how everything interacts and works together.
 A typical unit test does three things:
 
@@ -28,12 +52,10 @@ def test_my_func():
 
 For more info on unit testing please check out our [testing guidelines wiki page](https://github.com/intvenlab/REISE/wiki/Testing-Guidelines-for-Python-and-Matlab).
 
-# What makes code hard to test?
 
-## Problem: Non-deterministic factors
-
+## What Makes Code Hard to Test?
+### Problem: Non-deterministic Factors
 Imagine that we are writing a program for a smart home microcontroller, and one of the requirements is to automatically turn on the light in the backyard if some motion is detected there during the evening or at night. We have started from the bottom up by implementing a method that returns a string representation of the approximate time of day (“Night”, “Morning”, “Afternoon” or “Evening”).
-
 ```python
 def get_time_of_day():
     time = DateTime.Now
@@ -50,7 +72,6 @@ def get_time_of_day():
 This method looks simple, but it is very difficult to write a proper state-based unit test for it. `DateTime.Now` is, essentially, a hidden input that we can't control. Every time we run the test it might be a different time of day, thus subsequent calls to this will produce different results.
 
 Such non-deterministic behavior makes it impossible to test the internal logic of the `GetTimeOfDay()` method without actually changing the system date and time.
-
 ```python
 def test_get_time_of_day_at_6AM_returns_morning():
     try:
@@ -71,10 +92,10 @@ def test_get_time_of_day_at_6AM_returns_morning():
 ```
 
 Problems with this test:
-* lots of work to write 
+* lots of work to write
     * because of the non-trivial setup and teardown logic
-* unreliable 
-    * it may fail even if there are no bugs in the system under test, due to system permission issues, for example 
+* unreliable
+    * it may fail even if there are no bugs in the system under test, due to system permission issues, for example
 * not guaranteed to run fast
 * not actually a unit test
     * it would be something between a unit and integration test, because it pretends to test a simple edge case but requires an environment to be set up in a particular way.
@@ -86,10 +107,9 @@ All these testability problems are caused by the low-quality `GetTimeOfDay()` AP
 * It lies about the information required to get its job done. Developers must read every line of the actual source code to understand what hidden inputs are used and where they come from. **The method signature alone is not enough to understand the method’s behavior.**
 * It is hard to predict and maintain. The **behavior of a method that depends on a mutable global state cannot be predicted** by merely reading the source code; it is necessary to take into account its current value, along with the whole sequence of events that could have changed it earlier. In a real-world application, trying to unravel all that stuff becomes a real headache.
 
-### Option 1: Fixing the code with Dependency Injection
 
+#### Option 1: Fixing the Code with Dependency Injection
 Easy solution: pass the time in with an argument
-
 ```python
 def get_time_of_day(time):
     if (time.Hour >= 0 and time.Hour < 6):
@@ -102,7 +122,6 @@ def get_time_of_day(time):
 ```
 
 From the unit testing perspective, this is great; the method is now deterministic (i.e., its return value fully depends on the input), so state-based testing is as easy as passing some DateTime value and checking the result.
-
 ```python
 def test_get_time_of_day_at_6AM_returns_morning():
     datetime = DateTime(2015, 12, 31, 06, 00, 00)
@@ -112,12 +131,11 @@ def test_get_time_of_day_at_6AM_returns_morning():
 
 We have a new problem though. Now whoever calls `get_time_of_day()` needs to provide the date and time -- essentially moving the problem up the chain. This can be fixed using **[Dependency Injection](https://en.wikipedia.org/wiki/Dependency_injection)** and **[Inversion of Control](https://en.wikipedia.org/wiki/Inversion_of_control)**.
 
-Dependency Injection: a technique whereby one object supplies the dependencies of another object. 
+Dependency Injection: a technique whereby one object supplies the dependencies of another object.
 
 Inversion of Control: The key point of IoC is to separate decision-making code (when to do something) from action code (what to do when something happens). This technique increases flexibility, makes our code more modular, and reduces coupling between components.
 
 Here's a quick example:
-
 ```python
 class DateTimeGetter:
     def get_time():
@@ -149,8 +167,8 @@ def test_get_time_of_day_at_6AM_returns_morning():
 
 This is great because now production code and unit test code can have different ways to get the time. In the production environment, some real-life implementation will be injected (e.g., one that reads actual system time). In the unit test, however, we can inject a “fake” implementation that returns a constant or predefined DateTime value suitable for testing the particular scenario.
 
-### Option 2: Fixing the code with Higher Order Functions
 
+#### Option 2: Fixing the Code with Higher Order Functions
 An alternative approach to Dependency Injection is to use [Higher-Order Functions](https://en.wikipedia.org/wiki/Higher-order_function). Higher-order functions can be thought of as another way of implementing Inversion of Control.
 
 **higher-order function**: a function that does at least one of the following:
@@ -158,7 +176,7 @@ An alternative approach to Dependency Injection is to use [Higher-Order Function
 * takes one or more functions as arguments (i.e. procedural parameters)
 * returns a function as its result
 
-It should be noted that in order to have first class functions, your programming language needs to be able to pass functions as arguments. Almost every language including Python and MATLAB can do this. Java, Lisp, and Ruby cannot. 
+It should be noted that in order to have first class functions, your programming language needs to be able to pass functions as arguments. Almost every language including Python and MATLAB can do this. Java, Lisp, and Ruby cannot.
 
 Here's what the code looks like:
 
@@ -182,8 +200,8 @@ def test_get_time_of_day_at_6AM_returns_morning():
 
 As you can see, Higher Order Functions often let us achieve the same result with less code, and more expressiveness, than Dependency Injection. It is no longer necessary to implement a class that must have specific functions in order to supply `get_time_of_day()` with the required functionality; instead, we can just pass a function definition.
 
-## Problem: Side Effects
 
+### Problem: Side Effects
 A function with [Side Effects](https://en.wikipedia.org/wiki/Side_effect_(computer_science)) triggers some state changes in the system outside of itself. Some examples are:
 
 * modifying a non-local variable
@@ -200,16 +218,15 @@ Impurity is toxic: if method `Foo()` depends on non-deterministic or side-effect
 
 However, impurity is inevitable; any real-life application must, at some point, read and manipulate state by interacting with the environment, databases, configuration files, web services, or other external systems. So instead of aiming to eliminate impurity altogether, it’s a good idea to limit these factors, avoid letting them poison your codebase, and break hard-coded dependencies as much as possible, in order to be able to analyze and unit test things independently.
 
-## Problem: Global mutable state
 
-### Static Properties and Fields
+### Problem: Global Mutable State
+#### Static Properties and Fields
 
 Mutable static properties and fields are global state! They can hide the information required for a method to get its job done, introduce non-determinism, or promote extensive usage of side effects. Functions that read or modify mutable global state are inherently impure.
 
 Example:
-
 ```python
-if (SmartHomeSettings.CostSavingEnabled is False): 
+if (SmartHomeSettings.CostSavingEnabled is False):
     _swimmingPoolController.HeatWater()
 ```
 
@@ -222,12 +239,10 @@ def circumference(radius):
     return 2 * Math.PI * radius # Because Math.PI is a global constant, this is still a pure function!
 ```
 
-## Singletons 
-
+#### Singletons
 Essentially, the Singleton pattern is just another form of the global state. Singletons promote obscure APIs that lie about real dependencies and introduce unnecessarily tight coupling between components. They also violate the Single Responsibility Principle because, in addition to their primary duties, they control their own initialization and lifecycle.
 
 Singletons can easily make unit tests order-dependent because they carry state around for the lifetime of the whole application or unit test suite. Have a look at the following example:
-
 ```python
 def GetUser(userId):
     if (UserCache.Instance.ContainsKey(userId)):
@@ -241,22 +256,8 @@ def GetUser(userId):
 
 In the example above, if a test for the cache-hit scenario runs first, it will add a new user to the cache, so a subsequent test of the cache-miss scenario may fail because it assumes that the cache is empty. To overcome this, we’ll have to write additional teardown code to clean the `UserCache` after each unit test run. Sounds like a lot of work.
 
-# Summary
 
-* Keep your functions simple by using the **Single Responsibility Principle**
-    * Functions only have one responsibility and therefore one reason to change
-    * Responsibilities can include getting data, processing data, outputting data
-* **Avoid mutable global state**, including mutable static properties and singletons
-    * Really hard to debug because global state can be changed anywhere in the codebase
-    * Global constants are fine because they cannot be changed 
-* **Use pure functions** whenever possible - no side effects or non-deterministic behavior
-* **Side effects** include modifying global state or calling other side-effect functions
-* **Impurity is inevitable** - we need to read files, databases, get user input, etc
-    * But you can keep impure code as far away from your functions as possible
-    * Break hard-coded dependencies so you can swap them out when testing
-
-### Problem Code:
-
+## Problem Code:
 ```python
 def is_my_dog_nearby(my_id, dog_id):
     dog_location = GPS.get_location(dog_id) # GPS is a hard-coded dependency
@@ -264,7 +265,7 @@ def is_my_dog_nearby(my_id, dog_id):
 
     if distance(my_location, dog_location, 'mi') < 0.2:
        return True
-    else: 
+    else:
         return False
 
 def test_is_my_dog_nearby_returns_true_when_nearby():
@@ -276,28 +277,28 @@ def test_is_my_dog_nearby_returns_true_when_nearby():
     assert result == True
 ```
 
-### How to fix:
 
+### How to Fix:
 * Pass in the location value from above
     * `is_my_dog_nearby(my_id, dog_id, location)`
-    * This is the easiest way but it mostly just passes the problem onto the calling function 
+    * This is the easiest way but it mostly just passes the problem onto the calling function
 * Pass in either a class or a function that handles the non-pure bits -- `GPS`. This is called **Inversion of Control**
-* When you pass in a class it's called **Dependency Injection** 
+* When you pass in a class it's called **Dependency Injection**
     * `is_my_dog_nearby(my_id, dog_id, class_that_gets_current_location)`
 * When you pass in a function, the function that takes a function as an argument is a **Higher Order Function**
     * `is_my_dog_nearby(my_id, dog_id, method_to_get_current_location)`
 
-### Better code that uses a Higher Order Function:
 
+### Better Code that Uses a Higher Order Function:
 ```python
 def is_my_dog_nearby(my_id, dog_id, method_to_get_current_location):
     # We are no longer tightly coupled with the non-deterministic GPS
-    dog_location = method_to_get_current_location(dog_id) 
+    dog_location = method_to_get_current_location(dog_id)
     my_location = method_to_get_current_location(my_id)
 
     if distance(my_location, dog_location, 'mi') < 0.2:
        return True
-    else: 
+    else:
         return False
 
 def test_is_my_dog_nearby_returns_true_when_nearby():
@@ -310,3 +311,5 @@ def test_is_my_dog_nearby_returns_true_when_nearby():
     result = is_my_dog_nearby(my_id, dog_id, method_to_get_current_location)
     assert result == True
 ```
+
+[article]: https://www.toptal.com/qa/how-to-write-testable-code-and-why-it-matters

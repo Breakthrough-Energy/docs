@@ -8,6 +8,6 @@ Our model is open source and is available for download on `GitHub <https://githu
 + The :doc:`powersimdata_package` package - we start with this one since it encloses the model, i.e., the synthetic U.S. electric grid, along with our simulation platform
 + The :doc:`prereise_package` package - you will find there the routines to generate the demand, hydro, solar and wind profiles, a.k.a, the scenario input data
 + The :doc:`postreise_package` package that takes care of the analysis of the scenario output data and the plotting
-+ The :doc:`reisejl_package` package - this is our simulation engine.
++ The :doc:`reisejl_package` package - this is our simulation engine
 
 The first three packages are written in Python. The last one, the simulation engine, is written in Julia. You are welcome to contribute to any of these packages. In the next section we present the overall architecture and the installation. We wrote a :doc:`dev/contribution_guide` that will help us to work together efficiently.

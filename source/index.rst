@@ -9,6 +9,7 @@ You are familiar with our mission and you just want to install the software, add
 
 * :doc:`user/installation_guide`
 * :doc:`dev/contribution_guide`
+* :doc:`user/git_guide`
 * :ref:`modindex`
 
 
@@ -27,6 +28,7 @@ You are familiar with our mission and you just want to install the software, add
 
    user/installation_guide.md
    dev/contribution_guide.md
+   user/git_guide.md
    powersimdata_package.md
    prereise_package.md
    postreise_package.md

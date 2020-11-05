@@ -1,7 +1,7 @@
 How it Works
 ============
 
-We build a simulation framework in order to perform power flow study in the U.S. electrical grid. The framework and the available features are presented in the README of the :doc:`powersimdata_package` package. This the first release and, unfortunately, you won't be able to use this package as the researchers of our team do unless you have the following set up:
+We built a simulation framework in order to perform power flow study in the U.S. electrical grid. The framework and the available features are presented in the README of the :doc:`powersimdata_package` package. This is the first release and, unfortunately, you won't be able to use this package as the researchers of our team do unless you have the following set up:
 
 + A server with a Unix-like operating system - the engine must be installed on the server and the client-server communication is done over ssh
 + A `Gurobi <https://www.gurobi.com>`_ license - this is the mathematical solver that our engine use to find power flow solutions to the DC Optimal Power Flow (DCOPF) problems

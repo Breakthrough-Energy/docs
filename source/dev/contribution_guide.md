@@ -1,5 +1,5 @@
 # Contribution Guide
-We are thrilled you decided to join the Breakthrough Energy Sciences community and help to develop and improve this software! We wrote the following guidelines to ensure that your contribution is consistent with our coding standards and hence facilitate its merging to the code base.
+We are thrilled that you have decided to join the Breakthrough Energy Sciences community and help develop and improve this software! We wrote the following guidelines to ensure that your contribution is consistent with our coding standards and hence facilitate its merging into the code base.
 
 There are several ways to contribute to this project. You can report bugs, file feature requests, work on existing issues, etc. In order to keep the code base well structured, documented and testable we have written guidelines. When creating a pull request the following items should be addressed. The reviewer will make sure the guidelines are followed.
 
@@ -43,7 +43,7 @@ More context and examples about imports can be found [here](import_guide.md).
 ### Document your Code
 All functions and methods of classes must be documented with a [docstring][PEP 257].
 
-There are multiple docstring formats. For this project, we adopted the `Sphinx` which allows to generate documentation for the code together with this website.
+There are multiple docstring formats. For this project, we adopted the `Sphinx` which allows us to generate documentation for the code together with this website.
 
 We present the `Sphinx` docstring format [here](code_documentation.md). It worth noting that more examples can be found in the code base.
 

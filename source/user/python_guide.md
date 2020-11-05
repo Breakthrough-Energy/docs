@@ -21,7 +21,7 @@ in that directory. Then, to activate the environment, use:
 ```bash
 pipenv shell
 ```
-If you should need additional package, those can easily be appended to the environment using `pip`. To illustrate, if you like to work with [Jupyter Notebook][jupyter] to carry out data analysis and make plots, add the package to your environment with:
+If you should need additional packages, those can easily be appended to the environment using `pip`. To illustrate, if you like to work with [Jupyter Notebook][jupyter] to carry out data analysis and make plots, add the package to your environment with:
 ```bash
 pip install jupyter
 ```

@@ -54,11 +54,8 @@ Use [GitHub] to report bugs and propose features. Also, do not hesitate to conta
 
 [bes]: https://science.breakthroughenergy.org/
 [black]: https://github.com/psf/black
-[branching]: https://nvie.com/posts/a-successful-git-branching-model/
 [GitHub]: https://github.com/Breakthrough-Energy
 [git guide]: ../user/git_guide
-[git message]: https://seesparkbox.com/foundry/semantic_commit_messages
-[git rebase]: https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History
 [PEP 8]: https://www.python.org/dev/peps/pep-0008/
 [PEP 257]: https://www.python.org/dev/peps/pep-0257/
 [pytest]: https://docs.pytest.org/en/stable/getting-started.html

@@ -43,7 +43,7 @@ More context and examples about imports can be found [here](import_guide.md).
 ### Document your Code
 All functions and methods of classes must be documented with a [docstring][PEP 257].
 
-There are multiple docstring formats. For this project, we adopted the `Sphinx` which allows us to generate documentation for the code together with this website.
+There are multiple docstring formats. For this project, we adopted the `Sphinx` docstring format which allows us to generate documentation for the code together with this website.
 
 We present the `Sphinx` docstring format [here](code_documentation.md). It worth noting that more examples can be found in the code base.
 

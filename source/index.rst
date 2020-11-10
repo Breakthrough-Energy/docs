@@ -8,6 +8,7 @@ Facilitating the Energy Transition
 You are familiar with our mission and you just want to install the software, add features or access the documentation? The quick links below will then come up handy:
 
 * :doc:`user/installation_guide`
+* :doc:`code_of_conduct`
 * :doc:`dev/contribution_guide`
 * :doc:`user/git_guide`
 * :ref:`modindex`
@@ -27,6 +28,7 @@ You are familiar with our mission and you just want to install the software, add
    :hidden:
 
    user/installation_guide.md
+   code_of_conduct.rst
    dev/contribution_guide.md
    user/git_guide.md
    powersimdata_package.md

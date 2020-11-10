@@ -43,7 +43,7 @@ This Code of Conduct applies within all project and community spaces, and also a
 What to do in case of violations
 --------------------------------
 
-If you believe someone is violating the code of conduct in one of our online platforms, we ask that you report it by emailing breakthroughenergysciences@breakthroughenergy.org. All complaints will be reviewed and investigated promptly and fairly.
+If you believe someone is violating the code of conduct in one of our online platforms, we ask that you report it by emailing modelinfo@breakthroughenergy.org. All complaints will be reviewed and investigated promptly and fairly.
 
 All project maintainers are obligated to respect the privacy and security of the reporter of any incident.
 

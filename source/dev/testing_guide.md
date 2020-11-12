@@ -13,9 +13,9 @@
 
 
 ### How do we Test if a Feature Works?
-Since we're dealing with data, it helps to have a toy model which has the following characteristics:
-* Has enough variation to the test different cases which arise due to branching in the code (e.g., include generators of different types to test that code handles scaling for the right type of generators)
-* Yet still small enough to be able to verify overall correctness manually
+Since we are dealing with data, it helps to have a toy model which has the following characteristics:
+* Has enough variation to test the different cases which arise due to branching in the code (e.g., include generators of different types to test that the code handles scaling for the right type of generators)
+* Yet is still small enough to be able to verify overall correctness manually
 * Particular values in the data set are easy to work with and confirm manually (e.g., use `5` instead of `4.624754`)
 * Includes just the data needed for the code to run - in testing it is better to have an error if the code ever attempts to change something unexpectedly
 

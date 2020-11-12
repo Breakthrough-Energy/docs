@@ -2,10 +2,10 @@
 
 
 ## 1. Setup Git
-if not already done:
-* download and install the latest version of Git. Follow the instructions on the Git [website][git download];
-* set your username in Git as explained [here][git username];
-* set your commit email address in Git as explained [here][git email];
+If not already done:
+* Download and install the latest version of Git. Follow the instructions on the Git [website][git download];
+* Set your username in Git as explained [here][git username];
+* Set your commit email address in Git as explained [here][git email];
 
 
 ## 2. Fork
@@ -104,3 +104,6 @@ You will find below the tasks that you have to go through for the PR:
 [git username]: https://docs.github.com/en/free-pro-team@latest/github/using-git/setting-your-username-in-git
 [git email]: https://docs.github.com/en/free-pro-team@latest/github/setting-up-and-managing-your-github-user-account/setting-your-commit-email-address
 [GitHub]: https://github.com/Breakthrough-Energy
+[git message]: https://seesparkbox.com/foundry/semantic_commit_messages
+[git rebase]: https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History
+[branching]: https://nvie.com/posts/a-successful-git-branching-model/

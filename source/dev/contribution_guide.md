@@ -9,10 +9,22 @@ Thank you for joining the Breakthrough Energy Sciences community!
 ## How to Contribute
 1. First things first, go to the [Installation Guide](../user/installation_guide.md) to get the software up and running
 2. Get familiar with our Git/GitHub workflow (click [here][git guide] for more details)
-3. Develop your feature (go to [this section](#develop-your-feature))
-4. Format your code (as explained in [this section](#format-your-code))
-5. Document your code (see section dedicated to docstring [here](#document-your-code))
-6. Make a pull request (see the guide [here][git guide])
+3. Do you need external data for your feature? (see [this section](#data-intake-procedure)))
+4. Develop your feature (go to [this section](#develop-your-feature))
+5. Format your code (as explained in [this section](#format-your-code))
+6. Document your code (see section dedicated to docstring [here](#document-your-code))
+7. Make a pull request (see the guide [here][git guide])
+
+
+### Data intake procedure
+Before using any external dataset in your project, we must be absolutely certain that it can be redistributed. This applies to both data obtained via an API and data files that are first downloaded and then uploaded to one of our repository on GitHub or any public storage.
+
+A feature relying on external data will not be merged to the code base unless those can be redistributed; therefore it would be a waste of time to write code centered around an external data set before knowing if it can be used. For this reason, we ask you, as soon as you have identified data you need, to follow the following procedure:
+
+1. Create an issue on GitHub using the ***data intake*** template, available in **PreREISE**, **PowerSimData** and **PostREISE** repositories. Fill out all the fields. Make sure the issue has ***data intake*** as label and that *Daniel Olsen* and *Benjamin Rouillé d'Orfeuil* are assigned to the issue.
+2. The Breakthrough Energy Sciences team makes sure the data can be used/redistributed.
+3. If the data can be used *Daniel* and/or *Ben* communicate the eventual legal note to be added to the ATTRIBUTION file, located in the root directory of the repository, to the collaborator.
+4. *Daniel* and *Ben* will review the ATTRIBUTION file and hence should be added as reviewers of your Pull Request.
 
 
 ### Develop your Feature
@@ -45,7 +57,7 @@ All functions and methods of classes must be documented with a [docstring][PEP 2
 
 There are multiple docstring formats. For this project, we adopted the `Sphinx` docstring format which allows us to generate documentation for the code together with this website.
 
-We present the `Sphinx` docstring format [here](code_documentation.md). It worth noting that more examples can be found in the code base.
+We present the `Sphinx` docstring format [here](code_documentation.md). It is worth noting that more examples can be found in the code base.
 
 
 ## Communication

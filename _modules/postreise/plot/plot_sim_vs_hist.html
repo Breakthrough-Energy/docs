@@ -1,0 +1,201 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>postreise.plot.plot_sim_vs_hist &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for postreise.plot.plot_sim_vs_hist</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+
+<div class="viewcode-block" id="PlotSettings"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_sim_vs_hist.PlotSettings">[docs]</a><span class="k">class</span> <span class="nc">PlotSettings</span><span class="p">:</span>
+    <span class="n">width</span> <span class="o">=</span> <span class="mf">0.3</span>  <span class="c1"># width of bars</span>
+    <span class="n">fontsize</span> <span class="o">=</span> <span class="mi">15</span>
+    <span class="n">size_inches</span> <span class="o">=</span> <span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="plot_generation_sim_vs_hist"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_sim_vs_hist.plot_generation_sim_vs_hist">[docs]</a><span class="k">def</span> <span class="nf">plot_generation_sim_vs_hist</span><span class="p">(</span><span class="n">sim_gen</span><span class="p">,</span> <span class="n">hist_gen</span><span class="p">,</span> <span class="n">s_info</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">showmax</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot simulated vs historical generation of each resource in the scenario</span>
+<span class="sd">    for the given state. Optionally include max generation.</span>
+
+<span class="sd">    :param pandas.DataFrame sim_gen: simulated generation dataframe</span>
+<span class="sd">    :param pandas.DataFrame hist_gen: historical generation dataframe</span>
+<span class="sd">    :param powersimdata.design.ScenarioInfo s_info: scenario info instance.</span>
+<span class="sd">    :param str state: the US state</span>
+<span class="sd">    :param bool showmax: determine whether to additionally plot max generation of each resource</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sim_gen</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+    <span class="n">all_resources</span> <span class="o">=</span> <span class="n">s_info</span><span class="o">.</span><span class="n">get_available_resource</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+
+    <span class="n">sim</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">sim_gen</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">state</span><span class="p">,</span> <span class="n">res</span><span class="p">]))</span> <span class="k">for</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">all_resources</span><span class="p">]</span>
+    <span class="n">hist</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">hist_gen</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">state</span><span class="p">,</span> <span class="n">res</span><span class="p">]))</span> <span class="k">for</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">all_resources</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">calc_max</span><span class="p">(</span><span class="n">gen_type</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span>
+                <span class="n">s_info</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">(</span><span class="n">gen_type</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">s_info</span><span class="o">.</span><span class="n">pg</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="o">/</span> <span class="mi">1000</span>
+            <span class="p">)</span>
+
+    <span class="n">max_gen</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">showmax</span><span class="p">:</span>
+        <span class="n">max_gen</span> <span class="o">=</span> <span class="p">[</span><span class="n">calc_max</span><span class="p">(</span><span class="n">res</span><span class="p">)</span> <span class="k">for</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">all_resources</span><span class="p">]</span>
+
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">))</span>  <span class="c1"># the label locations</span>
+    <span class="n">width</span> <span class="o">=</span> <span class="n">PlotSettings</span><span class="o">.</span><span class="n">width</span>
+    <span class="n">fontsize</span> <span class="o">=</span> <span class="n">PlotSettings</span><span class="o">.</span><span class="n">fontsize</span>
+    <span class="n">size_inches_x</span><span class="p">,</span> <span class="n">size_inches_y</span> <span class="o">=</span> <span class="n">PlotSettings</span><span class="o">.</span><span class="n">size_inches</span>
+
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">showmax</span><span class="p">:</span>
+        <span class="n">rects1</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">width</span><span class="p">,</span> <span class="n">hist</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Historical&quot;</span><span class="p">)</span>
+        <span class="n">rects2</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Simulated&quot;</span><span class="p">)</span>
+        <span class="n">rects3</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">width</span><span class="p">,</span> <span class="n">max_gen</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Max Generation&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">rects1</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">width</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">hist</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Historical&quot;</span><span class="p">)</span>
+        <span class="n">rects2</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">width</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Simulated&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Add some text for labels, title and custom x-axis tick labels, etc.</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;GWh&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">fontsize</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">fontsize</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">fontsize</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="n">fontsize</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">autolabel</span><span class="p">(</span><span class="n">rects</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">rect</span> <span class="ow">in</span> <span class="n">rects</span><span class="p">:</span>
+            <span class="n">height</span> <span class="o">=</span> <span class="n">rect</span><span class="o">.</span><span class="n">get_height</span><span class="p">()</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">annotate</span><span class="p">(</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">height</span><span class="p">),</span>
+                <span class="n">xy</span><span class="o">=</span><span class="p">(</span><span class="n">rect</span><span class="o">.</span><span class="n">get_x</span><span class="p">()</span> <span class="o">+</span> <span class="n">rect</span><span class="o">.</span><span class="n">get_width</span><span class="p">()</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">height</span><span class="p">),</span>
+                <span class="n">xytext</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>  <span class="c1"># 3 points vertical offset</span>
+                <span class="n">textcoords</span><span class="o">=</span><span class="s2">&quot;offset points&quot;</span><span class="p">,</span>
+                <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span>
+                <span class="n">va</span><span class="o">=</span><span class="s2">&quot;bottom&quot;</span><span class="p">,</span>
+                <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="n">autolabel</span><span class="p">(</span><span class="n">rects1</span><span class="p">)</span>
+    <span class="n">autolabel</span><span class="p">(</span><span class="n">rects2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">showmax</span><span class="p">:</span>
+        <span class="n">autolabel</span><span class="p">(</span><span class="n">rects3</span><span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">set_size_inches</span><span class="p">(</span><span class="n">size_inches_x</span><span class="p">,</span> <span class="n">size_inches_y</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

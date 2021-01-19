@@ -1,0 +1,341 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.demanddata.eia.clean_data &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.demanddata.eia.clean_data</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+
+<div class="viewcode-block" id="fix_dataframe_outliers"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.eia.html#prereise.gather.demanddata.eia.clean_data.fix_dataframe_outliers">[docs]</a><span class="k">def</span> <span class="nf">fix_dataframe_outliers</span><span class="p">(</span><span class="n">demand</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Make a data frame of demand with outliers replaced with values interpolated</span>
+<span class="sd">    from the non-outlier edge points using :py:func:`slope_interpolate`.</span>
+
+<span class="sd">    :param pandas.Dataframe demand: demand data frame with UTC timestamp as indicss</span>
+<span class="sd">        and BA name as column name.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- data frame with anomalous demand values replaced</span>
+<span class="sd">        by interpolated values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">demand_fix_outliers</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">demand</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">ba</span> <span class="ow">in</span> <span class="n">demand</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">to_list</span><span class="p">():</span>
+        <span class="n">demand_ba</span> <span class="o">=</span> <span class="n">demand</span><span class="p">[</span><span class="n">ba</span><span class="p">]</span>
+        <span class="n">outlier_output</span> <span class="o">=</span> <span class="n">slope_interpolate</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">demand_ba</span><span class="p">))</span>
+        <span class="n">demand_fix_outliers</span><span class="p">[</span><span class="n">ba</span><span class="p">]</span> <span class="o">=</span> <span class="n">outlier_output</span><span class="p">[</span><span class="n">ba</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">demand_fix_outliers</span></div>
+
+
+<div class="viewcode-block" id="slope_interpolate"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.eia.html#prereise.gather.demanddata.eia.clean_data.slope_interpolate">[docs]</a><span class="k">def</span> <span class="nf">slope_interpolate</span><span class="p">(</span><span class="n">ba_df</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Look for demand outliers by applying a z-score threshold to the demand slope.</span>
+<span class="sd">    Loop through all the outliers detected, determine the non-outlier edge points and</span>
+<span class="sd">    then interpolate a line joining these 2 edge points. The line value at the</span>
+<span class="sd">    timestamp of the the outlier event is used to replace the anomalous value.</span>
+
+<span class="sd">    :param pandas.DataFrame ba_df: demand data frame with UTC timestamp as indices and</span>
+<span class="sd">        BA name as column name.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- data frame indexed with anomalous demand values</span>
+<span class="sd">        replaced by interpolated values.</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">        It is implicitly assumed that:</span>
+
+<span class="sd">        1. demand is correlated with temperature, and temperature rise is limited by</span>
+<span class="sd">        heat capacity which is finite and generally uniform across region; hence,</span>
+<span class="sd">        temperature dependent derivative spikes are unphysical.</span>
+
+<span class="sd">        2. there is indeed nothing anomalous that happened to electrical usage in the</span>
+<span class="sd">        relevant time range, so using a line to estimate the correct value is</span>
+<span class="sd">        reasonable.</span>
+
+
+<span class="sd">    .. todo::</span>
+<span class="sd">        If there are more than a few hours (say &gt; 4) of anomalous behavior, linear</span>
+<span class="sd">        interpolation may give a bad estimate. Non-linear interpolation methods</span>
+<span class="sd">        should be considered, and other information may be needed to interpolate</span>
+<span class="sd">        properly, for example, the temperature data or other relevant profiles.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">ba_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">ba_name</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;delta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">ba_name</span><span class="p">]</span><span class="o">.</span><span class="n">diff</span><span class="p">()</span>
+    <span class="n">delta_mu</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;delta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">]</span>
+    <span class="n">delta_sigma</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;delta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;std&quot;</span><span class="p">]</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;delta_zscore&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">((</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;delta&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">delta_mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">delta_sigma</span><span class="p">)</span>
+
+    <span class="c1"># Find the outliers</span>
+    <span class="n">outlier_index_list</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;delta_zscore&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">index</span>
+
+    <span class="n">hour_save</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">outlier_index_list</span><span class="p">:</span>
+        <span class="n">hour_index</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">hour_save</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="n">hour_save</span> <span class="o">=</span> <span class="n">hour_index</span>
+            <span class="n">next_save</span> <span class="o">=</span> <span class="n">hour_index</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">hour_index</span> <span class="o">==</span> <span class="n">next_save</span><span class="p">:</span>
+            <span class="n">next_save</span> <span class="o">=</span> <span class="n">hour_index</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Check for zeros: consecutive zeros, which don&#39;t have delta_zscore</span>
+        <span class="c1"># exceed threshold, will get extrapolated to the next non-zero value.</span>
+        <span class="c1"># This is fine for, say up to 5 hours; will not be appropriate</span>
+        <span class="c1"># otherwise since it may not capture the periodic patterns.</span>
+        <span class="c1"># Print a warning</span>
+
+        <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">hour_index</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span><span class="n">ba_name</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">next_save</span> <span class="o">=</span> <span class="n">hour_index</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">continue</span>
+
+        <span class="n">num</span> <span class="o">=</span> <span class="n">next_save</span> <span class="o">-</span> <span class="n">hour_save</span>
+
+        <span class="k">if</span> <span class="n">num</span> <span class="o">&gt;</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Too many zeros near &quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;! Review data!&quot;</span><span class="p">)</span>
+
+        <span class="n">start</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">hour_save</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span><span class="n">ba_name</span><span class="p">]</span>
+        <span class="n">dee</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">next_save</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span><span class="n">ba_name</span><span class="p">]</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">/</span> <span class="n">num</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">hour_save</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">next_save</span><span class="p">):</span>
+            <span class="n">save_me</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">ba_name</span><span class="p">]</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">ba_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="p">(</span><span class="n">j</span> <span class="o">-</span> <span class="n">hour_save</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dee</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">save_me</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">ba_name</span><span class="p">])</span>
+        <span class="n">hour_save</span> <span class="o">=</span> <span class="n">hour_index</span>
+        <span class="n">next_save</span> <span class="o">=</span> <span class="n">hour_index</span> <span class="o">+</span> <span class="mi">1</span>
+
+    <span class="k">if</span> <span class="n">hour_save</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+        <span class="n">num</span> <span class="o">=</span> <span class="n">next_save</span> <span class="o">-</span> <span class="n">hour_save</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">hour_save</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span><span class="n">ba_name</span><span class="p">]</span>
+        <span class="n">dee</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">next_save</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span><span class="n">ba_name</span><span class="p">]</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">/</span> <span class="n">num</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">hour_save</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">next_save</span><span class="p">):</span>
+            <span class="n">save_me</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">ba_name</span><span class="p">]</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">ba_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="p">(</span><span class="n">j</span> <span class="o">-</span> <span class="n">hour_save</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dee</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">save_me</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">ba_name</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">df</span></div>
+
+
+<div class="viewcode-block" id="replace_with_shifted_demand"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.eia.html#prereise.gather.demanddata.eia.clean_data.replace_with_shifted_demand">[docs]</a><span class="k">def</span> <span class="nf">replace_with_shifted_demand</span><span class="p">(</span><span class="n">demand</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Replace missing data within overall demand data frame with averages of nearby</span>
+<span class="sd">    shifted demand.</span>
+
+<span class="sd">    :param pandas.DataFrame demand: data frame with hourly demand where the columns are</span>
+<span class="sd">        BA regions.</span>
+<span class="sd">    :param pandas.Timestamp/numpy.datetime64/datetime.datetime start: start of period</span>
+<span class="sd">        of interest.</span>
+<span class="sd">    :param pandas.Timestamp/numpy.datetime64/datetime.datetime end: end of period</span>
+<span class="sd">        of interest.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- data frame with missing demand data filled in.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Create a data frame where each column is the same demand data,</span>
+    <span class="c1"># but shifted by a specific time interval</span>
+    <span class="n">look_back1day</span> <span class="o">=</span> <span class="n">demand</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;D&quot;</span><span class="p">)</span>
+    <span class="n">look_back2day</span> <span class="o">=</span> <span class="n">demand</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;D&quot;</span><span class="p">)</span>
+    <span class="n">look_back1week</span> <span class="o">=</span> <span class="n">demand</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;D&quot;</span><span class="p">)</span>
+    <span class="n">look_forward1day</span> <span class="o">=</span> <span class="n">demand</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;D&quot;</span><span class="p">)</span>
+    <span class="n">look_forward2day</span> <span class="o">=</span> <span class="n">demand</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;D&quot;</span><span class="p">)</span>
+    <span class="n">look_forward1week</span> <span class="o">=</span> <span class="n">demand</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="o">-</span><span class="mi">7</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;D&quot;</span><span class="p">)</span>
+
+    <span class="n">shifted_demand</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">demand</span><span class="p">,</span>
+            <span class="n">look_back1day</span><span class="p">,</span>
+            <span class="n">look_forward1day</span><span class="p">,</span>
+            <span class="n">look_back2day</span><span class="p">,</span>
+            <span class="n">look_forward2day</span><span class="p">,</span>
+            <span class="n">look_back1week</span><span class="p">,</span>
+            <span class="n">look_forward1week</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Include only the dates we care about</span>
+    <span class="n">shifted_demand</span> <span class="o">=</span> <span class="n">shifted_demand</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+    <span class="n">shifted_demand</span><span class="p">[</span><span class="s2">&quot;dayofweek&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">shifted_demand</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">dayofweek</span>
+    <span class="n">column_names</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;look_back1day&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;look_forward1day&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;look_back2day&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;look_forward2day&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;look_back1week&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;look_forward1week&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;dayofweek&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Dicts of weekdays. 0 = Monday, 1 = Tuesday, etc.</span>
+    <span class="c1"># day_map: attempt to shift the data by only one day if possible</span>
+    <span class="c1"># Do not fill in Mon-Fri with the weekend days and vice versa</span>
+    <span class="n">day_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="mi">0</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_forward1day&quot;</span><span class="p">],</span>
+        <span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_forward1day&quot;</span><span class="p">,</span> <span class="s2">&quot;look_back1day&quot;</span><span class="p">],</span>
+        <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_forward1day&quot;</span><span class="p">,</span> <span class="s2">&quot;look_back1day&quot;</span><span class="p">],</span>
+        <span class="mi">3</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_forward1day&quot;</span><span class="p">,</span> <span class="s2">&quot;look_back1day&quot;</span><span class="p">],</span>
+        <span class="mi">4</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_back1day&quot;</span><span class="p">],</span>
+        <span class="mi">5</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_forward1day&quot;</span><span class="p">],</span>
+        <span class="mi">6</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_back1day&quot;</span><span class="p">],</span>
+    <span class="p">}</span>
+
+    <span class="c1"># If we are still missing data, look two days</span>
+    <span class="n">more_days_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="mi">0</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_forward2day&quot;</span><span class="p">],</span>
+        <span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_forward2day&quot;</span><span class="p">],</span>
+        <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_back2day&quot;</span><span class="p">,</span> <span class="s2">&quot;look_forward2day&quot;</span><span class="p">],</span>
+        <span class="mi">3</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_back2day&quot;</span><span class="p">],</span>
+        <span class="mi">4</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_back2day&quot;</span><span class="p">],</span>
+        <span class="mi">5</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_back1week&quot;</span><span class="p">,</span> <span class="s2">&quot;look_forward1week&quot;</span><span class="p">],</span>
+        <span class="mi">6</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_back1week&quot;</span><span class="p">,</span> <span class="s2">&quot;look_forward1week&quot;</span><span class="p">],</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Finally, check for data exactly one week ago / one week from date</span>
+    <span class="n">more_more_days_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="mi">0</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_back1week&quot;</span><span class="p">,</span> <span class="s2">&quot;look_forward1week&quot;</span><span class="p">],</span>
+        <span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_back1week&quot;</span><span class="p">,</span> <span class="s2">&quot;look_forward1week&quot;</span><span class="p">],</span>
+        <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_back1week&quot;</span><span class="p">,</span> <span class="s2">&quot;look_forward1week&quot;</span><span class="p">],</span>
+        <span class="mi">3</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_back1week&quot;</span><span class="p">,</span> <span class="s2">&quot;look_forward1week&quot;</span><span class="p">],</span>
+        <span class="mi">4</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_back1week&quot;</span><span class="p">,</span> <span class="s2">&quot;look_forward1week&quot;</span><span class="p">],</span>
+        <span class="mi">5</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_back1week&quot;</span><span class="p">,</span> <span class="s2">&quot;look_forward1week&quot;</span><span class="p">],</span>
+        <span class="mi">6</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;look_back1week&quot;</span><span class="p">,</span> <span class="s2">&quot;look_forward1week&quot;</span><span class="p">],</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Attempt to shift demand data,</span>
+    <span class="c1"># getting progressively more aggressive if necessary</span>
+    <span class="n">filled_demand</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">demand</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">baName</span> <span class="ow">in</span> <span class="n">demand</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">shifted_demand_ba</span> <span class="o">=</span> <span class="n">shifted_demand</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="p">[</span><span class="n">baName</span><span class="p">,</span> <span class="s2">&quot;dayofweek&quot;</span><span class="p">]]</span>
+        <span class="n">shifted_demand_ba</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="n">baName</span><span class="p">]</span> <span class="o">+</span> <span class="n">column_names</span>
+        <span class="n">shifted_demand_ba</span><span class="p">[</span><span class="n">baName</span><span class="p">]</span> <span class="o">=</span> <span class="n">fill_ba_demand</span><span class="p">(</span><span class="n">shifted_demand_ba</span><span class="p">,</span> <span class="n">baName</span><span class="p">,</span> <span class="n">day_map</span><span class="p">)</span>
+        <span class="n">shifted_demand_ba</span><span class="p">[</span><span class="n">baName</span><span class="p">]</span> <span class="o">=</span> <span class="n">fill_ba_demand</span><span class="p">(</span>
+            <span class="n">shifted_demand_ba</span><span class="p">,</span> <span class="n">baName</span><span class="p">,</span> <span class="n">more_days_map</span>
+        <span class="p">)</span>
+        <span class="n">filled_demand</span><span class="p">[</span><span class="n">baName</span><span class="p">]</span> <span class="o">=</span> <span class="n">fill_ba_demand</span><span class="p">(</span>
+            <span class="n">shifted_demand_ba</span><span class="p">,</span> <span class="n">baName</span><span class="p">,</span> <span class="n">more_more_days_map</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">filled_demand</span></div>
+
+
+<div class="viewcode-block" id="fill_ba_demand"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.eia.html#prereise.gather.demanddata.eia.clean_data.fill_ba_demand">[docs]</a><span class="k">def</span> <span class="nf">fill_ba_demand</span><span class="p">(</span><span class="n">df_ba</span><span class="p">,</span> <span class="n">ba_name</span><span class="p">,</span> <span class="n">day_map</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Replace missing data in BA demand and returns result.</span>
+
+<span class="sd">    :param pandas.DataFrame df_ba: data frame for BA demand, shifted demand, and day</span>
+<span class="sd">        of the week</span>
+<span class="sd">    :param str ba_name: name of the BA in data frame.</span>
+<span class="sd">    :param dict day_map: mapping for replacing missing demand data with shifted demand.</span>
+<span class="sd">    :return: (*pandas.Series*) --  series of BA demand filled in</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">day</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">7</span><span class="p">):</span>
+        <span class="n">df_ba</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">df_ba</span><span class="o">.</span><span class="n">dayofweek</span> <span class="o">==</span> <span class="n">day</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">df_ba</span><span class="p">[</span><span class="n">ba_name</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()),</span> <span class="n">ba_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_ba</span><span class="p">[</span>
+            <span class="n">day_map</span><span class="p">[</span><span class="n">day</span><span class="p">]</span>
+        <span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">df_ba</span><span class="p">[</span><span class="n">ba_name</span><span class="p">]</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

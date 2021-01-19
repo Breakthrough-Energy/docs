@@ -1,0 +1,225 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.design.transmission.tests.test_mwmiles &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.design.transmission.tests.test_mwmiles</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">unittest</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.design.transmission.mwmiles</span> <span class="kn">import</span> <span class="n">_calculate_mw_miles</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_grid</span> <span class="kn">import</span> <span class="n">MockGrid</span>
+
+<span class="c1"># branch 11 from Seattle to San Francisco (~679 miles)</span>
+<span class="c1"># branch 12 from Seattle to Spokane (~229 miles)</span>
+<span class="c1"># branch 13-15 are transformers (0 miles)</span>
+<span class="n">mock_branch</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">],</span>
+    <span class="s2">&quot;rateA&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">50</span><span class="p">],</span>
+    <span class="s2">&quot;from_lat&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">47.61</span><span class="p">,</span> <span class="mf">47.61</span><span class="p">,</span> <span class="mf">47.61</span><span class="p">,</span> <span class="mf">47.61</span><span class="p">,</span> <span class="mf">47.61</span><span class="p">],</span>
+    <span class="s2">&quot;from_lon&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">122.33</span><span class="p">,</span> <span class="o">-</span><span class="mf">122.33</span><span class="p">,</span> <span class="o">-</span><span class="mf">122.33</span><span class="p">,</span> <span class="o">-</span><span class="mf">122.33</span><span class="p">,</span> <span class="o">-</span><span class="mf">122.33</span><span class="p">],</span>
+    <span class="s2">&quot;to_lat&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">37.78</span><span class="p">,</span> <span class="mf">47.66</span><span class="p">,</span> <span class="mf">47.61</span><span class="p">,</span> <span class="mf">47.61</span><span class="p">,</span> <span class="mf">47.61</span><span class="p">],</span>
+    <span class="s2">&quot;to_lon&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">122.42</span><span class="p">,</span> <span class="o">-</span><span class="mf">117.43</span><span class="p">,</span> <span class="o">-</span><span class="mf">122.33</span><span class="p">,</span> <span class="o">-</span><span class="mf">122.33</span><span class="p">,</span> <span class="o">-</span><span class="mf">122.33</span><span class="p">],</span>
+    <span class="s2">&quot;branch_device_type&quot;</span><span class="p">:</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">[</span><span class="s2">&quot;Line&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="p">[</span><span class="s2">&quot;Transformer&quot;</span><span class="p">],</span>
+<span class="p">}</span>
+
+<span class="n">expected_keys</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;mw_miles&quot;</span><span class="p">,</span> <span class="s2">&quot;transformer_mw&quot;</span><span class="p">,</span> <span class="s2">&quot;num_lines&quot;</span><span class="p">,</span> <span class="s2">&quot;num_transformers&quot;</span><span class="p">}</span>
+
+
+<div class="viewcode-block" id="TestCalculateMWMiles"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_mwmiles.TestCalculateMWMiles">[docs]</a><span class="k">class</span> <span class="nc">TestCalculateMWMiles</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestCalculateMWMiles.setUp"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_mwmiles.TestCalculateMWMiles.setUp">[docs]</a>    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">MockGrid</span><span class="p">(</span><span class="n">grid_attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="n">mock_branch</span><span class="p">})</span></div>
+
+    <span class="k">def</span> <span class="nf">_check_expected_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mw_miles</span><span class="p">,</span> <span class="n">expected_mw_miles</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check for proper structure and that values match expected.</span>
+
+<span class="sd">        :param dict mw_miles: dict of upgrade metrics.</span>
+<span class="sd">        :param dict expected_mw_miles: dict of expected upgrade metrics.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">mw_miles</span><span class="p">,</span> <span class="nb">dict</span><span class="p">,</span> <span class="s2">&quot;dict not returned&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span>
+            <span class="n">expected_keys</span><span class="p">,</span> <span class="n">mw_miles</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">msg</span><span class="o">=</span><span class="s2">&quot;Dict keys not as expected&quot;</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">mw_miles</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">expected_mw_miles</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">err_msg</span> <span class="o">=</span> <span class="s2">&quot;Did not get expected value for &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertAlmostEqual</span><span class="p">(</span><span class="n">mw_miles</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">expected_mw_miles</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">msg</span><span class="o">=</span><span class="n">err_msg</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TestCalculateMWMiles.test_calculate_mw_miles_no_scale"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_mwmiles.TestCalculateMWMiles.test_calculate_mw_miles_no_scale">[docs]</a>    <span class="k">def</span> <span class="nf">test_calculate_mw_miles_no_scale</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{}}}</span>
+        <span class="n">expected_mw_miles</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">expected_keys</span><span class="p">}</span>
+        <span class="n">mw_miles</span> <span class="o">=</span> <span class="n">_calculate_mw_miles</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">mock_ct</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_expected_values</span><span class="p">(</span><span class="n">mw_miles</span><span class="p">,</span> <span class="n">expected_mw_miles</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestCalculateMWMiles.test_calculate_mw_miles_one_line_scaled"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_mwmiles.TestCalculateMWMiles.test_calculate_mw_miles_one_line_scaled">[docs]</a>    <span class="k">def</span> <span class="nf">test_calculate_mw_miles_one_line_scaled</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">11</span><span class="p">:</span> <span class="mi">2</span><span class="p">}}}</span>
+        <span class="n">expected_mw_miles</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;mw_miles&quot;</span><span class="p">:</span> <span class="mf">6792.03551523</span><span class="p">,</span>
+            <span class="s2">&quot;transformer_mw&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s2">&quot;num_lines&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s2">&quot;num_transformers&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">mw_miles</span> <span class="o">=</span> <span class="n">_calculate_mw_miles</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">mock_ct</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_expected_values</span><span class="p">(</span><span class="n">mw_miles</span><span class="p">,</span> <span class="n">expected_mw_miles</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestCalculateMWMiles.test_calculate_mw_miles_one_transformer_scaled"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_mwmiles.TestCalculateMWMiles.test_calculate_mw_miles_one_transformer_scaled">[docs]</a>    <span class="k">def</span> <span class="nf">test_calculate_mw_miles_one_transformer_scaled</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">13</span><span class="p">:</span> <span class="mf">2.5</span><span class="p">}}}</span>
+        <span class="n">expected_mw_miles</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;mw_miles&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s2">&quot;transformer_mw&quot;</span><span class="p">:</span> <span class="mi">45</span><span class="p">,</span>
+            <span class="s2">&quot;num_lines&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s2">&quot;num_transformers&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">mw_miles</span> <span class="o">=</span> <span class="n">_calculate_mw_miles</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">mock_ct</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_expected_values</span><span class="p">(</span><span class="n">mw_miles</span><span class="p">,</span> <span class="n">expected_mw_miles</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestCalculateMWMiles.test_calculate_mw_miles_many_scaled"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_mwmiles.TestCalculateMWMiles.test_calculate_mw_miles_many_scaled">[docs]</a>    <span class="k">def</span> <span class="nf">test_calculate_mw_miles_many_scaled</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">11</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">12</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">13</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span> <span class="mi">14</span><span class="p">:</span> <span class="mf">1.2</span><span class="p">,</span> <span class="mi">15</span><span class="p">:</span> <span class="mi">3</span><span class="p">}}}</span>
+        <span class="n">expected_mw_miles</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;mw_miles&quot;</span><span class="p">:</span> <span class="mf">15917.06341095</span><span class="p">,</span>
+            <span class="s2">&quot;transformer_mw&quot;</span><span class="p">:</span> <span class="mi">123</span><span class="p">,</span>
+            <span class="s2">&quot;num_lines&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+            <span class="s2">&quot;num_transformers&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">mw_miles</span> <span class="o">=</span> <span class="n">_calculate_mw_miles</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">mock_ct</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_expected_values</span><span class="p">(</span><span class="n">mw_miles</span><span class="p">,</span> <span class="n">expected_mw_miles</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestCalculateMWMiles.test_calculate_mw_miles_many_scaled_one_branch_excluded"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_mwmiles.TestCalculateMWMiles.test_calculate_mw_miles_many_scaled_one_branch_excluded">[docs]</a>    <span class="k">def</span> <span class="nf">test_calculate_mw_miles_many_scaled_one_branch_excluded</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">11</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">12</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">13</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span> <span class="mi">14</span><span class="p">:</span> <span class="mf">1.2</span><span class="p">,</span> <span class="mi">15</span><span class="p">:</span> <span class="mi">3</span><span class="p">}}}</span>
+        <span class="n">expected_mw_miles</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;mw_miles&quot;</span><span class="p">:</span> <span class="mf">9125.027895725</span><span class="p">,</span>
+            <span class="s2">&quot;transformer_mw&quot;</span><span class="p">:</span> <span class="mi">123</span><span class="p">,</span>
+            <span class="s2">&quot;num_lines&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s2">&quot;num_transformers&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">mw_miles</span> <span class="o">=</span> <span class="n">_calculate_mw_miles</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">mock_ct</span><span class="p">,</span> <span class="n">exclude_branches</span><span class="o">=</span><span class="p">{</span><span class="mi">11</span><span class="p">})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_expected_values</span><span class="p">(</span><span class="n">mw_miles</span><span class="p">,</span> <span class="n">expected_mw_miles</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestCalculateMWMiles.test_calculate_mw_miles_many_scaled_two_branches_excluded"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_mwmiles.TestCalculateMWMiles.test_calculate_mw_miles_many_scaled_two_branches_excluded">[docs]</a>    <span class="k">def</span> <span class="nf">test_calculate_mw_miles_many_scaled_two_branches_excluded</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">11</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">12</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">13</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span> <span class="mi">14</span><span class="p">:</span> <span class="mf">1.2</span><span class="p">,</span> <span class="mi">15</span><span class="p">:</span> <span class="mi">3</span><span class="p">}}}</span>
+        <span class="n">expected_mw_miles</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;mw_miles&quot;</span><span class="p">:</span> <span class="mf">9125.027895725</span><span class="p">,</span>
+            <span class="s2">&quot;transformer_mw&quot;</span><span class="p">:</span> <span class="mi">108</span><span class="p">,</span>
+            <span class="s2">&quot;num_lines&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s2">&quot;num_transformers&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">mw_miles</span> <span class="o">=</span> <span class="n">_calculate_mw_miles</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">mock_ct</span><span class="p">,</span> <span class="n">exclude_branches</span><span class="o">=</span><span class="p">[</span><span class="mi">11</span><span class="p">,</span> <span class="mi">13</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_expected_values</span><span class="p">(</span><span class="n">mw_miles</span><span class="p">,</span> <span class="n">expected_mw_miles</span><span class="p">)</span></div></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">unittest</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

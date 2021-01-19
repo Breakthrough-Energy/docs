@@ -1,0 +1,266 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Testing Guide &#8212; documentation</title>
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="testing-guide">
+<h1>Testing Guide<a class="headerlink" href="#testing-guide" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="testing-philosophy">
+<h2>1. Testing Philosophy<a class="headerlink" href="#testing-philosophy" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="minimum-requirement">
+<h3>Minimum Requirement<a class="headerlink" href="#minimum-requirement" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p>Demonstrate that a particular functionality is working</p></li>
+<li><p>Show that the effect of new code is understood, and less likely to interact with the rest of code base in unexpected ways</p></li>
+<li><p>Validate that a bug has been fixed and we can detect the problem in the future</p></li>
+</ul>
+</div>
+<div class="section" id="what-s-the-benefit-to-the-team">
+<h3>What’s the Benefit to the Team?<a class="headerlink" href="#what-s-the-benefit-to-the-team" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p>Reading test code allows others to more easily understand and work with our code</p></li>
+<li><p>Ensures a consistent level of functionality testing for all subsequent changes</p></li>
+<li><p>Speeds up future changes because we can instantly test to see if a change works as expected</p></li>
+</ul>
+</div>
+<div class="section" id="how-do-we-test-if-a-feature-works">
+<h3>How do we Test if a Feature Works?<a class="headerlink" href="#how-do-we-test-if-a-feature-works" title="Permalink to this headline">¶</a></h3>
+<p>Since we are dealing with data, it helps to have a toy model which has the following characteristics:</p>
+<ul class="simple">
+<li><p>Has enough variation to test the different cases which arise due to branching in the code (e.g., include generators of different types to test that the code handles scaling for the right type of generators)</p></li>
+<li><p>Yet is still small enough to be able to verify overall correctness manually</p></li>
+<li><p>Particular values in the data set are easy to work with and confirm manually (e.g., use <code class="docutils literal notranslate"><span class="pre">5</span></code> instead of <code class="docutils literal notranslate"><span class="pre">4.624754</span></code>)</p></li>
+<li><p>Includes just the data needed for the code to run - in testing it is better to have an error if the code ever attempts to change something unexpectedly</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="prerequisite-for-writing-tests">
+<h2>2. Prerequisite for Writing Tests<a class="headerlink" href="#prerequisite-for-writing-tests" title="Permalink to this headline">¶</a></h2>
+<p>In order to be discoverable by <code class="docutils literal notranslate"><span class="pre">pytest</span></code>, all the test files need to be prefixed with <em><strong>test</strong></em>. In addition, within the test files themselves test functions should have name starting with <em><strong>test</strong></em>, e.g., <code class="docutils literal notranslate"><span class="pre">test_scale_capacity_argument_type</span> </code>, where <code class="docutils literal notranslate"><span class="pre">scale_capacity</span></code> is the function being tested and <code class="docutils literal notranslate"><span class="pre">argument_type</span></code> is the test that is performed on this function.</p>
+</div>
+<div class="section" id="examples">
+<h2>3. Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="let-s-start-easy">
+<h3>Let’s Start Easy<a class="headerlink" href="#let-s-start-easy" title="Permalink to this headline">¶</a></h3>
+<p>You develop a new feature and you need a helper function that calculates the square root of a number. The function will be declared in a <code class="docutils literal notranslate"><span class="pre">helpers</span></code> module and the tests will be written in a <code class="docutils literal notranslate"><span class="pre">test_helpers</span></code> module located in a <strong>tests</strong> folder at the same level as the <code class="docutils literal notranslate"><span class="pre">helpers</span></code> module. Three tests should be written for this function:</p>
+<ul class="simple">
+<li><p>Test the argument type</p></li>
+<li><p>Test the argument value</p></li>
+<li><p>Test the returned value</p></li>
+</ul>
+<p>The function would read:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">calculate_square_root</span><span class="p">(</span><span class="n">number</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate the nth root of a number.</span>
+
+<span class="sd">    :param int/float number: positive number.</span>
+<span class="sd">    :return: (*float*) -- principal square root of number.</span>
+<span class="sd">    :raises TypeError: if number has wrong type.</span>
+<span class="sd">    :raises ValueError: if number is negative.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">number</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+      <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;number must be a int or float&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">number</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;number must be positive&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">number</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>and the tests will look like:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_calculate_square_root_argument_type</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">((</span><span class="mi">4</span><span class="p">),</span> <span class="p">[</span><span class="mi">16</span><span class="p">],</span> <span class="p">{</span><span class="mi">9</span><span class="p">})</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arg</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">calculate_square_root</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">test_calculate_square_root_argument_value</span><span class="p">():</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+        <span class="n">calculate_square_root</span><span class="p">(</span><span class="o">-</span><span class="mi">9</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">test_calculate_square_root</span><span class="p">():</span>
+    <span class="k">assert</span> <span class="n">calculate_square_root</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span> <span class="o">==</span> <span class="mf">8.0</span>
+    <span class="k">assert</span> <span class="n">calculate_square_root</span><span class="p">(</span><span class="mf">49.0</span><span class="p">)</span> <span class="o">==</span> <span class="mf">7.0</span>
+    <span class="k">assert</span> <span class="n">calculate_square_root</span><span class="p">(</span><span class="mf">36.0</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">5</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="mock-objects">
+<h3>Mock Objects<a class="headerlink" href="#mock-objects" title="Permalink to this headline">¶</a></h3>
+<p>Let’s now consider a more complex example. One of the simulation outputs is the power generated by a generator in the grid in a given hour. We would like to summarize this result by calculating the total power generated in an hour per bus. To do so, we need to relate each generator to a connected bus. This information is enclosed in the <code class="docutils literal notranslate"><span class="pre">Grid</span></code> class. The function will read:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">summarize_plant_to_bus</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Take a plant-column data frame and sum to a bus-column data frame.</span>
+
+<span class="sd">    :param pandas.DataFrame pg: indices are UTC timestamp and columns are plant id in grid.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: a Grid instance.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- indices as input data frame, columns are buses.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># build a data frame mapping plant id to bus id.</span>
+    <span class="n">all_buses_in_grid</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]</span>
+
+    <span class="c1"># keep only the rows matching the column of the pg data frame</span>
+    <span class="n">buses_in_df</span> <span class="o">=</span> <span class="n">all_buses_in_grid</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">pg</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+
+    <span class="c1"># transpose the pg data frame to get the plant id as indices, group all rows whose</span>
+    <span class="c1"># indices correspond to the same bus id and sum the values in these rows for each</span>
+    <span class="c1"># timestamp (column). Finally, transpose back.</span>
+    <span class="n">bus_data</span> <span class="o">=</span> <span class="n">pg</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">buses_in_df</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="k">return</span> <span class="n">bus_data</span>
+</pre></div>
+</div>
+<p>To test this function we need a couple of <a class="reference external" href="https://en.wikipedia.org/wiki/Mock_object">mock objects</a>. One for the <code class="docutils literal notranslate"><span class="pre">pg</span></code> data frame and one for the <code class="docutils literal notranslate"><span class="pre">grid</span></code> object. We have developed a catalog of mock objects in the <strong>powersimdata/tests/</strong>.</p>
+<p>We show below how the <code class="docutils literal notranslate"><span class="pre">MockGrid</span></code> object can be used to test the <code class="docutils literal notranslate"><span class="pre">summarize_plant_to_bus</span></code> function:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">numpy.testing</span> <span class="kn">import</span> <span class="n">assert_array_equal</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_grid</span> <span class="kn">import</span> <span class="n">MockGrid</span>
+
+<span class="c1"># plant_id is the index</span>
+<span class="n">mock_plant</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+<span class="p">}</span>
+
+<span class="c1"># bus_id is the index</span>
+<span class="n">mock_bus</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+    <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">47.6</span><span class="p">,</span> <span class="mf">37.8</span><span class="p">,</span> <span class="mf">40.7</span><span class="p">],</span>
+    <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">122.3</span><span class="p">,</span> <span class="mf">122.4</span><span class="p">,</span> <span class="mi">74</span><span class="p">],</span>
+<span class="p">}</span>
+
+<span class="n">mock_pg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+    <span class="p">{</span><span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span> <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="s2">&quot;D&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">]},</span>
+    <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;2018-04-24&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">4</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="n">grid</span> <span class="o">=</span> <span class="n">MockGrid</span><span class="p">({</span><span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">,</span> <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="n">mock_bus</span><span class="p">})</span>
+
+
+<span class="k">def</span> <span class="nf">test_summarize_plant_to_bus</span><span class="p">():</span>
+    <span class="n">expected_return</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">12</span><span class="p">],</span> <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="mi">3</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">]},</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;2018-04-24&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">4</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">bus_data</span> <span class="o">=</span> <span class="n">summarize_plant_to_bus</span><span class="p">(</span><span class="n">mock_pg</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+    <span class="n">assert_array_equal</span><span class="p">(</span><span class="n">bus_data</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">expected_return</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/dev/testing_guide.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

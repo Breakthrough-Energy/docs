@@ -1,0 +1,371 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.design.tests.test_scenario_info &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.design.tests.test_scenario_info</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">unittest</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.design.scenario_info</span> <span class="kn">import</span> <span class="n">ScenarioInfo</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_scenario</span> <span class="kn">import</span> <span class="n">MockScenario</span>
+
+<span class="n">mock_plant</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">101</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">,</span> <span class="mi">104</span><span class="p">,</span> <span class="mi">105</span><span class="p">,</span> <span class="mi">106</span><span class="p">],</span>
+    <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1001</span><span class="p">,</span> <span class="mi">1002</span><span class="p">,</span> <span class="mi">1003</span><span class="p">,</span> <span class="mi">1004</span><span class="p">,</span> <span class="mi">1005</span><span class="p">,</span> <span class="mi">1006</span><span class="p">],</span>
+    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;ng&quot;</span><span class="p">,</span> <span class="s2">&quot;coal&quot;</span><span class="p">,</span> <span class="s2">&quot;dfo&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;zone_name&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">,</span> <span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="s2">&quot;zone1&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;GenFuelCost&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">3.3</span><span class="p">,</span> <span class="mf">4.4</span><span class="p">,</span> <span class="mf">5.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="s2">&quot;Pmin&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">50</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">80</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="mi">220</span><span class="p">],</span>
+<span class="p">}</span>
+
+<span class="n">period_num</span> <span class="o">=</span> <span class="mi">25</span>
+<span class="n">mock_pg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="n">plant_id</span><span class="p">:</span> <span class="p">[(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">period_num</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">plant_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">])</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+<span class="n">mock_pg</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span>
+    <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="n">period_num</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">),</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+<span class="n">mock_pg</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;UTC&quot;</span>
+
+<span class="n">mock_demand</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+    <span class="p">[</span>
+        <span class="n">mock_pg</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="n">plant_id</span>
+                <span class="k">for</span> <span class="n">plant_id</span><span class="p">,</span> <span class="n">zone_name</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                    <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">],</span> <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">zone_name</span> <span class="o">==</span> <span class="s2">&quot;zone1&quot;</span>
+            <span class="p">]</span>
+        <span class="p">]</span>
+        <span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">to_frame</span><span class="p">(),</span>
+        <span class="n">mock_pg</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="n">plant_id</span>
+                <span class="k">for</span> <span class="n">plant_id</span><span class="p">,</span> <span class="n">zone_name</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+                    <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">],</span> <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">zone_name</span> <span class="o">==</span> <span class="s2">&quot;zone2&quot;</span>
+            <span class="p">]</span>
+        <span class="p">]</span>
+        <span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">to_frame</span><span class="p">(),</span>
+    <span class="p">],</span>
+    <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">mock_demand</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+
+<span class="n">zone1_available_resource</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">zone</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">zone</span> <span class="o">==</span> <span class="s2">&quot;zone1&quot;</span>
+<span class="p">]</span>
+
+<span class="n">zone2_available_resource</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">zone</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">zone</span> <span class="o">==</span> <span class="s2">&quot;zone2&quot;</span>
+<span class="p">]</span>
+
+<span class="n">zone1_plant_id</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">plant_id</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">plant_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;zone1&quot;</span>
+<span class="p">]</span>
+<span class="n">zone2_plant_id</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">plant_id</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">plant_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;zone2&quot;</span>
+<span class="p">]</span>
+
+<span class="n">solar_plant_id</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">plant_id</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">plant_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;solar&quot;</span>
+<span class="p">]</span>
+<span class="n">wind_plant_id</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">plant_id</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">plant_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;wind&quot;</span>
+<span class="p">]</span>
+<span class="n">ng_plant_id</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">plant_id</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">plant_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;ng&quot;</span>
+<span class="p">]</span>
+<span class="n">coal_plant_id</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">plant_id</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">plant_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;coal&quot;</span>
+<span class="p">]</span>
+<span class="n">dfo_plant_id</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">plant_id</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">plant_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;dfo&quot;</span>
+<span class="p">]</span>
+<span class="n">hydro_plant_id</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">plant_id</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">plant_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;hydro&quot;</span>
+<span class="p">]</span>
+
+<span class="n">mock_solar</span> <span class="o">=</span> <span class="n">mock_pg</span><span class="p">[</span><span class="n">solar_plant_id</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span>
+<span class="n">mock_wind</span> <span class="o">=</span> <span class="n">mock_pg</span><span class="p">[</span><span class="n">wind_plant_id</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span>
+<span class="n">mock_hydro</span> <span class="o">=</span> <span class="n">mock_pg</span><span class="p">[</span><span class="n">hydro_plant_id</span><span class="p">]</span> <span class="o">*</span> <span class="mf">1.5</span>
+
+<span class="n">start_time</span> <span class="o">=</span> <span class="s2">&quot;2016-01-01 00:00:00&quot;</span>
+<span class="n">end_time</span> <span class="o">=</span> <span class="s2">&quot;2016-01-02 00:00:00&quot;</span>
+
+
+<div class="viewcode-block" id="TestScenarioInfo"><a class="viewcode-back" href="../../../../powersimdata.design.tests.html#powersimdata.design.tests.test_scenario_info.TestScenarioInfo">[docs]</a><span class="k">class</span> <span class="nc">TestScenarioInfo</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestScenarioInfo.setUp"><a class="viewcode-back" href="../../../../powersimdata.design.tests.html#powersimdata.design.tests.test_scenario_info.TestScenarioInfo.setUp">[docs]</a>    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">scenario</span> <span class="o">=</span> <span class="n">MockScenario</span><span class="p">(</span>
+            <span class="n">grid_attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">},</span>
+            <span class="n">demand</span><span class="o">=</span><span class="n">mock_demand</span><span class="p">,</span>
+            <span class="n">pg</span><span class="o">=</span><span class="n">mock_pg</span><span class="p">,</span>
+            <span class="n">solar</span><span class="o">=</span><span class="n">mock_solar</span><span class="p">,</span>
+            <span class="n">wind</span><span class="o">=</span><span class="n">mock_wind</span><span class="p">,</span>
+            <span class="n">hydro</span><span class="o">=</span><span class="n">mock_hydro</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span> <span class="o">=</span> <span class="n">ScenarioInfo</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestScenarioInfo.test_get_available_resource"><a class="viewcode-back" href="../../../../powersimdata.design.tests.html#powersimdata.design.tests.test_scenario_info.TestScenarioInfo.test_get_available_resource">[docs]</a>    <span class="k">def</span> <span class="nf">test_get_available_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_available_resource</span><span class="p">(</span><span class="s2">&quot;zone1&quot;</span><span class="p">)</span>
+            <span class="o">==</span> <span class="n">zone1_available_resource</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_available_resource</span><span class="p">(</span><span class="s2">&quot;zone2&quot;</span><span class="p">)</span>
+            <span class="o">==</span> <span class="n">zone2_available_resource</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestScenarioInfo.test_get_demand"><a class="viewcode-back" href="../../../../powersimdata.design.tests.html#powersimdata.design.tests.test_scenario_info.TestScenarioInfo.test_get_demand">[docs]</a>    <span class="k">def</span> <span class="nf">test_get_demand</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_demand</span><span class="p">(</span><span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">)</span>
+            <span class="o">==</span> <span class="n">mock_pg</span><span class="p">[</span><span class="n">zone1_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_demand</span><span class="p">(</span><span class="s2">&quot;zone2&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">)</span>
+            <span class="o">==</span> <span class="n">mock_pg</span><span class="p">[</span><span class="n">zone2_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestScenarioInfo.test_get_capacity"><a class="viewcode-back" href="../../../../powersimdata.design.tests.html#powersimdata.design.tests.test_scenario_info.TestScenarioInfo.test_get_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">test_get_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertWarns</span><span class="p">(</span><span class="ne">UserWarning</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">(</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">(</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;zone1&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">50</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">200</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">(</span><span class="s2">&quot;ng&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">80</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">(</span><span class="s2">&quot;coal&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">100</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">(</span><span class="s2">&quot;dfo&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">120</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">(</span><span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;zone1&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">220</span></div>
+
+<div class="viewcode-block" id="TestScenarioInfo.test_get_generation"><a class="viewcode-back" href="../../../../powersimdata.design.tests.html#powersimdata.design.tests.test_scenario_info.TestScenarioInfo.test_get_generation">[docs]</a>    <span class="k">def</span> <span class="nf">test_get_generation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_generation</span><span class="p">(</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">)</span>
+            <span class="o">==</span> <span class="n">mock_pg</span><span class="p">[</span><span class="n">solar_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_generation</span><span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">)</span>
+            <span class="o">==</span> <span class="n">mock_pg</span><span class="p">[</span><span class="n">wind_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_generation</span><span class="p">(</span><span class="s2">&quot;ng&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">)</span>
+            <span class="o">==</span> <span class="n">mock_pg</span><span class="p">[</span><span class="n">ng_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_generation</span><span class="p">(</span><span class="s2">&quot;coal&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">)</span>
+            <span class="o">==</span> <span class="n">mock_pg</span><span class="p">[</span><span class="n">coal_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_generation</span><span class="p">(</span><span class="s2">&quot;dfo&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">)</span>
+            <span class="o">==</span> <span class="n">mock_pg</span><span class="p">[</span><span class="n">dfo_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_generation</span><span class="p">(</span><span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">)</span>
+            <span class="o">==</span> <span class="n">mock_pg</span><span class="p">[</span><span class="n">hydro_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestScenarioInfo.test_get_curtailment"><a class="viewcode-back" href="../../../../powersimdata.design.tests.html#powersimdata.design.tests.test_scenario_info.TestScenarioInfo.test_get_curtailment">[docs]</a>    <span class="k">def</span> <span class="nf">test_get_curtailment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_curtailment</span><span class="p">(</span>
+            <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span>
+        <span class="p">)</span> <span class="o">==</span> <span class="nb">round</span><span class="p">(</span>
+            <span class="mi">1</span> <span class="o">-</span> <span class="p">(</span><span class="n">mock_pg</span><span class="p">[</span><span class="n">solar_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">mock_solar</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span> <span class="mi">4</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_curtailment</span><span class="p">(</span>
+            <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span>
+        <span class="p">)</span> <span class="o">==</span> <span class="nb">round</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="p">(</span><span class="n">mock_pg</span><span class="p">[</span><span class="n">wind_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">mock_wind</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_curtailment</span><span class="p">(</span>
+            <span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span>
+        <span class="p">)</span> <span class="o">==</span> <span class="nb">round</span><span class="p">(</span>
+            <span class="mi">1</span> <span class="o">-</span> <span class="p">(</span><span class="n">mock_pg</span><span class="p">[</span><span class="n">hydro_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">mock_hydro</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span> <span class="mi">4</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestScenarioInfo.test_get_profile_resource"><a class="viewcode-back" href="../../../../powersimdata.design.tests.html#powersimdata.design.tests.test_scenario_info.TestScenarioInfo.test_get_profile_resource">[docs]</a>    <span class="k">def</span> <span class="nf">test_get_profile_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_profile_resource</span><span class="p">(</span>
+                <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span>
+            <span class="p">)</span>
+            <span class="o">==</span> <span class="n">mock_solar</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_profile_resource</span><span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">)</span>
+            <span class="o">==</span> <span class="n">mock_wind</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_profile_resource</span><span class="p">(</span>
+                <span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span>
+            <span class="p">)</span>
+            <span class="o">==</span> <span class="n">mock_hydro</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestScenarioInfo.test_get_capacity_factor"><a class="viewcode-back" href="../../../../powersimdata.design.tests.html#powersimdata.design.tests.test_scenario_info.TestScenarioInfo.test_get_capacity_factor">[docs]</a>    <span class="k">def</span> <span class="nf">test_get_capacity_factor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_capacity_factor</span><span class="p">(</span>
+            <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span>
+        <span class="p">)</span> <span class="o">==</span> <span class="nb">round</span><span class="p">(</span><span class="n">mock_pg</span><span class="p">[</span><span class="n">solar_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="mi">50</span> <span class="o">*</span> <span class="n">period_num</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_capacity_factor</span><span class="p">(</span>
+            <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span>
+        <span class="p">)</span> <span class="o">==</span> <span class="nb">round</span><span class="p">(</span><span class="n">mock_pg</span><span class="p">[</span><span class="n">wind_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="mi">200</span> <span class="o">*</span> <span class="n">period_num</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_capacity_factor</span><span class="p">(</span>
+            <span class="s2">&quot;ng&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span>
+        <span class="p">)</span> <span class="o">==</span> <span class="nb">round</span><span class="p">(</span><span class="n">mock_pg</span><span class="p">[</span><span class="n">ng_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="mi">80</span> <span class="o">*</span> <span class="n">period_num</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_capacity_factor</span><span class="p">(</span>
+            <span class="s2">&quot;coal&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span>
+        <span class="p">)</span> <span class="o">==</span> <span class="nb">round</span><span class="p">(</span><span class="n">mock_pg</span><span class="p">[</span><span class="n">coal_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">period_num</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_capacity_factor</span><span class="p">(</span>
+            <span class="s2">&quot;dfo&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span>
+        <span class="p">)</span> <span class="o">==</span> <span class="nb">round</span><span class="p">(</span><span class="n">mock_pg</span><span class="p">[</span><span class="n">dfo_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="mi">120</span> <span class="o">*</span> <span class="n">period_num</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_capacity_factor</span><span class="p">(</span>
+            <span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span>
+        <span class="p">)</span> <span class="o">==</span> <span class="nb">round</span><span class="p">(</span><span class="n">mock_pg</span><span class="p">[</span><span class="n">hydro_plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="mi">220</span> <span class="o">*</span> <span class="n">period_num</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestScenarioInfo.test_get_no_congest_capacity_factor"><a class="viewcode-back" href="../../../../powersimdata.design.tests.html#powersimdata.design.tests.test_scenario_info.TestScenarioInfo.test_get_no_congest_capacity_factor">[docs]</a>    <span class="k">def</span> <span class="nf">test_get_no_congest_capacity_factor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_no_congest_capacity_factor</span><span class="p">(</span>
+            <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span>
+        <span class="p">)</span> <span class="o">==</span> <span class="nb">round</span><span class="p">(</span><span class="n">mock_solar</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="mi">50</span> <span class="o">*</span> <span class="n">period_num</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_no_congest_capacity_factor</span><span class="p">(</span>
+            <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span>
+        <span class="p">)</span> <span class="o">==</span> <span class="nb">round</span><span class="p">(</span><span class="n">mock_wind</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="mi">200</span> <span class="o">*</span> <span class="n">period_num</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">get_no_congest_capacity_factor</span><span class="p">(</span>
+            <span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span>
+        <span class="p">)</span> <span class="o">==</span> <span class="nb">round</span><span class="p">(</span><span class="n">mock_hydro</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="mi">220</span> <span class="o">*</span> <span class="n">period_num</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

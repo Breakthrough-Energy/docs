@@ -1,0 +1,247 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.data_access.tests.test_transfer_data &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.data_access.tests.test_transfer_data</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span> <span class="nn">pytest</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.data_access</span> <span class="kn">import</span> <span class="n">SSHDataAccess</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_ssh</span> <span class="kn">import</span> <span class="n">MockConnection</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility.server_setup</span> <span class="kn">import</span> <span class="n">get_server_user</span>
+
+<span class="n">CONTENT</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;content&quot;</span>
+
+
+<div class="viewcode-block" id="data_access"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_transfer_data.data_access">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+<span class="k">def</span> <span class="nf">data_access</span><span class="p">():</span>
+    <span class="n">data_access</span> <span class="o">=</span> <span class="n">SSHDataAccess</span><span class="p">()</span>
+    <span class="k">yield</span> <span class="n">data_access</span>
+    <span class="n">data_access</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="temp_fs"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_transfer_data.temp_fs">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+<span class="k">def</span> <span class="nf">temp_fs</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">):</span>
+    <span class="n">src_dir</span> <span class="o">=</span> <span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;src&quot;</span>
+    <span class="n">src_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">()</span>
+    <span class="n">dest_dir</span> <span class="o">=</span> <span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;dest&quot;</span>
+    <span class="n">dest_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">src_dir</span><span class="p">,</span> <span class="n">dest_dir</span></div>
+
+
+<div class="viewcode-block" id="mock_data_access"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_transfer_data.mock_data_access">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+<span class="k">def</span> <span class="nf">mock_data_access</span><span class="p">(</span><span class="n">monkeypatch</span><span class="p">,</span> <span class="n">temp_fs</span><span class="p">):</span>
+    <span class="n">data_access</span> <span class="o">=</span> <span class="n">SSHDataAccess</span><span class="p">()</span>
+    <span class="n">monkeypatch</span><span class="o">.</span><span class="n">setattr</span><span class="p">(</span><span class="n">data_access</span><span class="p">,</span> <span class="s2">&quot;_ssh&quot;</span><span class="p">,</span> <span class="n">MockConnection</span><span class="p">())</span>
+    <span class="n">data_access</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">temp_fs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">data_access</span><span class="o">.</span><span class="n">local_root</span> <span class="o">=</span> <span class="n">temp_fs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">yield</span> <span class="n">data_access</span>
+    <span class="n">data_access</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="make_temp"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_transfer_data.make_temp">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+<span class="k">def</span> <span class="nf">make_temp</span><span class="p">(</span><span class="n">temp_fs</span><span class="p">):</span>
+    <span class="n">files</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">_make_temp</span><span class="p">(</span><span class="n">rel_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">remote</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">rel_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="n">rel_path</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">rel_path</span><span class="p">)</span>
+        <span class="n">root</span> <span class="o">=</span> <span class="n">temp_fs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">remote</span> <span class="k">else</span> <span class="n">temp_fs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">location</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="n">rel_path</span>
+        <span class="n">test_file</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="nb">dir</span><span class="o">=</span><span class="n">location</span><span class="p">)</span>
+        <span class="n">files</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">test_file</span><span class="p">)</span>
+        <span class="n">test_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">CONTENT</span><span class="p">)</span>
+        <span class="n">test_file</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">test_file</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="k">yield</span> <span class="n">_make_temp</span>
+    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+        <span class="c1"># NOTE: the tmp_path fixture will handle remaining cleanup</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">except</span><span class="p">:</span>  <span class="c1"># noqa: ignore failure if file already deleted</span>
+            <span class="k">pass</span></div>
+
+
+<span class="k">def</span> <span class="nf">_check_content</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">CONTENT</span> <span class="o">==</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="test_setup_server_connection"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_transfer_data.test_setup_server_connection">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">integration</span>
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">ssh</span>
+<span class="k">def</span> <span class="nf">test_setup_server_connection</span><span class="p">(</span><span class="n">data_access</span><span class="p">):</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">data_access</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="s2">&quot;whoami&quot;</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">stdout</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="n">get_server_user</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="test_mocked_correctly"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_transfer_data.test_mocked_correctly">[docs]</a><span class="k">def</span> <span class="nf">test_mocked_correctly</span><span class="p">(</span><span class="n">mock_data_access</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mock_data_access</span><span class="o">.</span><span class="n">ssh</span><span class="p">,</span> <span class="n">MockConnection</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_copy_from"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_transfer_data.test_copy_from">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">skipif</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;win&quot;</span><span class="p">),</span> <span class="n">reason</span><span class="o">=</span><span class="s2">&quot;Does not run on windows&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">test_copy_from</span><span class="p">(</span><span class="n">mock_data_access</span><span class="p">,</span> <span class="n">temp_fs</span><span class="p">,</span> <span class="n">make_temp</span><span class="p">):</span>
+    <span class="n">fname</span> <span class="o">=</span> <span class="n">make_temp</span><span class="p">()</span>
+    <span class="n">mock_data_access</span><span class="o">.</span><span class="n">copy_from</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>
+    <span class="n">_check_content</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">temp_fs</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">fname</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="test_copy_from_multi_path"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_transfer_data.test_copy_from_multi_path">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">skipif</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;win&quot;</span><span class="p">),</span> <span class="n">reason</span><span class="o">=</span><span class="s2">&quot;Does not run on windows&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">test_copy_from_multi_path</span><span class="p">(</span><span class="n">mock_data_access</span><span class="p">,</span> <span class="n">temp_fs</span><span class="p">,</span> <span class="n">make_temp</span><span class="p">):</span>
+    <span class="n">rel_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">,</span> <span class="s2">&quot;bar&quot;</span><span class="p">)</span>
+    <span class="n">src_path</span> <span class="o">=</span> <span class="n">temp_fs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">rel_path</span>
+    <span class="n">src_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">fname</span> <span class="o">=</span> <span class="n">make_temp</span><span class="p">(</span><span class="n">rel_path</span><span class="p">)</span>
+    <span class="n">mock_data_access</span><span class="o">.</span><span class="n">copy_from</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">rel_path</span><span class="p">)</span>
+    <span class="n">_check_content</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">temp_fs</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rel_path</span><span class="p">,</span> <span class="n">fname</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="test_copy_to"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_transfer_data.test_copy_to">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">skipif</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;win&quot;</span><span class="p">),</span> <span class="n">reason</span><span class="o">=</span><span class="s2">&quot;Does not run on windows&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">test_copy_to</span><span class="p">(</span><span class="n">mock_data_access</span><span class="p">,</span> <span class="n">make_temp</span><span class="p">):</span>
+    <span class="n">fname</span> <span class="o">=</span> <span class="n">make_temp</span><span class="p">(</span><span class="n">remote</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">mock_data_access</span><span class="o">.</span><span class="n">copy_to</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>
+    <span class="n">_check_content</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">mock_data_access</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">fname</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="test_copy_to_multi_path"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_transfer_data.test_copy_to_multi_path">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">skipif</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;win&quot;</span><span class="p">),</span> <span class="n">reason</span><span class="o">=</span><span class="s2">&quot;Does not run on windows&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">test_copy_to_multi_path</span><span class="p">(</span><span class="n">mock_data_access</span><span class="p">,</span> <span class="n">make_temp</span><span class="p">):</span>
+    <span class="n">rel_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">,</span> <span class="s2">&quot;bar&quot;</span><span class="p">)</span>
+    <span class="n">remote_path</span> <span class="o">=</span> <span class="n">mock_data_access</span><span class="o">.</span><span class="n">root</span> <span class="o">/</span> <span class="n">rel_path</span>
+    <span class="n">remote_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">fname</span> <span class="o">=</span> <span class="n">make_temp</span><span class="p">(</span><span class="n">remote</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">mock_data_access</span><span class="o">.</span><span class="n">copy_to</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">rel_path</span><span class="p">)</span>
+    <span class="n">_check_content</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">remote_path</span><span class="p">,</span> <span class="n">fname</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="test_copy_to_rename"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_transfer_data.test_copy_to_rename">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">skipif</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;win&quot;</span><span class="p">),</span> <span class="n">reason</span><span class="o">=</span><span class="s2">&quot;Does not run on windows&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">test_copy_to_rename</span><span class="p">(</span><span class="n">mock_data_access</span><span class="p">,</span> <span class="n">make_temp</span><span class="p">):</span>
+    <span class="n">fname</span> <span class="o">=</span> <span class="n">make_temp</span><span class="p">(</span><span class="n">remote</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">new_fname</span> <span class="o">=</span> <span class="s2">&quot;new_fname&quot;</span>
+    <span class="n">mock_data_access</span><span class="o">.</span><span class="n">copy_to</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="n">new_fname</span><span class="p">)</span>
+    <span class="n">_check_content</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">mock_data_access</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">new_fname</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="test_check_filename"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_transfer_data.test_check_filename">[docs]</a><span class="k">def</span> <span class="nf">test_check_filename</span><span class="p">(</span><span class="n">mock_data_access</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+        <span class="n">mock_data_access</span><span class="o">.</span><span class="n">copy_from</span><span class="p">(</span><span class="s2">&quot;dir/foo.txt&quot;</span><span class="p">,</span> <span class="s2">&quot;dir&quot;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+        <span class="n">mock_data_access</span><span class="o">.</span><span class="n">copy_to</span><span class="p">(</span><span class="s2">&quot;dir/foo.txt&quot;</span><span class="p">,</span> <span class="s2">&quot;asdf&quot;</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

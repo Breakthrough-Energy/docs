@@ -1,0 +1,442 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.demanddata.nrel_efs.get_efs_data &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.demanddata.nrel_efs.get_efs_data</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">platform</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">zipfile</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants.zones</span> <span class="kn">import</span> <span class="n">abv2state</span>
+
+
+<div class="viewcode-block" id="download_data"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.nrel_efs.html#prereise.gather.demanddata.nrel_efs.get_efs_data.download_data">[docs]</a><span class="k">def</span> <span class="nf">download_data</span><span class="p">(</span><span class="n">es</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ta</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fpath</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Downloads the NREL EFS data for the specified electrification scenarios and</span>
+<span class="sd">    technology advancements.</span>
+
+<span class="sd">    :param set/list es: The electrification scenarios that will be downloaded. Can</span>
+<span class="sd">        choose any of: *&#39;Reference&#39;*, *&#39;Medium&#39;*, *&#39;High&#39;*, or *&#39;All&#39;*. Defaults to</span>
+<span class="sd">        None.</span>
+<span class="sd">    :param set/list ta: The technology advancements that will be downloaded. Can</span>
+<span class="sd">        choose any of: *&#39;Slow&#39;*, *&#39;Moderate&#39;*, *&#39;Rapid&#39;*, or *&#39;All&#39;*. Defaults to</span>
+<span class="sd">        None.</span>
+<span class="sd">    :param str fpath: The file path to which the NREL EFS data will be downloaded.</span>
+<span class="sd">    :raises TypeError: if es and ta are not input as a set or list, if fpath is not</span>
+<span class="sd">        input as a str, or if the components of es and ta are not input as str.</span>
+<span class="sd">    :raises ValueError: if the components of es and ta are not valid.</span>
+<span class="sd">    :raises NotImplementedError: if the method for uncompressing a file that has been</span>
+<span class="sd">        compressed a certain way is not implemented.</span>
+<span class="sd">    :raises OSError: if the specified 7zip directory cannot be found (on Windows</span>
+<span class="sd">        machines) or if compression outside of Python&#39;s zipfile module is attempted on</span>
+<span class="sd">        non-Windows machines.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Account for the immutable default parameters</span>
+    <span class="k">if</span> <span class="n">es</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">es</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;All&quot;</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">ta</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ta</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;All&quot;</span><span class="p">}</span>
+
+    <span class="c1"># Check that the inputs are of an appropriate type</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">es</span><span class="p">,</span> <span class="p">(</span><span class="nb">set</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Electrification scenarios must be input as a set or list.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ta</span><span class="p">,</span> <span class="p">(</span><span class="nb">set</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Technology advancements must be input as a set or list.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fpath</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;The file path must be input as a str.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check that the components of es and ta are str</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">es</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Individual electrification scenarios must be input as a str.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">ta</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Individual technology advancements must be input as a str.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Reformat components of es and ta</span>
+    <span class="n">es</span> <span class="o">=</span> <span class="p">{</span><span class="n">x</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">es</span><span class="p">}</span>
+    <span class="k">if</span> <span class="s2">&quot;All&quot;</span> <span class="ow">in</span> <span class="n">es</span><span class="p">:</span>
+        <span class="n">es</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Reference&quot;</span><span class="p">,</span> <span class="s2">&quot;Medium&quot;</span><span class="p">,</span> <span class="s2">&quot;High&quot;</span><span class="p">}</span>
+    <span class="n">ta</span> <span class="o">=</span> <span class="p">{</span><span class="n">x</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">ta</span><span class="p">}</span>
+    <span class="k">if</span> <span class="s2">&quot;All&quot;</span> <span class="ow">in</span> <span class="n">ta</span><span class="p">:</span>
+        <span class="n">ta</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Slow&quot;</span><span class="p">,</span> <span class="s2">&quot;Moderate&quot;</span><span class="p">,</span> <span class="s2">&quot;Rapid&quot;</span><span class="p">}</span>
+
+    <span class="c1"># Check that the components of es and ta are valid</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">es</span><span class="o">.</span><span class="n">issubset</span><span class="p">({</span><span class="s2">&quot;Reference&quot;</span><span class="p">,</span> <span class="s2">&quot;Medium&quot;</span><span class="p">,</span> <span class="s2">&quot;High&quot;</span><span class="p">}):</span>
+        <span class="n">invalid_es</span> <span class="o">=</span> <span class="n">es</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;Reference&quot;</span><span class="p">,</span> <span class="s2">&quot;Medium&quot;</span><span class="p">,</span> <span class="s2">&quot;High&quot;</span><span class="p">}</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid electrification scenarios: </span><span class="si">{</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">invalid_es</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">ta</span><span class="o">.</span><span class="n">issubset</span><span class="p">({</span><span class="s2">&quot;Slow&quot;</span><span class="p">,</span> <span class="s2">&quot;Moderate&quot;</span><span class="p">,</span> <span class="s2">&quot;Rapid&quot;</span><span class="p">}):</span>
+        <span class="n">invalid_ta</span> <span class="o">=</span> <span class="n">ta</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;Slow&quot;</span><span class="p">,</span> <span class="s2">&quot;Moderate&quot;</span><span class="p">,</span> <span class="s2">&quot;Rapid&quot;</span><span class="p">}</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid electrification scenarios: </span><span class="si">{</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">invalid_ta</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Access the actual path if not already provided</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fpath</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">fpath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
+
+    <span class="c1"># Download each of the specified load profiles</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">es</span><span class="p">:</span>
+        <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">ta</span><span class="p">:</span>
+            <span class="c1"># Assign path and file names</span>
+            <span class="n">zip_name</span> <span class="o">=</span> <span class="s2">&quot;EFSLoadProfile_&quot;</span> <span class="o">+</span> <span class="n">i</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">j</span> <span class="o">+</span> <span class="s2">&quot;.zip&quot;</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;https://data.nrel.gov/system/files/126/&quot;</span> <span class="o">+</span> <span class="n">zip_name</span>
+            <span class="n">zip_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">fpath</span><span class="p">,</span> <span class="n">zip_name</span><span class="p">)</span>
+
+            <span class="c1"># Save a local copy of the .zip file for extraction</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">status_code</span> <span class="o">!=</span> <span class="n">requests</span><span class="o">.</span><span class="n">codes</span><span class="o">.</span><span class="n">ok</span><span class="p">:</span>
+                <span class="n">r</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+            <span class="nb">open</span><span class="p">(</span><span class="n">zip_name</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">zip_name</span> <span class="o">+</span> <span class="s2">&quot; successfully downloaded!&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Store the data in memory to try extracting with Python&#39;s zipfile module</span>
+            <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">content</span><span class="p">))</span>
+
+    <span class="c1"># Try to extract the .csv file from the .zip file</span>
+    <span class="n">zf_works</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">es</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">ta</span><span class="p">:</span>
+            <span class="c1"># Assign path and file names</span>
+            <span class="n">zip_name</span> <span class="o">=</span> <span class="s2">&quot;EFSLoadProfile_&quot;</span> <span class="o">+</span> <span class="n">i</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">j</span> <span class="o">+</span> <span class="s2">&quot;.zip&quot;</span>
+            <span class="n">csv_name</span> <span class="o">=</span> <span class="s2">&quot;EFSLoadProfile_&quot;</span> <span class="o">+</span> <span class="n">i</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">j</span> <span class="o">+</span> <span class="s2">&quot;.csv&quot;</span>
+            <span class="n">zip_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">fpath</span><span class="p">,</span> <span class="n">zip_name</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">zf_works</span><span class="p">:</span>
+                    <span class="c1"># Try the zipfile module first</span>
+                    <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">extractall</span><span class="p">(</span><span class="n">fpath</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="n">csv_name</span> <span class="o">+</span> <span class="s2">&quot; successfully extracted!&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Bypass the zipfile module if it does not work on the first file</span>
+                    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+            <span class="k">except</span> <span class="ne">NotImplementedError</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">zf_works</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span>
+                        <span class="n">zip_name</span>
+                        <span class="o">+</span> <span class="s2">&quot; is compressed using a method that is not supported by the&quot;</span>
+                        <span class="o">+</span> <span class="s2">&quot; zipfile module.&quot;</span>
+                    <span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Trying other extraction methods supported by your OS.&quot;</span><span class="p">)</span>
+                    <span class="n">zf_works</span> <span class="o">=</span> <span class="kc">False</span>
+
+                <span class="c1"># Try other extraction methods depending on operating system</span>
+                <span class="k">if</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Windows&quot;</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="c1"># Windows Command Line does not support this type of compression</span>
+                        <span class="c1"># Try using 7zip, if it is installed in the default location</span>
+                        <span class="n">sz_path</span> <span class="o">=</span> <span class="s2">&quot;C:/Program Files/7-Zip/7z.exe&quot;</span>
+                        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">sz_path</span><span class="p">):</span>
+                            <span class="nb">print</span><span class="p">(</span>
+                                <span class="s2">&quot;7zip is not in this directory or is not installed. &quot;</span>
+                                <span class="o">+</span> <span class="s2">&quot;Extract all data manually (refer to documentation).&quot;</span>
+                            <span class="p">)</span>
+                            <span class="k">return</span>
+                        <span class="n">subprocess</span><span class="o">.</span><span class="n">check_call</span><span class="p">(</span>
+                            <span class="s1">&#39;cmd /c powershell -c &amp; &quot;&#39;</span>
+                            <span class="o">+</span> <span class="n">sz_path</span>
+                            <span class="o">+</span> <span class="s1">&#39;&quot; x &quot;&#39;</span>
+                            <span class="o">+</span> <span class="n">zip_path</span>
+                            <span class="o">+</span> <span class="s1">&#39;&quot; -o&quot;&#39;</span>
+                            <span class="o">+</span> <span class="n">fpath</span>
+                            <span class="o">+</span> <span class="s1">&#39;&quot; -y&#39;</span>
+                        <span class="p">)</span>
+                        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">zip_path</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="n">csv_name</span> <span class="o">+</span> <span class="s2">&quot; successfully extracted!&quot;</span><span class="p">)</span>
+                    <span class="k">except</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">CalledProcessError</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="n">csv_name</span> <span class="o">+</span> <span class="s2">&quot; could not be extracted using 7zip.&quot;</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Extract all data manually (refer to documentation).&quot;</span><span class="p">)</span>
+                        <span class="k">return</span>
+                <span class="k">elif</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Darwin&quot;</span><span class="p">,</span> <span class="s2">&quot;Linux&quot;</span><span class="p">}:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="c1"># Try unzipping using the Terminal</span>
+                        <span class="n">subprocess</span><span class="o">.</span><span class="n">check_call</span><span class="p">([</span><span class="s2">&quot;unzip&quot;</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">,</span> <span class="n">zip_path</span><span class="p">,</span> <span class="s2">&quot;-d&quot;</span><span class="p">,</span> <span class="n">fpath</span><span class="p">])</span>
+                        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">zip_path</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="n">csv_name</span> <span class="o">+</span> <span class="s2">&quot; successfully extracted!&quot;</span><span class="p">)</span>
+                    <span class="k">except</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">CalledProcessError</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="n">csv_name</span> <span class="o">+</span> <span class="s2">&quot; could not be extracted using the Terminal.&quot;</span><span class="p">)</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Extract all data manually (refer to documentation).&quot;</span><span class="p">)</span>
+                        <span class="k">return</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span><span class="s2">&quot;This operating system is not supported.&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="partition_by_sector"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.nrel_efs.html#prereise.gather.demanddata.nrel_efs.get_efs_data.partition_by_sector">[docs]</a><span class="k">def</span> <span class="nf">partition_by_sector</span><span class="p">(</span><span class="n">es</span><span class="p">,</span> <span class="n">ta</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">sect</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fpath</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Creates .csv files for each of the specified sectors given a specified</span>
+<span class="sd">    electrification scenario and technology advancement.</span>
+
+<span class="sd">    :param str es: An electrification scenario. Can choose one of: *&#39;Reference&#39;*,</span>
+<span class="sd">        *&#39;Medium&#39;*, or *&#39;High&#39;*.</span>
+<span class="sd">    :param str ta: A technology advancement. Can choose one of: *&#39;Slow&#39;*, *&#39;Moderate&#39;*,</span>
+<span class="sd">        or *&#39;Rapid&#39;*.</span>
+<span class="sd">    :param int year: The selected year&#39;s worth of demand data. Can choose one of: 2018,</span>
+<span class="sd">        2020, 2024, 2030, 2040, or 2050.</span>
+<span class="sd">    :param set/list sect: The sectors for which .csv files are to be created. Can</span>
+<span class="sd">        choose any of: *&#39;Transportation&#39;*, *&#39;Residential&#39;*, *&#39;Commercial&#39;*,</span>
+<span class="sd">        *&#39;Industrial&#39;*, or *&#39;All&#39;*. Defaults to None.</span>
+<span class="sd">    :param str fpath: The file path where the demand data might be saved and to where</span>
+<span class="sd">        the sectoral data will be saved.</span>
+<span class="sd">    :param bool save: Determines whether or not the .csv file is saved. Defaults to</span>
+<span class="sd">        False. If the file is saved, it is saved to the same location as fpath.</span>
+<span class="sd">    :return: (*dict*) -- A dict of pandas.DataFrame objects that contain demand data</span>
+<span class="sd">        for each state and time step in the specified sectors.</span>
+<span class="sd">    :raises TypeError: if es and ta are not input as str, if year is not input as an</span>
+<span class="sd">        int, if sect is not input as a set or list, if fpath is not input as a str, or</span>
+<span class="sd">        if the components of sect are not input as str.</span>
+<span class="sd">    :raises ValueError: if es, ta, year, or the components of sect are not valid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Account for the immutable default parameters</span>
+    <span class="k">if</span> <span class="n">sect</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">sect</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;All&quot;</span><span class="p">}</span>
+
+    <span class="c1"># Check that the inputs are of an appropriate type</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">es</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Electrification scenario must be input as a str.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ta</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Technology advancement must be input as a str.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">year</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;The year must be input as an int.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sect</span><span class="p">,</span> <span class="p">(</span><span class="nb">set</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Sector inputs must be input as a set or list.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fpath</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;The file path must be input as a str.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check that the components of sect are str</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">sect</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Each individual sector must be input as a str.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Reformat components of es, ta, and sect</span>
+    <span class="n">es</span> <span class="o">=</span> <span class="n">es</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span>
+    <span class="n">ta</span> <span class="o">=</span> <span class="n">ta</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span>
+    <span class="n">sect</span> <span class="o">=</span> <span class="p">{</span><span class="n">x</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">sect</span><span class="p">}</span>
+    <span class="k">if</span> <span class="s2">&quot;All&quot;</span> <span class="ow">in</span> <span class="n">sect</span><span class="p">:</span>
+        <span class="n">sect</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Transportation&quot;</span><span class="p">,</span> <span class="s2">&quot;Residential&quot;</span><span class="p">,</span> <span class="s2">&quot;Commercial&quot;</span><span class="p">,</span> <span class="s2">&quot;Industrial&quot;</span><span class="p">}</span>
+
+    <span class="c1"># Check that the components of es, ta, year, and sect are valid</span>
+    <span class="k">if</span> <span class="n">es</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Reference&quot;</span><span class="p">,</span> <span class="s2">&quot;Medium&quot;</span><span class="p">,</span> <span class="s2">&quot;High&quot;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">es</span><span class="si">}</span><span class="s2"> is not a valid electrification scenario.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ta</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Slow&quot;</span><span class="p">,</span> <span class="s2">&quot;Moderate&quot;</span><span class="p">,</span> <span class="s2">&quot;Rapid&quot;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ta</span><span class="si">}</span><span class="s2"> is not a valid technology advancement.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">year</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="mi">2018</span><span class="p">,</span> <span class="mi">2020</span><span class="p">,</span> <span class="mi">2024</span><span class="p">,</span> <span class="mi">2030</span><span class="p">,</span> <span class="mi">2040</span><span class="p">,</span> <span class="mi">2050</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2"> is not a valid year.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">sect</span><span class="o">.</span><span class="n">issubset</span><span class="p">({</span><span class="s2">&quot;Transportation&quot;</span><span class="p">,</span> <span class="s2">&quot;Residential&quot;</span><span class="p">,</span> <span class="s2">&quot;Commercial&quot;</span><span class="p">,</span> <span class="s2">&quot;Industrial&quot;</span><span class="p">}):</span>
+        <span class="n">invalid_sect</span> <span class="o">=</span> <span class="n">sect</span> <span class="o">-</span> <span class="p">{</span>
+            <span class="s2">&quot;Transportation&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Residential&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Commercial&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Industrial&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid sectors: </span><span class="si">{</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">invalid_sect</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Access the actual path if not already provided</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fpath</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">fpath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
+
+    <span class="c1"># Specify the file name and path</span>
+    <span class="n">csv_name</span> <span class="o">=</span> <span class="s2">&quot;EFSLoadProfile_&quot;</span> <span class="o">+</span> <span class="n">es</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">ta</span> <span class="o">+</span> <span class="s2">&quot;.csv&quot;</span>
+    <span class="n">csv_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">fpath</span><span class="p">,</span> <span class="n">csv_name</span><span class="p">)</span>
+
+    <span class="c1"># Download the specified NREL EFS dataset if it is not already downloaded</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">csv_path</span><span class="p">):</span>
+        <span class="n">download_data</span><span class="p">({</span><span class="n">es</span><span class="p">},</span> <span class="p">{</span><span class="n">ta</span><span class="p">},</span> <span class="n">fpath</span><span class="p">)</span>
+
+    <span class="c1"># Load the data from the downloaded .csv file as a DataFrame</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">csv_path</span><span class="p">)</span>
+
+    <span class="c1"># Trim the DataFrame for only the specified year</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Year&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">year</span><span class="p">]</span>
+
+    <span class="c1"># Drop unnecessary &quot;Year&quot;, &quot;Electrification&quot;, and &quot;TechnologyAdvancement&quot; columns</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Year&quot;</span><span class="p">,</span> <span class="s2">&quot;Electrification&quot;</span><span class="p">,</span> <span class="s2">&quot;TechnologyAdvancement&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Sum by sector and state</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;LocalHourID&quot;</span><span class="p">,</span> <span class="s2">&quot;State&quot;</span><span class="p">,</span> <span class="s2">&quot;Sector&quot;</span><span class="p">],</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+    <span class="c1"># Split the demand DataFrame by sector</span>
+    <span class="n">sect_dem</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">i</span><span class="p">:</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Sector&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">i</span><span class="p">]</span>
+        <span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Sector&quot;</span><span class="p">])</span>
+        <span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;LocalHourID&quot;</span><span class="p">,</span> <span class="s2">&quot;State&quot;</span><span class="p">])</span>
+        <span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">unstack</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sect</span>
+    <span class="p">}</span>
+    <span class="n">sect_dem</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">i</span><span class="p">:</span> <span class="n">sect_dem</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">set_axis</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">abv2state</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;AK&quot;</span><span class="p">,</span> <span class="s2">&quot;HI&quot;</span><span class="p">}),</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;columns&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sect</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Add extra day&#39;s worth of demand to account for leap year</span>
+    <span class="n">sect_dem</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="n">account_for_leap_year</span><span class="p">(</span><span class="n">sect_dem</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sect</span><span class="p">}</span>
+
+    <span class="c1"># Include the appropriate time stamps for the local time (with year=2016)</span>
+    <span class="n">sect_dem</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">i</span><span class="p">:</span> <span class="n">sect_dem</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">set_axis</span><span class="p">(</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2017-01-01&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">closed</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">),</span>
+            <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;index&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sect</span>
+    <span class="p">}</span>
+    <span class="n">sect_dem</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="n">sect_dem</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">rename_axis</span><span class="p">(</span><span class="s2">&quot;Local Time&quot;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;index&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sect</span><span class="p">}</span>
+
+    <span class="c1"># Save the sectoral DataFrames to .csv files, if desired</span>
+    <span class="k">if</span> <span class="n">save</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sect</span><span class="p">:</span>
+            <span class="n">new_csv_name</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="s2">&quot;_Demand_&quot;</span> <span class="o">+</span> <span class="n">es</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">ta</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">year</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;.csv&quot;</span>
+            <span class="n">new_csv_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">fpath</span><span class="p">,</span> <span class="n">new_csv_name</span><span class="p">)</span>
+            <span class="n">sect_dem</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">new_csv_path</span><span class="p">)</span>
+
+    <span class="c1"># Return the dictionary containing the formatted sectoral demand data</span>
+    <span class="k">return</span> <span class="n">sect_dem</span></div>
+
+
+<div class="viewcode-block" id="account_for_leap_year"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.nrel_efs.html#prereise.gather.demanddata.nrel_efs.get_efs_data.account_for_leap_year">[docs]</a><span class="k">def</span> <span class="nf">account_for_leap_year</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Creates an additional day&#39;s worth of demand data to account for the additional</span>
+<span class="sd">    day that occurs during leap years. This function takes an 8760-hour DataFrame as</span>
+<span class="sd">    input and returns an 8784-hour DataFrame. To prevent the weekly structure of the</span>
+<span class="sd">    input DataFrame from being disrupted, the additional 24 hours of demand are merely</span>
+<span class="sd">    added to the end of the input 8760-hour DataFrame for each state. The additional 24</span>
+<span class="sd">    hours of demand are set equal to the demand profile for January 2nd because January</span>
+<span class="sd">    2nd and December 31st occur on the same day of the week during a leap year.</span>
+
+<span class="sd">    :param pandas.DataFrame df: DataFrame of sectoral demand data. Rows are each hour</span>
+<span class="sd">        of the 8760 hours and Columns are the abbreviations of each state of the</span>
+<span class="sd">        contiguous U.S.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- Sectoral demand data with 8784 hours and of a</span>
+<span class="sd">        similar form to the input DataFrame.</span>
+<span class="sd">    :raises ValueError: if the dimensions of the input DataFrame do not reflect 8760</span>
+<span class="sd">        hours or 48 states.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Check the elements of the input DataFrame</span>
+    <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="mi">8760</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The input DataFrame does not have 8760 hours.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">list</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">values</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">abv2state</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;AK&quot;</span><span class="p">,</span> <span class="s2">&quot;HI&quot;</span><span class="p">}):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The input DataFrame does not include all 48 states.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Get the demand for each state and each hour on January 2nd</span>
+    <span class="n">jan2_dem</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">24</span><span class="p">:</span><span class="mi">48</span><span class="p">]</span>
+
+    <span class="c1"># Append to the input DataFrame to create an 8784-hour profile</span>
+    <span class="n">new_df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">jan2_dem</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Return the 8784-hour profile</span>
+    <span class="k">return</span> <span class="n">new_df</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

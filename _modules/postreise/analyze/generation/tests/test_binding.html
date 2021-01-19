@@ -1,0 +1,341 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>postreise.analyze.generation.tests.test_binding &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for postreise.analyze.generation.tests.test_binding</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">unittest</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_scenario</span> <span class="kn">import</span> <span class="n">MockScenario</span>
+
+<span class="kn">from</span> <span class="nn">postreise.analyze.check</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_check_epsilon</span><span class="p">,</span>
+    <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.binding</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">pmax_constraints</span><span class="p">,</span>
+    <span class="n">pmin_constraints</span><span class="p">,</span>
+    <span class="n">ramp_constraints</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="TestCheckScenario"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestCheckScenario">[docs]</a><span class="k">class</span> <span class="nc">TestCheckScenario</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestCheckScenario.test_good_scenario"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestCheckScenario.test_good_scenario">[docs]</a>    <span class="k">def</span> <span class="nf">test_good_scenario</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_plant</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;ramp_30&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">2.5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">25</span><span class="p">],</span>
+        <span class="p">}</span>
+        <span class="n">mock_scenario</span> <span class="o">=</span> <span class="n">MockScenario</span><span class="p">({</span><span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">})</span>
+        <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">mock_scenario</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestCheckScenario.test_bad_scenario_type"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestCheckScenario.test_bad_scenario_type">[docs]</a>    <span class="k">def</span> <span class="nf">test_bad_scenario_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="s2">&quot;307&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestCheckScenario.test_bad_scenario_state"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestCheckScenario.test_bad_scenario_state">[docs]</a>    <span class="k">def</span> <span class="nf">test_bad_scenario_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_plant</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;ramp_30&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">2.5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">25</span><span class="p">],</span>
+        <span class="p">}</span>
+        <span class="n">mock_scenario</span> <span class="o">=</span> <span class="n">MockScenario</span><span class="p">({</span><span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">})</span>
+        <span class="n">mock_scenario</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">&quot;Create&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">mock_scenario</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestCheckEpsilon"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestCheckEpsilon">[docs]</a><span class="k">class</span> <span class="nc">TestCheckEpsilon</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestCheckEpsilon.test_good_float_value"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestCheckEpsilon.test_good_float_value">[docs]</a>    <span class="k">def</span> <span class="nf">test_good_float_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">_check_epsilon</span><span class="p">(</span><span class="mf">5e-4</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestCheckEpsilon.test_good_int_value"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestCheckEpsilon.test_good_int_value">[docs]</a>    <span class="k">def</span> <span class="nf">test_good_int_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">_check_epsilon</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestCheckEpsilon.test_zero"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestCheckEpsilon.test_zero">[docs]</a>    <span class="k">def</span> <span class="nf">test_zero</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">_check_epsilon</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestCheckEpsilon.test_bad_type"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestCheckEpsilon.test_bad_type">[docs]</a>    <span class="k">def</span> <span class="nf">test_bad_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">_check_epsilon</span><span class="p">(</span><span class="s2">&quot;0.001&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestCheckEpsilon.test_bad_value"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestCheckEpsilon.test_bad_value">[docs]</a>    <span class="k">def</span> <span class="nf">test_bad_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">_check_epsilon</span><span class="p">(</span><span class="o">-</span><span class="mf">0.001</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestRampConstraints"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestRampConstraints">[docs]</a><span class="k">class</span> <span class="nc">TestRampConstraints</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestRampConstraints.setUp"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestRampConstraints.setUp">[docs]</a>    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_plant</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;ramp_30&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">2.5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">25</span><span class="p">],</span>
+        <span class="p">}</span>
+        <span class="n">grid_attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">}</span>
+        <span class="n">mock_pg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">104</span><span class="p">,</span> <span class="p">(</span><span class="mi">99</span> <span class="o">+</span> <span class="mf">1e-4</span><span class="p">),</span> <span class="p">(</span><span class="mi">104</span> <span class="o">+</span> <span class="mf">1e-4</span> <span class="o">-</span> <span class="mf">1e-7</span><span class="p">)],</span>
+                <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">50</span><span class="p">,</span> <span class="mi">45</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">45</span><span class="p">],</span>
+                <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">20</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">80</span><span class="p">],</span>
+                <span class="s2">&quot;D&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">150</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">50</span><span class="p">],</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span> <span class="o">=</span> <span class="n">MockScenario</span><span class="p">(</span><span class="n">grid_attrs</span><span class="p">,</span> <span class="n">pg</span><span class="o">=</span><span class="n">mock_pg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_expected</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;UTC&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">],</span>
+                <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">],</span>
+                <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">],</span>
+                <span class="s2">&quot;D&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">],</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_expected</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestRampConstraints.get_default_expected"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestRampConstraints.get_default_expected">[docs]</a>    <span class="k">def</span> <span class="nf">get_default_expected</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_expected</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="TestRampConstraints.test_ramp_constraints_default"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestRampConstraints.test_ramp_constraints_default">[docs]</a>    <span class="k">def</span> <span class="nf">test_ramp_constraints_default</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">binding_ramps</span> <span class="o">=</span> <span class="n">ramp_constraints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">)</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_expected</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">binding_ramps</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">expected</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestRampConstraints.test_ramp_constraints_spec_epsilon1"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestRampConstraints.test_ramp_constraints_spec_epsilon1">[docs]</a>    <span class="k">def</span> <span class="nf">test_ramp_constraints_spec_epsilon1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Same results as test_ramp_constraints_default</span>
+        <span class="n">binding_ramps</span> <span class="o">=</span> <span class="n">ramp_constraints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_expected</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">binding_ramps</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">expected</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestRampConstraints.test_ramp_constraints_spec_epsilon2"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestRampConstraints.test_ramp_constraints_spec_epsilon2">[docs]</a>    <span class="k">def</span> <span class="nf">test_ramp_constraints_spec_epsilon2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># One differece from test_ramp_constraints_default: (&#39;A&#39;, &#39;t3&#39;)</span>
+        <span class="n">binding_ramps</span> <span class="o">=</span> <span class="n">ramp_constraints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_expected</span><span class="p">()</span>
+        <span class="n">expected</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;2016-01-01 02:00:00&quot;</span><span class="p">,</span> <span class="s2">&quot;A&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">assert</span> <span class="n">binding_ramps</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">expected</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestRampConstraints.test_ramp_constraints_spec_epsilon3"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestRampConstraints.test_ramp_constraints_spec_epsilon3">[docs]</a>    <span class="k">def</span> <span class="nf">test_ramp_constraints_spec_epsilon3</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Two differeces from test_ramp_constraints_default: (&#39;A&#39;, [&#39;t3&#39;/&#39;t4&#39;])</span>
+        <span class="n">binding_ramps</span> <span class="o">=</span> <span class="n">ramp_constraints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">)</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_expected</span><span class="p">()</span>
+        <span class="n">expected</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;A&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">assert</span> <span class="n">binding_ramps</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">expected</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestPminConstraints"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestPminConstraints">[docs]</a><span class="k">class</span> <span class="nc">TestPminConstraints</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestPminConstraints.setUp"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestPminConstraints.setUp">[docs]</a>    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_plant</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;Pmin&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">],</span>
+        <span class="p">}</span>
+        <span class="n">grid_attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">}</span>
+        <span class="n">mock_pg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+                <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">10</span> <span class="o">+</span> <span class="mf">1e-4</span><span class="p">),</span> <span class="mi">15</span><span class="p">],</span>
+                <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">25</span><span class="p">,</span> <span class="p">(</span><span class="mi">20</span> <span class="o">+</span> <span class="mf">1e-7</span><span class="p">)],</span>
+                <span class="s2">&quot;D&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">35</span><span class="p">,</span> <span class="mi">40</span><span class="p">],</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span> <span class="o">=</span> <span class="n">MockScenario</span><span class="p">(</span><span class="n">grid_attrs</span><span class="p">,</span> <span class="n">pg</span><span class="o">=</span><span class="n">mock_pg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_expected</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;UTC&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">],</span>
+                <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">],</span>
+                <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">],</span>
+                <span class="s2">&quot;D&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">],</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_expected</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestPminConstraints.get_default_expected"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestPminConstraints.get_default_expected">[docs]</a>    <span class="k">def</span> <span class="nf">get_default_expected</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_expected</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="TestPminConstraints.test_pmin_constraints_default"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestPminConstraints.test_pmin_constraints_default">[docs]</a>    <span class="k">def</span> <span class="nf">test_pmin_constraints_default</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">binding_pmins</span> <span class="o">=</span> <span class="n">pmin_constraints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">)</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_expected</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">binding_pmins</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">expected</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestPminConstraints.test_pmin_constraints_default_spec_epsilon1"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestPminConstraints.test_pmin_constraints_default_spec_epsilon1">[docs]</a>    <span class="k">def</span> <span class="nf">test_pmin_constraints_default_spec_epsilon1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">binding_pmins</span> <span class="o">=</span> <span class="n">pmin_constraints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_expected</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">binding_pmins</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">expected</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestPminConstraints.test_pmin_constraints_default_spec_epsilon2"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestPminConstraints.test_pmin_constraints_default_spec_epsilon2">[docs]</a>    <span class="k">def</span> <span class="nf">test_pmin_constraints_default_spec_epsilon2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">binding_pmins</span> <span class="o">=</span> <span class="n">pmin_constraints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_expected</span><span class="p">()</span>
+        <span class="n">expected</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;2016-01-01 00:00:00&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">assert</span> <span class="n">binding_pmins</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">expected</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestPminConstraints.test_pmin_constraints_default_spec_epsilon3"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestPminConstraints.test_pmin_constraints_default_spec_epsilon3">[docs]</a>    <span class="k">def</span> <span class="nf">test_pmin_constraints_default_spec_epsilon3</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">binding_pmins</span> <span class="o">=</span> <span class="n">pmin_constraints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">)</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_expected</span><span class="p">()</span>
+        <span class="n">expected</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;2016-01-01 00:00:00&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">expected</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;2016-01-01 01:00:00&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">assert</span> <span class="n">binding_pmins</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">expected</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestPmaxConstraints"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestPmaxConstraints">[docs]</a><span class="k">class</span> <span class="nc">TestPmaxConstraints</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestPmaxConstraints.setUp"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestPmaxConstraints.setUp">[docs]</a>    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_plant</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">50</span><span class="p">,</span> <span class="mi">75</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">],</span>
+        <span class="p">}</span>
+        <span class="n">grid_attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">}</span>
+        <span class="n">mock_pg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">50</span><span class="p">,</span> <span class="mi">50</span><span class="p">],</span>
+                <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">75</span> <span class="o">-</span> <span class="mf">1e-4</span><span class="p">),</span> <span class="mi">70</span><span class="p">],</span>
+                <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">90</span><span class="p">,</span> <span class="p">(</span><span class="mi">100</span> <span class="o">-</span> <span class="mf">1e-7</span><span class="p">)],</span>
+                <span class="s2">&quot;D&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">150</span><span class="p">,</span> <span class="mi">175</span><span class="p">],</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span> <span class="o">=</span> <span class="n">MockScenario</span><span class="p">(</span><span class="n">grid_attrs</span><span class="p">,</span> <span class="n">pg</span><span class="o">=</span><span class="n">mock_pg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_expected</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;UTC&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">],</span>
+                <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">],</span>
+                <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">],</span>
+                <span class="s2">&quot;D&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">],</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_expected</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestPmaxConstraints.get_default_expected"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestPmaxConstraints.get_default_expected">[docs]</a>    <span class="k">def</span> <span class="nf">get_default_expected</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_expected</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="TestPmaxConstraints.test_pmax_constraints_default"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestPmaxConstraints.test_pmax_constraints_default">[docs]</a>    <span class="k">def</span> <span class="nf">test_pmax_constraints_default</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">binding_pmaxs</span> <span class="o">=</span> <span class="n">pmax_constraints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">)</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_expected</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">binding_pmaxs</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">expected</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestPmaxConstraints.test_pmax_constraints_default_sepc_epsilon1"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestPmaxConstraints.test_pmax_constraints_default_sepc_epsilon1">[docs]</a>    <span class="k">def</span> <span class="nf">test_pmax_constraints_default_sepc_epsilon1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">binding_pmaxs</span> <span class="o">=</span> <span class="n">pmax_constraints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_expected</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">binding_pmaxs</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">expected</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestPmaxConstraints.test_pmax_constraints_default_sepc_epsilon2"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestPmaxConstraints.test_pmax_constraints_default_sepc_epsilon2">[docs]</a>    <span class="k">def</span> <span class="nf">test_pmax_constraints_default_sepc_epsilon2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">binding_pmaxs</span> <span class="o">=</span> <span class="n">pmax_constraints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_expected</span><span class="p">()</span>
+        <span class="n">expected</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;2016-01-01 00:00:00&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">assert</span> <span class="n">binding_pmaxs</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">expected</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestPmaxConstraints.test_pmax_constraints_default_sepc_epsilon3"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_binding.TestPmaxConstraints.test_pmax_constraints_default_sepc_epsilon3">[docs]</a>    <span class="k">def</span> <span class="nf">test_pmax_constraints_default_sepc_epsilon3</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">binding_pmaxs</span> <span class="o">=</span> <span class="n">pmax_constraints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">)</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_expected</span><span class="p">()</span>
+        <span class="n">expected</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;2016-01-01 00:00:00&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">expected</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;2016-01-01 01:00:00&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">assert</span> <span class="n">binding_pmaxs</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">expected</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

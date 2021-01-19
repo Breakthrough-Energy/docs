@@ -1,0 +1,201 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>postreise.analyze.transmission.upgrades &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for postreise.analyze.transmission.upgrades</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">postreise.analyze.helpers</span> <span class="kn">import</span> <span class="n">_check_data_frame</span>
+
+
+<span class="k">def</span> <span class="nf">_reindex_as_necessary</span><span class="p">(</span><span class="n">df1</span><span class="p">,</span> <span class="n">df2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check for indices with mismatched to/from bus ids, reindex as necessary.</span>
+
+<span class="sd">    :param pandas.DataFrame df1: data frame containing [&quot;from_bus_id&quot;, &quot;to_bus_id&quot;]</span>
+<span class="sd">    :param pandas.DataFrame df2: data frame containing [&quot;from_bus_id&quot;, &quot;to_bus_id&quot;]</span>
+<span class="sd">    :return: (*tuple*) -- data frames, reindexed as necessary.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">shared_indices</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">df1</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">df2</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="n">check_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;from_bus_id&quot;</span><span class="p">,</span> <span class="s2">&quot;to_bus_id&quot;</span><span class="p">]</span>
+    <span class="n">check1</span> <span class="o">=</span> <span class="n">df1</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">shared_indices</span><span class="p">,</span> <span class="n">check_columns</span><span class="p">]</span>
+    <span class="n">check2</span> <span class="o">=</span> <span class="n">df2</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">shared_indices</span><span class="p">,</span> <span class="n">check_columns</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">check1</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">check2</span><span class="p">):</span>
+        <span class="n">df1</span> <span class="o">=</span> <span class="n">df1</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="n">keys</span><span class="o">=</span><span class="n">check_columns</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">append</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">df2</span> <span class="o">=</span> <span class="n">df2</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="n">keys</span><span class="o">=</span><span class="n">check_columns</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">append</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">df1</span><span class="p">,</span> <span class="n">df2</span>
+
+
+<div class="viewcode-block" id="get_branch_differences"><a class="viewcode-back" href="../../../../postreise.analyze.transmission.html#postreise.analyze.transmission.upgrades.get_branch_differences">[docs]</a><span class="k">def</span> <span class="nf">get_branch_differences</span><span class="p">(</span><span class="n">branch1</span><span class="p">,</span> <span class="n">branch2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given two branch dataframes, calculate capacity differences.</span>
+
+<span class="sd">    :param pandas.DataFrame branch1: data frame containing rateA</span>
+<span class="sd">    :param pandas.DataFrame branch2: data frame containing rateA</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- data frame with all indices and &#39;diff&#39; column.</span>
+<span class="sd">    :raises ValueError: if either dataframe doesn&#39;t have required columns.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_data_frame</span><span class="p">(</span><span class="n">branch1</span><span class="p">,</span> <span class="s2">&quot;branch1&quot;</span><span class="p">)</span>
+    <span class="n">_check_data_frame</span><span class="p">(</span><span class="n">branch2</span><span class="p">,</span> <span class="s2">&quot;branch2&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="s2">&quot;rateA&quot;</span> <span class="ow">in</span> <span class="n">branch1</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="s2">&quot;rateA&quot;</span> <span class="ow">in</span> <span class="n">branch2</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;branch1 and branch2 both much have &#39;rateA&#39; columns&quot;</span><span class="p">)</span>
+    <span class="n">branch1</span><span class="p">,</span> <span class="n">branch2</span> <span class="o">=</span> <span class="n">_reindex_as_necessary</span><span class="p">(</span><span class="n">branch1</span><span class="p">,</span> <span class="n">branch2</span><span class="p">)</span>
+    <span class="n">branch_merge</span> <span class="o">=</span> <span class="n">branch1</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+        <span class="n">branch2</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;outer&quot;</span><span class="p">,</span> <span class="n">right_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">left_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">suffixes</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;_2&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">branch_merge</span><span class="p">[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branch_merge</span><span class="o">.</span><span class="n">rateA_2</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="n">branch_merge</span><span class="o">.</span><span class="n">rateA</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">branch_merge</span></div>
+
+
+<div class="viewcode-block" id="get_dcline_differences"><a class="viewcode-back" href="../../../../postreise.analyze.transmission.html#postreise.analyze.transmission.upgrades.get_dcline_differences">[docs]</a><span class="k">def</span> <span class="nf">get_dcline_differences</span><span class="p">(</span><span class="n">dcline1</span><span class="p">,</span> <span class="n">dcline2</span><span class="p">,</span> <span class="n">bus</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate capacity differences between dcline tables, and add to/from lat/lon.</span>
+
+<span class="sd">    :param pandas.DataFrame dcline1: data frame containing Pmax, from_bus_id, to_bus_id.</span>
+<span class="sd">    :param pandas.DataFrame dcline2: data frame containing Pmax, from_bus_id, to_bus_id.</span>
+<span class="sd">    :param pandas.DataFrame bus: data frame containing lat &amp; lon.</span>
+<span class="sd">    :raises ValueError: if any dataframe doesn&#39;t have required columns.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- data frame with all indices, plus new columns:</span>
+<span class="sd">        diff, from_lat, from_lon, to_lat, to_lon.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_data_frame</span><span class="p">(</span><span class="n">dcline1</span><span class="p">,</span> <span class="s2">&quot;dcline1&quot;</span><span class="p">)</span>
+    <span class="n">_check_data_frame</span><span class="p">(</span><span class="n">dcline2</span><span class="p">,</span> <span class="s2">&quot;dcline2&quot;</span><span class="p">)</span>
+    <span class="n">_check_data_frame</span><span class="p">(</span><span class="n">bus</span><span class="p">,</span> <span class="s2">&quot;bus&quot;</span><span class="p">)</span>
+    <span class="n">dcline_req_cols</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Pmax&quot;</span><span class="p">,</span> <span class="s2">&quot;from_bus_id&quot;</span><span class="p">,</span> <span class="s2">&quot;to_bus_id&quot;</span><span class="p">}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dcline_req_cols</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">dcline1</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;dcline1 must have columns: </span><span class="si">{</span><span class="n">dcline_req_cols</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dcline_req_cols</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">dcline2</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;dcline2 must have columns: </span><span class="si">{</span><span class="n">dcline_req_cols</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">{</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">}</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">bus</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;bus must have &#39;lat&#39; &amp; &#39;lon&#39; columns&quot;</span><span class="p">)</span>
+    <span class="n">dcline1</span><span class="p">,</span> <span class="n">dcline2</span> <span class="o">=</span> <span class="n">_reindex_as_necessary</span><span class="p">(</span><span class="n">dcline1</span><span class="p">,</span> <span class="n">dcline2</span><span class="p">)</span>
+    <span class="n">dc_merge</span> <span class="o">=</span> <span class="n">dcline1</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+        <span class="n">dcline2</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;outer&quot;</span><span class="p">,</span> <span class="n">right_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">left_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">suffixes</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;_2&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="c1"># fillna for bus ids, since some lines in one frame won&#39;t be in the other frame</span>
+    <span class="n">dc_merge</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;from_bus_id&quot;</span><span class="p">:</span> <span class="n">dc_merge</span><span class="o">.</span><span class="n">from_bus_id_2</span><span class="p">,</span>
+            <span class="s2">&quot;to_bus_id&quot;</span><span class="p">:</span> <span class="n">dc_merge</span><span class="o">.</span><span class="n">to_bus_id_2</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># Calculate differences in Pmax</span>
+    <span class="n">dc_merge</span><span class="p">[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dc_merge</span><span class="o">.</span><span class="n">Pmax_2</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="n">dc_merge</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="c1"># get lat lon for dclines</span>
+    <span class="n">dc_merge</span><span class="p">[</span><span class="s2">&quot;from_lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dc_merge</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">dc_merge</span><span class="p">[</span><span class="s2">&quot;from_lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dc_merge</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">dc_merge</span><span class="p">[</span><span class="s2">&quot;to_lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dc_merge</span><span class="o">.</span><span class="n">to_bus_id</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">dc_merge</span><span class="p">[</span><span class="s2">&quot;to_lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dc_merge</span><span class="o">.</span><span class="n">to_bus_id</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="k">return</span> <span class="n">dc_merge</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

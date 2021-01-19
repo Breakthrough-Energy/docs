@@ -1,0 +1,368 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>postreise.plot.plot_interconnection_map &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for postreise.plot.plot_interconnection_map</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">bokeh.models</span> <span class="kn">import</span> <span class="n">ColumnDataSource</span><span class="p">,</span> <span class="n">HoverTool</span>
+<span class="kn">from</span> <span class="nn">bokeh.plotting</span> <span class="kn">import</span> <span class="n">figure</span>
+<span class="kn">from</span> <span class="nn">bokeh.tile_providers</span> <span class="kn">import</span> <span class="n">Vendors</span><span class="p">,</span> <span class="n">get_provider</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants</span> <span class="kn">import</span> <span class="n">zones</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">distance</span>
+
+<span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">get_state_borders</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.projection_helpers</span> <span class="kn">import</span> <span class="n">project_borders</span><span class="p">,</span> <span class="n">project_branch</span>
+
+
+<div class="viewcode-block" id="count_nodes_per_state"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_interconnection_map.count_nodes_per_state">[docs]</a><span class="k">def</span> <span class="nf">count_nodes_per_state</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    count nodes per state to add as hover-over info in map_interconnections</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid object</span>
+<span class="sd">    :return:  -- dataframe containing state names and count of nodes per state</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">zones</span><span class="o">.</span><span class="n">id2state</span><span class="p">)</span>
+    <span class="n">liststates</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span>
+    <span class="n">state_counts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">liststates</span><span class="p">)</span>
+    <span class="n">state_counts</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">state_counts</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;index&quot;</span><span class="p">:</span> <span class="s2">&quot;state&quot;</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="s2">&quot;count&quot;</span><span class="p">},</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">state_counts</span></div>
+
+
+<div class="viewcode-block" id="map_interconnections"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_interconnection_map.map_interconnections">[docs]</a><span class="k">def</span> <span class="nf">map_interconnections</span><span class="p">(</span>
+    <span class="n">grid</span><span class="p">,</span> <span class="n">state_counts</span><span class="p">,</span> <span class="n">hover_choice</span><span class="p">,</span> <span class="n">hvdc_width</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">us_states_dat</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Maps transmission lines color coded by interconnection</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid object</span>
+<span class="sd">    :param pandas.DataFrame state_counts: state names and node counts, created by count_nodes_per_state</span>
+<span class="sd">    :param str hover_choice: &quot;nodes&quot; for state_counts nodes per state, otherwise hvdc</span>
+<span class="sd">        capacity in hover over tool tips for hvdc lines only</span>
+<span class="sd">    :param float hvdc_width: adjust width of HVDC lines on map</span>
+<span class="sd">    :param dict us_states_dat: dictionary of state border lats/lons. If None, get</span>
+<span class="sd">        from :func:`postreise.plot.plot_states.get_state_borders`.</span>
+<span class="sd">    :return:  -- map of transmission lines</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">us_states_dat</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">us_states_dat</span> <span class="o">=</span> <span class="n">get_state_borders</span><span class="p">()</span>
+
+    <span class="c1"># projection steps for mapping</span>
+    <span class="n">branch</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span>
+    <span class="n">branch_bus</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span>
+    <span class="n">branch_map</span> <span class="o">=</span> <span class="n">project_branch</span><span class="p">(</span><span class="n">branch</span><span class="p">)</span>
+    <span class="n">branch_map</span><span class="p">[</span><span class="s2">&quot;point1&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">branch_map</span><span class="o">.</span><span class="n">to_lat</span><span class="p">,</span> <span class="n">branch_map</span><span class="o">.</span><span class="n">to_lon</span><span class="p">))</span>
+    <span class="n">branch_map</span><span class="p">[</span><span class="s2">&quot;point2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">branch_map</span><span class="o">.</span><span class="n">from_lat</span><span class="p">,</span> <span class="n">branch_map</span><span class="o">.</span><span class="n">from_lon</span><span class="p">))</span>
+    <span class="n">branch_map</span><span class="p">[</span><span class="s2">&quot;dist&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branch_map</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">row</span><span class="p">:</span> <span class="n">distance</span><span class="o">.</span><span class="n">haversine</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;point1&quot;</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;point2&quot;</span><span class="p">]),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+
+    <span class="c1"># speed rendering on website by removing very short branches</span>
+    <span class="n">branch_map</span> <span class="o">=</span> <span class="n">branch_map</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_map</span><span class="o">.</span><span class="n">dist</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">]</span>
+
+    <span class="n">branch_west</span> <span class="o">=</span> <span class="n">branch_map</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_map</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">==</span> <span class="s2">&quot;Western&quot;</span><span class="p">]</span>
+    <span class="n">branch_east</span> <span class="o">=</span> <span class="n">branch_map</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_map</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">==</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">]</span>
+    <span class="n">branch_tx</span> <span class="o">=</span> <span class="n">branch_map</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_map</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">==</span> <span class="s2">&quot;Texas&quot;</span><span class="p">]</span>
+    <span class="n">branch_mdc</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span>
+
+    <span class="n">branch_mdc</span><span class="p">[</span><span class="s2">&quot;from_lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branch_bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_mdc</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">branch_mdc</span><span class="p">[</span><span class="s2">&quot;from_lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branch_bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_mdc</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">branch_mdc</span><span class="p">[</span><span class="s2">&quot;to_lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branch_bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_mdc</span><span class="o">.</span><span class="n">to_bus_id</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">branch_mdc</span><span class="p">[</span><span class="s2">&quot;to_lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branch_bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_mdc</span><span class="o">.</span><span class="n">to_bus_id</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">branch_mdc</span> <span class="o">=</span> <span class="n">project_branch</span><span class="p">(</span><span class="n">branch_mdc</span><span class="p">)</span>
+
+    <span class="c1"># back to backs are index 0-8, treat separately</span>
+    <span class="n">branch_mdc1</span> <span class="o">=</span> <span class="n">branch_mdc</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span>
+        <span class="mi">9</span><span class="p">:,</span>
+    <span class="p">]</span>
+    <span class="n">b2b</span> <span class="o">=</span> <span class="n">branch_mdc</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span>
+        <span class="mi">0</span><span class="p">:</span><span class="mi">9</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="n">branch_mdc_leg</span> <span class="o">=</span> <span class="n">branch_mdc</span>
+    <span class="n">branch_mdc_leg</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">8</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;to_x&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="n">branch_mdc_leg</span><span class="p">[</span><span class="s2">&quot;to_x&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branch_mdc_leg</span><span class="p">[</span><span class="s2">&quot;to_x&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">branch_mdc_leg</span><span class="p">[</span><span class="s2">&quot;from_x&quot;</span><span class="p">])</span>
+    <span class="n">branch_mdc_leg</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">8</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;to_y&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="n">branch_mdc_leg</span><span class="p">[</span><span class="s2">&quot;to_y&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branch_mdc_leg</span><span class="p">[</span><span class="s2">&quot;to_y&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">branch_mdc_leg</span><span class="p">[</span><span class="s2">&quot;from_y&quot;</span><span class="p">])</span>
+
+    <span class="c1"># pseudolines for legend to show hvdc and back to back, plot UNDER map</span>
+    <span class="n">multi_line_source6</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="n">branch_mdc_leg</span><span class="p">[[</span><span class="s2">&quot;from_x&quot;</span><span class="p">,</span> <span class="s2">&quot;to_x&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s2">&quot;ys&quot;</span><span class="p">:</span> <span class="n">branch_mdc_leg</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="n">branch_mdc_leg</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.00023</span> <span class="o">+</span> <span class="mf">0.2</span><span class="p">,</span>
+            <span class="s2">&quot;cap&quot;</span><span class="p">:</span> <span class="n">branch_mdc_leg</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="c1"># state borders</span>
+    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">project_borders</span><span class="p">(</span><span class="n">us_states_dat</span><span class="p">,</span> <span class="n">state_list</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">state_counts</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]))</span>
+
+    <span class="c1"># transmission data sources</span>
+    <span class="n">line_width_const</span> <span class="o">=</span> <span class="mf">0.000225</span>
+
+    <span class="n">multi_line_source</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="n">branch_west</span><span class="p">[[</span><span class="s2">&quot;from_x&quot;</span><span class="p">,</span> <span class="s2">&quot;to_x&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s2">&quot;ys&quot;</span><span class="p">:</span> <span class="n">branch_west</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="n">branch_west</span><span class="o">.</span><span class="n">rateA</span> <span class="o">*</span> <span class="n">line_width_const</span> <span class="o">+</span> <span class="mf">0.1</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="n">multi_line_source2</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="n">branch_east</span><span class="p">[[</span><span class="s2">&quot;from_x&quot;</span><span class="p">,</span> <span class="s2">&quot;to_x&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s2">&quot;ys&quot;</span><span class="p">:</span> <span class="n">branch_east</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="n">branch_east</span><span class="o">.</span><span class="n">rateA</span> <span class="o">*</span> <span class="n">line_width_const</span> <span class="o">+</span> <span class="mf">0.1</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="n">multi_line_source3</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="n">branch_tx</span><span class="p">[[</span><span class="s2">&quot;from_x&quot;</span><span class="p">,</span> <span class="s2">&quot;to_x&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s2">&quot;ys&quot;</span><span class="p">:</span> <span class="n">branch_tx</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="n">branch_tx</span><span class="o">.</span><span class="n">rateA</span> <span class="o">*</span> <span class="n">line_width_const</span> <span class="o">+</span> <span class="mf">0.1</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="c1"># hvdc</span>
+    <span class="n">multi_line_source4</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="n">branch_mdc1</span><span class="p">[[</span><span class="s2">&quot;from_x&quot;</span><span class="p">,</span> <span class="s2">&quot;to_x&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s2">&quot;ys&quot;</span><span class="p">:</span> <span class="n">branch_mdc1</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="n">branch_mdc1</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="n">line_width_const</span> <span class="o">*</span> <span class="n">hvdc_width</span>
+            <span class="o">+</span> <span class="mf">0.1</span><span class="p">,</span>
+            <span class="s2">&quot;cap&quot;</span><span class="p">:</span> <span class="n">branch_mdc1</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="c1"># pseudolines for ac</span>
+    <span class="n">multi_line_source5</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="n">b2b</span><span class="p">[[</span><span class="s2">&quot;from_x&quot;</span><span class="p">,</span> <span class="s2">&quot;to_x&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s2">&quot;ys&quot;</span><span class="p">:</span> <span class="n">b2b</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="n">b2b</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.00023</span> <span class="o">+</span> <span class="mf">0.2</span><span class="p">,</span>
+            <span class="s2">&quot;cap&quot;</span><span class="p">:</span> <span class="n">b2b</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span>
+            <span class="s2">&quot;col&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="s2">&quot;#006ff9&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;#006ff9&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;#006ff9&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;#006ff9&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;#006ff9&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;#006ff9&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;#006ff9&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;#8B36FF&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;#8B36FF&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="c1"># lower 48 states, patches</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
+        <span class="nb">dict</span><span class="p">(</span>
+            <span class="n">xs</span><span class="o">=</span><span class="n">a</span><span class="p">,</span>
+            <span class="n">ys</span><span class="o">=</span><span class="n">b</span><span class="p">,</span>
+            <span class="n">col</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;gray&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">48</span><span class="p">)],</span>
+            <span class="n">col2</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;gray&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">48</span><span class="p">)],</span>
+            <span class="n">label</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">state_counts</span><span class="p">[</span><span class="s2">&quot;count&quot;</span><span class="p">]),</span>
+            <span class="n">state_name</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">state_counts</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Set up figure</span>
+    <span class="n">tools</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;pan, wheel_zoom, reset, save&quot;</span>
+
+    <span class="n">p</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
+        <span class="n">tools</span><span class="o">=</span><span class="n">tools</span><span class="p">,</span>
+        <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">plot_width</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
+        <span class="n">plot_height</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
+        <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
+        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;stretch_both&quot;</span><span class="p">,</span>
+        <span class="n">match_aspect</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># for legend, hidden lines</span>
+    <span class="n">leg_clr</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;#006ff9&quot;</span><span class="p">,</span> <span class="s2">&quot;#8B36FF&quot;</span><span class="p">,</span> <span class="s2">&quot;#01D4ED&quot;</span><span class="p">,</span> <span class="s2">&quot;#FF2370&quot;</span><span class="p">]</span>
+    <span class="n">leg_lab</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;HVDC&quot;</span><span class="p">]</span>
+    <span class="n">leg_xs</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mf">1.084288e07</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span>
+    <span class="n">leg_ys</span> <span class="o">=</span> <span class="p">[</span><span class="mf">4.639031e06</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="n">colr</span><span class="p">,</span> <span class="n">leg</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">leg_clr</span><span class="p">,</span> <span class="n">leg_lab</span><span class="p">,</span> <span class="n">leg_xs</span><span class="p">,</span> <span class="n">leg_ys</span><span class="p">):</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">colr</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">legend</span><span class="o">=</span><span class="n">leg</span><span class="p">)</span>
+
+    <span class="c1"># pseudo lines for hover tips</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+        <span class="s2">&quot;xs&quot;</span><span class="p">,</span> <span class="s2">&quot;ys&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="s2">&quot;capacity&quot;</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">multi_line_source6</span>
+    <span class="p">)</span>
+
+    <span class="c1"># background tiles</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_tile</span><span class="p">(</span><span class="n">get_provider</span><span class="p">(</span><span class="n">Vendors</span><span class="o">.</span><span class="n">CARTODBPOSITRON</span><span class="p">))</span>
+
+    <span class="c1"># state borders</span>
+    <span class="n">patch</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">patches</span><span class="p">(</span><span class="s2">&quot;xs&quot;</span><span class="p">,</span> <span class="s2">&quot;ys&quot;</span><span class="p">,</span> <span class="n">fill_alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">line_color</span><span class="o">=</span><span class="s2">&quot;col&quot;</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">)</span>
+
+    <span class="c1"># branches</span>
+    <span class="n">source_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">multi_line_source</span><span class="p">,</span> <span class="n">multi_line_source2</span><span class="p">,</span> <span class="n">multi_line_source3</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="n">colr</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">leg_clr</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">],</span> <span class="n">source_list</span><span class="p">):</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span><span class="s2">&quot;xs&quot;</span><span class="p">,</span> <span class="s2">&quot;ys&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">colr</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="s2">&quot;capacity&quot;</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">)</span>
+
+    <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+        <span class="s2">&quot;xs&quot;</span><span class="p">,</span> <span class="s2">&quot;ys&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#FF2370&quot;</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="s2">&quot;capacity&quot;</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">multi_line_source4</span>
+    <span class="p">)</span>
+    <span class="c1"># pseudo ac</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+        <span class="s2">&quot;xs&quot;</span><span class="p">,</span> <span class="s2">&quot;ys&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;col&quot;</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="s2">&quot;capacity&quot;</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">multi_line_source5</span>
+    <span class="p">)</span>
+
+    <span class="c1"># triangles for b2b</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+        <span class="n">x</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_x</span><span class="p">,</span>
+        <span class="n">y</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_y</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#FF2370&quot;</span><span class="p">,</span>
+        <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;triangle&quot;</span><span class="p">,</span>
+        <span class="n">size</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">/</span> <span class="mi">50</span> <span class="o">+</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="n">legend</span><span class="o">=</span><span class="s2">&quot;Back-to-Back&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># legend formatting</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="s2">&quot;bottom_right&quot;</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">label_text_font_size</span> <span class="o">=</span> <span class="s2">&quot;12pt&quot;</span>
+
+    <span class="k">if</span> <span class="n">hover_choice</span> <span class="o">==</span> <span class="s2">&quot;nodes&quot;</span><span class="p">:</span>
+        <span class="n">hover</span> <span class="o">=</span> <span class="n">HoverTool</span><span class="p">(</span>
+            <span class="n">tooltips</span><span class="o">=</span><span class="p">[</span>
+                <span class="p">(</span><span class="s2">&quot;State&quot;</span><span class="p">,</span> <span class="s2">&quot;@state_name&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;Nodes&quot;</span><span class="p">,</span> <span class="s2">&quot;@label&quot;</span><span class="p">),</span>
+            <span class="p">],</span>
+            <span class="n">renderers</span><span class="o">=</span><span class="p">[</span><span class="n">patch</span><span class="p">],</span>
+        <span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">hover</span> <span class="o">=</span> <span class="n">HoverTool</span><span class="p">(</span>
+            <span class="n">tooltips</span><span class="o">=</span><span class="p">[</span>
+                <span class="p">(</span><span class="s2">&quot;HVDC capacity MW&quot;</span><span class="p">,</span> <span class="s2">&quot;@cap&quot;</span><span class="p">),</span>
+            <span class="p">],</span>
+            <span class="n">renderers</span><span class="o">=</span><span class="p">[</span><span class="n">lines</span><span class="p">],</span>
+        <span class="p">)</span>
+
+    <span class="n">p</span><span class="o">.</span><span class="n">add_tools</span><span class="p">(</span><span class="n">hover</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">p</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,311 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.design.generation.tests.test_clean_capacity_scaling &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.design.generation.tests.test_clean_capacity_scaling</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">pytest</span>
+<span class="kn">from</span> <span class="nn">pandas.testing</span> <span class="kn">import</span> <span class="n">assert_frame_equal</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.design.generation.clean_capacity_scaling</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">add_new_capacities_collaborative</span><span class="p">,</span>
+    <span class="n">add_new_capacities_independent</span><span class="p">,</span>
+    <span class="n">add_shortfall_to_targets</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="test_independent_new_capacity"><a class="viewcode-back" href="../../../../../powersimdata.design.generation.tests.html#powersimdata.design.generation.tests.test_clean_capacity_scaling.test_independent_new_capacity">[docs]</a><span class="k">def</span> <span class="nf">test_independent_new_capacity</span><span class="p">():</span>
+    <span class="n">area_names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Pacific&quot;</span><span class="p">,</span> <span class="s2">&quot;Atlantic&quot;</span><span class="p">,</span> <span class="s2">&quot;Arctic&quot;</span><span class="p">,</span> <span class="s2">&quot;Indian&quot;</span><span class="p">]</span>
+    <span class="c1"># Atlantic tests a &#39;simple&#39; case</span>
+    <span class="c1"># Pacific tests expected additional curtailment</span>
+    <span class="c1"># Arctic tests external additional clean energy</span>
+    <span class="c1"># Indian tests new capacity solar percentage</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;ce_target_fraction&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">],</span>
+            <span class="s2">&quot;allowed_resources&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;solar,wind,geo&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;solar, wind, geo, hydro&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;solar,wind,geo&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;solar, wind, geo&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;demand&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">2e8</span><span class="p">,</span> <span class="mf">3e8</span><span class="p">,</span> <span class="mf">2e8</span><span class="p">,</span> <span class="mf">2e8</span><span class="p">],</span>
+            <span class="s2">&quot;solar_percentage&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">],</span>
+            <span class="s2">&quot;external_ce_addl_historical_amount&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.4e7</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;geo.prev_capacity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">4000</span><span class="p">,</span> <span class="mi">4500</span><span class="p">,</span> <span class="mi">4000</span><span class="p">,</span> <span class="mi">4000</span><span class="p">],</span>
+            <span class="s2">&quot;geo.prev_cap_factor&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+            <span class="s2">&quot;geo.prev_generation&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">8e6</span><span class="p">,</span> <span class="mf">8.5e6</span><span class="p">,</span> <span class="mf">8e6</span><span class="p">,</span> <span class="mf">8e6</span><span class="p">],</span>
+            <span class="s2">&quot;hydro.prev_capacity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3900</span><span class="p">,</span> <span class="mi">4400</span><span class="p">,</span> <span class="mi">3900</span><span class="p">,</span> <span class="mi">3900</span><span class="p">],</span>
+            <span class="s2">&quot;hydro.prev_cap_factor&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+            <span class="s2">&quot;hydro.prev_generation&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">7e6</span><span class="p">,</span> <span class="mf">7.5e6</span><span class="p">,</span> <span class="mf">7e6</span><span class="p">,</span> <span class="mf">7e6</span><span class="p">],</span>
+            <span class="s2">&quot;solar.prev_capacity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3700</span><span class="p">,</span> <span class="mi">4200</span><span class="p">,</span> <span class="mi">3700</span><span class="p">,</span> <span class="mi">3700</span><span class="p">],</span>
+            <span class="s2">&quot;solar.prev_cap_factor&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.215379</span><span class="p">,</span> <span class="mf">0.215379</span><span class="p">],</span>
+            <span class="s2">&quot;solar.prev_generation&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">8.1252e6</span><span class="p">,</span> <span class="mf">1.106784e7</span><span class="p">,</span> <span class="mf">7e6</span><span class="p">,</span> <span class="mf">7e6</span><span class="p">],</span>
+            <span class="s2">&quot;wind.prev_capacity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3600</span><span class="p">,</span> <span class="mi">4100</span><span class="p">,</span> <span class="mi">3600</span><span class="p">,</span> <span class="mi">3600</span><span class="p">],</span>
+            <span class="s2">&quot;wind.prev_cap_factor&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.35</span><span class="p">,</span> <span class="mf">0.347854</span><span class="p">,</span> <span class="mf">0.347854</span><span class="p">],</span>
+            <span class="s2">&quot;wind.prev_generation&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.264896e7</span><span class="p">,</span> <span class="mf">1.260504e7</span><span class="p">,</span> <span class="mf">1.1e7</span><span class="p">,</span> <span class="mf">1.1e7</span><span class="p">],</span>
+        <span class="p">},</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">area_names</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">addl_curtailment</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;geo&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;hydro&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.4</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+        <span class="p">},</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">area_names</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">expected_return</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">(</span><span class="mi">3700</span> <span class="o">+</span> <span class="mf">4481.582</span><span class="p">),</span>
+                <span class="p">(</span><span class="mi">4200</span> <span class="o">+</span> <span class="mf">8928.948</span><span class="p">),</span>
+                <span class="p">(</span><span class="mi">3700</span> <span class="o">+</span> <span class="mf">2055.556</span><span class="p">),</span>
+                <span class="p">(</span><span class="mi">3700</span> <span class="o">+</span> <span class="mf">8246.260</span><span class="p">),</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="p">(</span><span class="mi">3600</span> <span class="o">+</span> <span class="mf">4360.459</span><span class="p">),</span>
+                <span class="p">(</span><span class="mi">4100</span> <span class="o">+</span> <span class="mf">8716.354</span><span class="p">),</span>
+                <span class="p">(</span><span class="mi">3600</span> <span class="o">+</span> <span class="mi">2000</span><span class="p">),</span>
+                <span class="p">(</span><span class="mi">3600</span> <span class="o">+</span> <span class="mf">2748.753</span><span class="p">),</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;prev_ce_generation&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">2.877416e7</span><span class="p">,</span> <span class="mf">3.967288e7</span><span class="p">,</span> <span class="mf">2.6e7</span><span class="p">,</span> <span class="mf">2.6e7</span><span class="p">],</span>
+            <span class="s2">&quot;ce_shortfall&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">2.122584e7</span><span class="p">,</span> <span class="mf">5.032712e7</span><span class="p">,</span> <span class="mf">1e7</span><span class="p">,</span> <span class="mf">2.4e7</span><span class="p">],</span>
+        <span class="p">},</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">area_names</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">add_shortfall_to_targets</span><span class="p">(</span><span class="n">targets</span><span class="p">)</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">add_new_capacities_independent</span><span class="p">(</span>
+        <span class="n">targets</span><span class="p">,</span> <span class="n">scenario_length</span><span class="o">=</span><span class="mi">8784</span><span class="p">,</span> <span class="n">addl_curtailment</span><span class="o">=</span><span class="n">addl_curtailment</span>
+    <span class="p">)</span>
+    <span class="n">test_columns</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;prev_ce_generation&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ce_shortfall&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">assert_frame_equal</span><span class="p">(</span><span class="n">targets</span><span class="p">[</span><span class="n">test_columns</span><span class="p">],</span> <span class="n">expected_return</span><span class="p">[</span><span class="n">test_columns</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="collaborative_test_targets"><a class="viewcode-back" href="../../../../../powersimdata.design.generation.tests.html#powersimdata.design.generation.tests.test_clean_capacity_scaling.collaborative_test_targets">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+<span class="k">def</span> <span class="nf">collaborative_test_targets</span><span class="p">():</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;ce_target_fraction&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;allowed_resources&quot;</span><span class="p">:</span> <span class="p">[</span>
+                <span class="s2">&quot;solar, wind, geo&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;solar, wind, geo, hydro, nuclear&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;polarbears&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="s2">&quot;demand&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">2e8</span><span class="p">,</span> <span class="mf">3e8</span><span class="p">,</span> <span class="mf">1e8</span><span class="p">],</span>
+            <span class="s2">&quot;external_ce_addl_historical_amount&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;geo.prev_capacity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">4000</span><span class="p">,</span> <span class="mi">4500</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;geo.prev_cap_factor&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;geo.prev_generation&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">8e6</span><span class="p">,</span> <span class="mf">8.5e6</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;hydro.prev_capacity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3900</span><span class="p">,</span> <span class="mi">4400</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;hydro.prev_cap_factor&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;hydro.prev_generation&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">7e6</span><span class="p">,</span> <span class="mf">7.5e6</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;nuclear.prev_capacity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">4300</span><span class="p">,</span> <span class="mi">4300</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;nuclear.prev_cap_factor&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;nuclear.prev_generation&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">6.5e6</span><span class="p">,</span> <span class="mf">6.5e6</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;solar.prev_capacity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3700</span><span class="p">,</span> <span class="mi">4200</span><span class="p">,</span> <span class="mi">5000</span><span class="p">],</span>
+            <span class="s2">&quot;solar.prev_cap_factor&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.215379</span><span class="p">,</span> <span class="mf">0.284608</span><span class="p">,</span> <span class="mf">0.45</span><span class="p">],</span>
+            <span class="s2">&quot;solar.prev_generation&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">7e6</span><span class="p">,</span> <span class="mf">1.05e7</span><span class="p">,</span> <span class="p">(</span><span class="mi">5000</span> <span class="o">*</span> <span class="mf">0.45</span> <span class="o">*</span> <span class="mi">8784</span><span class="p">)],</span>
+            <span class="s2">&quot;wind.prev_capacity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3600</span><span class="p">,</span> <span class="mi">4100</span><span class="p">,</span> <span class="mi">4000</span><span class="p">],</span>
+            <span class="s2">&quot;wind.prev_cap_factor&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.347855</span><span class="p">,</span> <span class="mf">0.319317</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span>
+            <span class="s2">&quot;wind.prev_generation&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.1e7</span><span class="p">,</span> <span class="mf">1.15e7</span><span class="p">,</span> <span class="p">(</span><span class="mi">4000</span> <span class="o">*</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="mi">8784</span><span class="p">)],</span>
+        <span class="p">},</span>
+        <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Pacific&quot;</span><span class="p">,</span> <span class="s2">&quot;Atlantic&quot;</span><span class="p">,</span> <span class="s2">&quot;Arctic&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">targets</span></div>
+
+
+<div class="viewcode-block" id="test_collaborative_two_areas_overgeneration"><a class="viewcode-back" href="../../../../../powersimdata.design.generation.tests.html#powersimdata.design.generation.tests.test_clean_capacity_scaling.test_collaborative_two_areas_overgeneration">[docs]</a><span class="k">def</span> <span class="nf">test_collaborative_two_areas_overgeneration</span><span class="p">(</span><span class="n">collaborative_test_targets</span><span class="p">):</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">collaborative_test_targets</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;Pacific&quot;</span><span class="p">,</span> <span class="s2">&quot;ce_target_fraction&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-9</span>
+    <span class="n">targets</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">&quot;Arctic&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">add_shortfall_to_targets</span><span class="p">(</span><span class="n">targets</span><span class="p">)</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">add_new_capacities_collaborative</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">scenario_length</span><span class="o">=</span><span class="mi">8784</span><span class="p">)</span>
+    <span class="n">expected_return</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3700</span> <span class="o">+</span> <span class="mf">4578.75</span><span class="p">),</span> <span class="p">(</span><span class="mi">4200</span> <span class="o">+</span> <span class="mf">5197.5</span><span class="p">)],</span>
+            <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3600</span> <span class="o">+</span> <span class="mi">4455</span><span class="p">),</span> <span class="p">(</span><span class="mi">4100</span> <span class="o">+</span> <span class="mf">5073.75</span><span class="p">)],</span>
+        <span class="p">},</span>
+        <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Pacific&quot;</span><span class="p">,</span> <span class="s2">&quot;Atlantic&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">assert_frame_equal</span><span class="p">(</span>
+        <span class="n">targets</span><span class="p">[[</span><span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">]],</span>
+        <span class="n">expected_return</span><span class="p">[[</span><span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">]],</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_collaborative_two_areas_addl_curtailment"><a class="viewcode-back" href="../../../../../powersimdata.design.generation.tests.html#powersimdata.design.generation.tests.test_clean_capacity_scaling.test_collaborative_two_areas_addl_curtailment">[docs]</a><span class="k">def</span> <span class="nf">test_collaborative_two_areas_addl_curtailment</span><span class="p">(</span><span class="n">collaborative_test_targets</span><span class="p">):</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">collaborative_test_targets</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">targets</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">&quot;Arctic&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">add_shortfall_to_targets</span><span class="p">(</span><span class="n">targets</span><span class="p">)</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">add_new_capacities_collaborative</span><span class="p">(</span>
+        <span class="n">targets</span><span class="p">,</span> <span class="n">scenario_length</span><span class="o">=</span><span class="mi">8784</span><span class="p">,</span> <span class="n">addl_curtailment</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="mf">0.07</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="mf">0.13</span><span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">expected_return</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3700</span> <span class="o">+</span> <span class="mf">10269.18</span><span class="p">),</span> <span class="p">(</span><span class="mi">4200</span> <span class="o">+</span> <span class="mf">11656.9</span><span class="p">)],</span>
+            <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3600</span> <span class="o">+</span> <span class="mf">9991.63</span><span class="p">),</span> <span class="p">(</span><span class="mi">4100</span> <span class="o">+</span> <span class="mf">11379.36</span><span class="p">)],</span>
+        <span class="p">},</span>
+        <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Pacific&quot;</span><span class="p">,</span> <span class="s2">&quot;Atlantic&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">assert_frame_equal</span><span class="p">(</span>
+        <span class="n">targets</span><span class="p">[[</span><span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">]],</span>
+        <span class="n">expected_return</span><span class="p">[[</span><span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">]],</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_collaborative_three_areas_one_nonparticipating"><a class="viewcode-back" href="../../../../../powersimdata.design.generation.tests.html#powersimdata.design.generation.tests.test_clean_capacity_scaling.test_collaborative_three_areas_one_nonparticipating">[docs]</a><span class="k">def</span> <span class="nf">test_collaborative_three_areas_one_nonparticipating</span><span class="p">(</span><span class="n">collaborative_test_targets</span><span class="p">):</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">collaborative_test_targets</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">add_shortfall_to_targets</span><span class="p">(</span><span class="n">targets</span><span class="p">)</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">add_new_capacities_collaborative</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">scenario_length</span><span class="o">=</span><span class="mi">8784</span><span class="p">)</span>
+    <span class="n">expected_return</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3700</span> <span class="o">+</span> <span class="mf">9203.75</span><span class="p">),</span> <span class="p">(</span><span class="mi">4200</span> <span class="o">+</span> <span class="mf">10447.5</span><span class="p">),</span> <span class="mi">5000</span><span class="p">],</span>
+            <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3600</span> <span class="o">+</span> <span class="mi">8955</span><span class="p">),</span> <span class="p">(</span><span class="mi">4100</span> <span class="o">+</span> <span class="mf">10198.75</span><span class="p">),</span> <span class="mi">4000</span><span class="p">],</span>
+        <span class="p">},</span>
+        <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Pacific&quot;</span><span class="p">,</span> <span class="s2">&quot;Atlantic&quot;</span><span class="p">,</span> <span class="s2">&quot;Arctic&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">assert_frame_equal</span><span class="p">(</span>
+        <span class="n">targets</span><span class="p">[[</span><span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">]],</span>
+        <span class="n">expected_return</span><span class="p">[[</span><span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">]],</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_collaborative_two_areas_addl_external"><a class="viewcode-back" href="../../../../../powersimdata.design.generation.tests.html#powersimdata.design.generation.tests.test_clean_capacity_scaling.test_collaborative_two_areas_addl_external">[docs]</a><span class="k">def</span> <span class="nf">test_collaborative_two_areas_addl_external</span><span class="p">(</span><span class="n">collaborative_test_targets</span><span class="p">):</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">collaborative_test_targets</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">targets</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">&quot;Arctic&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;Pacific&quot;</span><span class="p">,</span> <span class="s2">&quot;external_ce_addl_historical_amount&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">4e6</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">add_shortfall_to_targets</span><span class="p">(</span><span class="n">targets</span><span class="p">)</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">add_new_capacities_collaborative</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">scenario_length</span><span class="o">=</span><span class="mi">8784</span><span class="p">)</span>
+    <span class="n">expected_return</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3700</span> <span class="o">+</span> <span class="mf">8833.75</span><span class="p">),</span> <span class="p">(</span><span class="mi">4200</span> <span class="o">+</span> <span class="mf">10027.5</span><span class="p">)],</span>
+            <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">:</span> <span class="p">[(</span><span class="mi">3600</span> <span class="o">+</span> <span class="mi">8595</span><span class="p">),</span> <span class="p">(</span><span class="mi">4100</span> <span class="o">+</span> <span class="mf">9788.75</span><span class="p">)],</span>
+        <span class="p">},</span>
+        <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Pacific&quot;</span><span class="p">,</span> <span class="s2">&quot;Atlantic&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">assert_frame_equal</span><span class="p">(</span>
+        <span class="n">targets</span><span class="p">[[</span><span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">]],</span>
+        <span class="n">expected_return</span><span class="p">[[</span><span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">]],</span>
+    <span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

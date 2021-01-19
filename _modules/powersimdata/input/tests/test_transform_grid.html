@@ -1,0 +1,649 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.input.tests.test_transform_grid &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.input.tests.test_transform_grid</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">copy</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pytest</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.input.change_table</span> <span class="kn">import</span> <span class="n">ChangeTable</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
+
+<span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">([</span><span class="s2">&quot;USA&quot;</span><span class="p">])</span>
+
+
+<div class="viewcode-block" id="ct"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.ct">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+<span class="k">def</span> <span class="nf">ct</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">ChangeTable</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_plant_id"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.get_plant_id">[docs]</a><span class="k">def</span> <span class="nf">get_plant_id</span><span class="p">(</span><span class="n">zone_id</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">):</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;zone_id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">])</span>
+        <span class="o">.</span><span class="n">get_group</span><span class="p">((</span><span class="n">zone_id</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">))</span>
+        <span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">plant_id</span></div>
+
+
+<div class="viewcode-block" id="get_branch_id"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.get_branch_id">[docs]</a><span class="k">def</span> <span class="nf">get_branch_id</span><span class="p">(</span><span class="n">zone_id</span><span class="p">):</span>
+    <span class="n">branch_id</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;from_zone_id&quot;</span><span class="p">,</span> <span class="s2">&quot;to_zone_id&quot;</span><span class="p">])</span>
+        <span class="o">.</span><span class="n">get_group</span><span class="p">((</span><span class="n">zone_id</span><span class="p">,</span> <span class="n">zone_id</span><span class="p">))</span>
+        <span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">branch_id</span></div>
+
+
+<div class="viewcode-block" id="test_that_only_capacities_are_modified_when_scaling_renewable_gen"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_that_only_capacities_are_modified_when_scaling_renewable_gen">[docs]</a><span class="k">def</span> <span class="nf">test_that_only_capacities_are_modified_when_scaling_renewable_gen</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">gen_type</span> <span class="o">=</span> <span class="s2">&quot;solar&quot;</span>
+    <span class="n">zone</span> <span class="o">=</span> <span class="s2">&quot;Utah&quot;</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="mf">1.41</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">scale_plant_capacity</span><span class="p">(</span><span class="n">gen_type</span><span class="p">,</span> <span class="n">zone_name</span><span class="o">=</span><span class="p">{</span><span class="n">zone</span><span class="p">:</span> <span class="n">factor</span><span class="p">})</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">ref_grid</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="n">get_plant_id</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">zone</span><span class="p">],</span> <span class="n">gen_type</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span> <span class="o">!=</span> <span class="n">ref_grid</span>
+    <span class="n">ref_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmin&quot;</span><span class="p">]]</span> <span class="o">*=</span> <span class="n">factor</span>
+    <span class="k">assert</span> <span class="n">new_grid</span> <span class="o">==</span> <span class="n">ref_grid</span></div>
+
+
+<div class="viewcode-block" id="test_scale_gen_capacity_one_zone"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_scale_gen_capacity_one_zone">[docs]</a><span class="k">def</span> <span class="nf">test_scale_gen_capacity_one_zone</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">gen_type</span> <span class="o">=</span> <span class="s2">&quot;coal&quot;</span>
+    <span class="n">zone</span> <span class="o">=</span> <span class="s2">&quot;Colorado&quot;</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="mf">2.0</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">scale_plant_capacity</span><span class="p">(</span><span class="n">gen_type</span><span class="p">,</span> <span class="n">zone_name</span><span class="o">=</span><span class="p">{</span><span class="n">zone</span><span class="p">:</span> <span class="n">factor</span><span class="p">})</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="n">get_plant_id</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">zone</span><span class="p">],</span> <span class="n">gen_type</span><span class="p">)</span>
+
+    <span class="n">pmax</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span>
+    <span class="n">new_pmax</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span> <span class="o">!=</span> <span class="n">grid</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">new_pmax</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">factor</span> <span class="o">*</span> <span class="n">pmax</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">new_pmax</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">factor</span> <span class="o">*</span> <span class="n">pmax</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="test_scale_thermal_gen_gencost_two_types_two_zones"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_scale_thermal_gen_gencost_two_types_two_zones">[docs]</a><span class="k">def</span> <span class="nf">test_scale_thermal_gen_gencost_two_types_two_zones</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">gen_type</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;ng&quot;</span><span class="p">,</span> <span class="s2">&quot;coal&quot;</span><span class="p">]</span>
+    <span class="n">zone</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Louisiana&quot;</span><span class="p">,</span> <span class="s2">&quot;Montana Eastern&quot;</span><span class="p">]</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.8</span><span class="p">,</span> <span class="mf">1.25</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">gen_type</span><span class="p">):</span>
+        <span class="n">ct</span><span class="o">.</span><span class="n">scale_plant_capacity</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">zone_name</span><span class="o">=</span><span class="p">{</span><span class="n">zone</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="n">factor</span><span class="p">[</span><span class="n">i</span><span class="p">]})</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">zone</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">):</span>
+        <span class="n">plant_id</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">get_plant_id</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">z</span><span class="p">],</span> <span class="n">r</span><span class="p">))</span>
+
+    <span class="n">c0</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c0</span>
+    <span class="n">new_c0</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c0</span>
+    <span class="n">c1</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c1</span>
+    <span class="n">new_c1</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c1</span>
+    <span class="n">c2</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c2</span>
+    <span class="n">new_c2</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c2</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span> <span class="o">!=</span> <span class="n">grid</span>
+    <span class="k">assert</span> <span class="n">new_c1</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">c1</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">factor</span><span class="p">,</span> <span class="n">plant_id</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">new_c0</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">f</span> <span class="o">*</span> <span class="n">c0</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">assert</span> <span class="n">new_c2</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">c2</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">/</span> <span class="n">f</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_scale_renewable_gen_gencost_one_zone"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_scale_renewable_gen_gencost_one_zone">[docs]</a><span class="k">def</span> <span class="nf">test_scale_renewable_gen_gencost_one_zone</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">scale_plant_capacity</span><span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="n">zone_name</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Washington&quot;</span><span class="p">:</span> <span class="mf">2.3</span><span class="p">})</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span> <span class="o">!=</span> <span class="n">grid</span>
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c0</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c0</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c1</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c1</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c2</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c2</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_scale_gen_one_plant"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_scale_gen_one_plant">[docs]</a><span class="k">def</span> <span class="nf">test_scale_gen_one_plant</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="mi">3000</span>
+    <span class="n">gen_type</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">type</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="mf">0.33</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">scale_plant_capacity</span><span class="p">(</span><span class="n">gen_type</span><span class="p">,</span> <span class="n">plant_id</span><span class="o">=</span><span class="p">{</span><span class="n">plant_id</span><span class="p">:</span> <span class="n">factor</span><span class="p">})</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">pmax</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span>
+    <span class="n">new_pmax</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span>
+    <span class="n">pmin</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span>
+    <span class="n">new_pmin</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span> <span class="o">!=</span> <span class="n">grid</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">new_pmax</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">factor</span> <span class="o">*</span> <span class="n">pmax</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">new_pmin</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">factor</span> <span class="o">*</span> <span class="n">pmin</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">new_pmax</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span> <span class="o">==</span> <span class="n">factor</span> <span class="o">*</span> <span class="n">pmax</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="n">new_pmin</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span> <span class="o">==</span> <span class="n">factor</span> <span class="o">*</span> <span class="n">pmin</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">gen_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;coal&quot;</span><span class="p">,</span> <span class="s2">&quot;dfo&quot;</span><span class="p">,</span> <span class="s2">&quot;geothermal&quot;</span><span class="p">,</span> <span class="s2">&quot;ng&quot;</span><span class="p">,</span> <span class="s2">&quot;nuclear&quot;</span><span class="p">]:</span>
+        <span class="n">c0</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c0</span>
+        <span class="n">new_c0</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c0</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">new_c0</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">factor</span> <span class="o">*</span> <span class="n">c0</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">new_c0</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span> <span class="o">==</span> <span class="n">factor</span> <span class="o">*</span> <span class="n">c0</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span>
+
+        <span class="n">c1</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c1</span>
+        <span class="n">new_c1</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c1</span>
+        <span class="k">assert</span> <span class="n">new_c1</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">c1</span><span class="p">)</span>
+
+        <span class="n">c2</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c2</span>
+        <span class="n">new_c2</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c2</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">new_c2</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">c2</span> <span class="o">/</span> <span class="n">factor</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">new_c2</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span> <span class="o">==</span> <span class="n">c2</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span> <span class="o">/</span> <span class="n">factor</span></div>
+
+
+<div class="viewcode-block" id="test_scale_gencost_one_plant"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_scale_gencost_one_plant">[docs]</a><span class="k">def</span> <span class="nf">test_scale_gencost_one_plant</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="c1"># This must be the plant ID of a non-zero-cost resource</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="mi">3000</span>
+    <span class="n">gen_type</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">type</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="mf">1.5</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">scale_plant_cost</span><span class="p">(</span><span class="n">gen_type</span><span class="p">,</span> <span class="n">plant_id</span><span class="o">=</span><span class="p">{</span><span class="n">plant_id</span><span class="p">:</span> <span class="n">factor</span><span class="p">})</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">old_gencost</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span>
+    <span class="n">new_gencost</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span>
+    <span class="n">modified_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;c0&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">]</span>
+    <span class="n">non_modified_columns</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">old_gencost</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">modified_columns</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span> <span class="o">!=</span> <span class="n">grid</span>
+    <span class="c1"># Make sure we don&#39;t mess with the plant dataframe</span>
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">)</span>
+    <span class="c1"># Make sure we modify cost coefficient columns and only those columns</span>
+    <span class="k">assert</span> <span class="n">new_gencost</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">modified_columns</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+        <span class="n">old_gencost</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">modified_columns</span><span class="p">]</span> <span class="o">*</span> <span class="n">factor</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">new_gencost</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">non_modified_columns</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+        <span class="n">old_gencost</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">non_modified_columns</span><span class="p">]</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_scale_gencost_two_types_two_zones"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_scale_gencost_two_types_two_zones">[docs]</a><span class="k">def</span> <span class="nf">test_scale_gencost_two_types_two_zones</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">gen_type</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;ng&quot;</span><span class="p">,</span> <span class="s2">&quot;coal&quot;</span><span class="p">]</span>
+    <span class="n">zone</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Louisiana&quot;</span><span class="p">,</span> <span class="s2">&quot;Montana Eastern&quot;</span><span class="p">]</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.8</span><span class="p">,</span> <span class="mf">1.25</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">gen_type</span><span class="p">):</span>
+        <span class="n">ct</span><span class="o">.</span><span class="n">scale_plant_cost</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">zone_name</span><span class="o">=</span><span class="p">{</span><span class="n">zone</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="n">factor</span><span class="p">[</span><span class="n">i</span><span class="p">]})</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">zone</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">):</span>
+        <span class="n">plant_id</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">get_plant_id</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">z</span><span class="p">],</span> <span class="n">r</span><span class="p">))</span>
+
+    <span class="n">old_gencost</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span>
+    <span class="n">new_gencost</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span>
+    <span class="n">modified_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;c0&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">]</span>
+    <span class="n">non_modified_columns</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">old_gencost</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">modified_columns</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span> <span class="o">!=</span> <span class="n">grid</span>
+    <span class="c1"># Make sure we don&#39;t mess with the plant dataframe</span>
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">)</span>
+    <span class="c1"># Make sure we didn&#39;t mess with any other plants</span>
+    <span class="n">changed_plants</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="o">*</span><span class="n">plant_id</span><span class="p">)</span>
+    <span class="n">unchanged_plants</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span> <span class="o">-</span> <span class="n">changed_plants</span>
+    <span class="k">assert</span> <span class="n">old_gencost</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">unchanged_plants</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">new_gencost</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">unchanged_plants</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">factor</span><span class="p">,</span> <span class="n">plant_id</span><span class="p">):</span>
+        <span class="c1"># Make sure we modify cost coefficient columns and only those columns</span>
+        <span class="k">assert</span> <span class="n">new_gencost</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">modified_columns</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+            <span class="n">old_gencost</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">modified_columns</span><span class="p">]</span> <span class="o">*</span> <span class="n">f</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="n">new_gencost</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">non_modified_columns</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+            <span class="n">old_gencost</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">non_modified_columns</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">factor</span><span class="p">,</span> <span class="n">plant_id</span><span class="p">):</span>
+            <span class="c1"># Make sure we modify cost coefficient columns and only those columns</span>
+            <span class="k">assert</span> <span class="n">new_gencost</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">modified_columns</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+                <span class="n">old_gencost</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">modified_columns</span><span class="p">]</span> <span class="o">*</span> <span class="n">f</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="n">new_gencost</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">non_modified_columns</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+                <span class="n">old_gencost</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">non_modified_columns</span><span class="p">]</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_scale_gen_pmin_one_plant"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_scale_gen_pmin_one_plant">[docs]</a><span class="k">def</span> <span class="nf">test_scale_gen_pmin_one_plant</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="c1"># This must be the plant ID of a non-zero-cost resource</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="mi">3000</span>
+    <span class="n">gen_type</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">type</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="mf">1.5</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">scale_plant_pmin</span><span class="p">(</span><span class="n">gen_type</span><span class="p">,</span> <span class="n">plant_id</span><span class="o">=</span><span class="p">{</span><span class="n">plant_id</span><span class="p">:</span> <span class="n">factor</span><span class="p">})</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">old_plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+    <span class="n">new_plant</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">plant</span>
+    <span class="n">modified_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Pmin&quot;</span><span class="p">]</span>
+    <span class="n">non_modified_columns</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">old_plant</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">modified_columns</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">new_plant</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">old_plant</span><span class="p">)</span>
+    <span class="c1"># Make sure we don&#39;t mess with the gencost dataframe</span>
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">])</span>
+    <span class="c1"># Make sure we modify Pmin and only Pmin</span>
+    <span class="k">assert</span> <span class="n">new_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">modified_columns</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+        <span class="n">old_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">modified_columns</span><span class="p">]</span> <span class="o">*</span> <span class="n">factor</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">new_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">non_modified_columns</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+        <span class="n">old_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">non_modified_columns</span><span class="p">]</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_scale_gen_pmin_two_types_two_zones"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_scale_gen_pmin_two_types_two_zones">[docs]</a><span class="k">def</span> <span class="nf">test_scale_gen_pmin_two_types_two_zones</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">gen_type</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;ng&quot;</span><span class="p">,</span> <span class="s2">&quot;coal&quot;</span><span class="p">]</span>
+    <span class="n">zone</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Louisiana&quot;</span><span class="p">,</span> <span class="s2">&quot;Montana Eastern&quot;</span><span class="p">]</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.8</span><span class="p">,</span> <span class="mf">1.25</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">gen_type</span><span class="p">):</span>
+        <span class="n">ct</span><span class="o">.</span><span class="n">scale_plant_pmin</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">zone_name</span><span class="o">=</span><span class="p">{</span><span class="n">zone</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="n">factor</span><span class="p">[</span><span class="n">i</span><span class="p">]})</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">zone</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">):</span>
+        <span class="n">plant_id</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">get_plant_id</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">z</span><span class="p">],</span> <span class="n">r</span><span class="p">))</span>
+
+    <span class="n">old_plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+    <span class="n">new_plant</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">plant</span>
+    <span class="n">modified_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Pmin&quot;</span><span class="p">]</span>
+    <span class="n">non_modified_columns</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">old_plant</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">modified_columns</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">new_plant</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">old_plant</span><span class="p">)</span>
+    <span class="c1"># Make sure we don&#39;t mess with the gencost dataframe</span>
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">])</span>
+    <span class="c1"># Make sure we modify Pmin and only Pmin</span>
+    <span class="n">changed_plants</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="o">*</span><span class="n">plant_id</span><span class="p">)</span>
+    <span class="n">unchanged_plants</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span> <span class="o">-</span> <span class="n">changed_plants</span>
+    <span class="k">assert</span> <span class="n">old_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">unchanged_plants</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">new_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">unchanged_plants</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">factor</span><span class="p">,</span> <span class="n">plant_id</span><span class="p">):</span>
+        <span class="c1"># Make sure we modify cost coefficient columns and only those columns</span>
+        <span class="k">assert</span> <span class="n">new_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">modified_columns</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+            <span class="n">old_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">modified_columns</span><span class="p">]</span> <span class="o">*</span> <span class="n">f</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="n">new_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">non_modified_columns</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+            <span class="n">old_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">non_modified_columns</span><span class="p">]</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_scale_branch_one_zone"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_scale_branch_one_zone">[docs]</a><span class="k">def</span> <span class="nf">test_scale_branch_one_zone</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">zone</span> <span class="o">=</span> <span class="s2">&quot;Washington&quot;</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">scale_branch_capacity</span><span class="p">(</span><span class="n">zone_name</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Washington&quot;</span><span class="p">:</span> <span class="n">factor</span><span class="p">})</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">branch_id</span> <span class="o">=</span> <span class="n">get_branch_id</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">zone</span><span class="p">])</span>
+
+    <span class="n">capacity</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">rateA</span>
+    <span class="n">new_capacity</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">rateA</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">x</span>
+    <span class="n">new_x</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">x</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span> <span class="o">!=</span> <span class="n">grid</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">new_capacity</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">factor</span> <span class="o">*</span> <span class="n">capacity</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">new_capacity</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_id</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">factor</span> <span class="o">*</span> <span class="n">capacity</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_id</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">new_x</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="n">factor</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">new_x</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_id</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_id</span><span class="p">]</span> <span class="o">/</span> <span class="n">factor</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_scale_branch_two_zones"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_scale_branch_two_zones">[docs]</a><span class="k">def</span> <span class="nf">test_scale_branch_two_zones</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">1.25</span><span class="p">]</span>
+    <span class="n">zone</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;West Virginia&quot;</span><span class="p">,</span> <span class="s2">&quot;Nevada&quot;</span><span class="p">]</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">scale_branch_capacity</span><span class="p">(</span><span class="n">zone_name</span><span class="o">=</span><span class="p">{</span><span class="n">z</span><span class="p">:</span> <span class="n">f</span> <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">zone</span><span class="p">,</span> <span class="n">factor</span><span class="p">)})</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">branch_id</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">zone</span><span class="p">:</span>
+        <span class="n">branch_id</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">get_branch_id</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">z</span><span class="p">]))</span>
+
+    <span class="n">capacity</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">rateA</span>
+    <span class="n">new_capacity</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">rateA</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">x</span>
+    <span class="n">new_x</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">x</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">factor</span><span class="p">,</span> <span class="n">branch_id</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">new_capacity</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">f</span> <span class="o">*</span> <span class="n">capacity</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">assert</span> <span class="n">new_x</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">/</span> <span class="n">f</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_scale_one_branch"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_scale_one_branch">[docs]</a><span class="k">def</span> <span class="nf">test_scale_one_branch</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">branch_id</span> <span class="o">=</span> <span class="mi">11111</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="mf">1.62</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">scale_branch_capacity</span><span class="p">(</span><span class="n">branch_id</span><span class="o">=</span><span class="p">{</span><span class="n">branch_id</span><span class="p">:</span> <span class="n">factor</span><span class="p">})</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">capacity</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">rateA</span>
+    <span class="n">new_capacity</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">rateA</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">x</span>
+    <span class="n">new_x</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">x</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span> <span class="o">!=</span> <span class="n">grid</span>
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">new_capacity</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">factor</span> <span class="o">*</span> <span class="n">capacity</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">new_capacity</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_id</span><span class="p">]</span> <span class="o">==</span> <span class="n">factor</span> <span class="o">*</span> <span class="n">capacity</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_id</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">new_x</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="n">factor</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">new_x</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_id</span><span class="p">]</span> <span class="o">==</span> <span class="n">x</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_id</span><span class="p">]</span> <span class="o">/</span> <span class="n">factor</span></div>
+
+
+<div class="viewcode-block" id="test_scale_dcline"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_scale_dcline">[docs]</a><span class="k">def</span> <span class="nf">test_scale_dcline</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">dcline_id</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">]</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.2</span><span class="p">,</span> <span class="mf">1.6</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">scale_dcline_capacity</span><span class="p">({</span><span class="n">i</span><span class="p">:</span> <span class="n">f</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">dcline_id</span><span class="p">,</span> <span class="n">factor</span><span class="p">)})</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">pmin</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">Pmin</span>
+    <span class="n">new_pmin</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">Pmin</span>
+    <span class="n">pmax</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">Pmax</span>
+    <span class="n">new_pmax</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">Pmax</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">status</span>
+    <span class="n">new_status</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">status</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span> <span class="o">!=</span> <span class="n">grid</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">new_status</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">status</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">new_pmin</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">pmin</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">new_pmax</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">pmax</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">dcline_id</span><span class="p">,</span> <span class="n">factor</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">new_pmin</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">f</span> <span class="o">*</span> <span class="n">pmin</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="n">new_pmax</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">f</span> <span class="o">*</span> <span class="n">pmax</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="n">status</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="k">assert</span> <span class="n">new_status</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">f</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="test_add_branch"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_add_branch">[docs]</a><span class="k">def</span> <span class="nf">test_add_branch</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">new_branch</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span><span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="mi">150</span><span class="p">,</span> <span class="s2">&quot;from_bus_id&quot;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="s2">&quot;to_bus_id&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="mi">250</span><span class="p">,</span> <span class="s2">&quot;from_bus_id&quot;</span><span class="p">:</span> <span class="mi">8000</span><span class="p">,</span> <span class="s2">&quot;to_bus_id&quot;</span><span class="p">:</span> <span class="mi">30000</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span> <span class="s2">&quot;from_bus_id&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;to_bus_id&quot;</span><span class="p">:</span> <span class="mi">655</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="mi">125</span><span class="p">,</span> <span class="s2">&quot;from_bus_id&quot;</span><span class="p">:</span> <span class="mi">3001005</span><span class="p">,</span> <span class="s2">&quot;to_bus_id&quot;</span><span class="p">:</span> <span class="mi">3008157</span><span class="p">},</span>
+    <span class="p">]</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">add_branch</span><span class="p">(</span><span class="n">new_branch</span><span class="p">)</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">new_capacity</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">rateA</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">new_index</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">old_index</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">index</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+        <span class="n">new_index</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_branch</span><span class="p">)</span> <span class="p">:],</span>
+        <span class="nb">range</span><span class="p">(</span><span class="n">old_index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">old_index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_branch</span><span class="p">)),</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+        <span class="n">new_capacity</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_branch</span><span class="p">)</span> <span class="p">:],</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ac</span><span class="p">[</span><span class="s2">&quot;capacity&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">ac</span> <span class="ow">in</span> <span class="n">new_branch</span><span class="p">]),</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_add_dcline"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_add_dcline">[docs]</a><span class="k">def</span> <span class="nf">test_add_dcline</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">new_dcline</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span><span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="mi">2000</span><span class="p">,</span> <span class="s2">&quot;from_bus_id&quot;</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="s2">&quot;to_bus_id&quot;</span><span class="p">:</span> <span class="mi">2000</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="mi">1000</span><span class="p">,</span> <span class="s2">&quot;from_bus_id&quot;</span><span class="p">:</span> <span class="mi">3001001</span><span class="p">,</span> <span class="s2">&quot;to_bus_id&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="mi">8000</span><span class="p">,</span> <span class="s2">&quot;from_bus_id&quot;</span><span class="p">:</span> <span class="mi">12000</span><span class="p">,</span> <span class="s2">&quot;to_bus_id&quot;</span><span class="p">:</span> <span class="mi">5996</span><span class="p">},</span>
+    <span class="p">]</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">add_dcline</span><span class="p">(</span><span class="n">new_dcline</span><span class="p">)</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">new_pmin</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">Pmin</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">new_pmax</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">new_index</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">old_index</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">index</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+        <span class="n">new_index</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_dcline</span><span class="p">)</span> <span class="p">:],</span>
+        <span class="nb">range</span><span class="p">(</span><span class="n">old_index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">old_index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_dcline</span><span class="p">)),</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+        <span class="n">new_pmin</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_dcline</span><span class="p">)</span> <span class="p">:],</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">dc</span><span class="p">[</span><span class="s2">&quot;capacity&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">dc</span> <span class="ow">in</span> <span class="n">new_dcline</span><span class="p">]),</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+        <span class="n">new_pmax</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_dcline</span><span class="p">)</span> <span class="p">:],</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">dc</span><span class="p">[</span><span class="s2">&quot;capacity&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">dc</span> <span class="ow">in</span> <span class="n">new_dcline</span><span class="p">]),</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_add_gen_add_entries_in_plant_data_frame"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_add_gen_add_entries_in_plant_data_frame">[docs]</a><span class="k">def</span> <span class="nf">test_add_gen_add_entries_in_plant_data_frame</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">new_plant</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="mi">2050363</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="mi">85</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span> <span class="s2">&quot;Pmin&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="mi">60</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;wind_offshore&quot;</span><span class="p">,</span> <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="mi">13802</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="mi">175</span><span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;ng&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="mi">2010687</span><span class="p">,</span>
+            <span class="s2">&quot;Pmin&quot;</span><span class="p">:</span> <span class="mi">25</span><span class="p">,</span>
+            <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="mi">400</span><span class="p">,</span>
+            <span class="s2">&quot;c0&quot;</span><span class="p">:</span> <span class="mi">1500</span><span class="p">,</span>
+            <span class="s2">&quot;c1&quot;</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
+            <span class="s2">&quot;c2&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">]</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">add_plant</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">new_pmin</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">new_pmax</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">new_status</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">new_index</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">old_index</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+        <span class="n">new_index</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)</span> <span class="p">:],</span>
+        <span class="nb">range</span><span class="p">(</span><span class="n">old_index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">old_index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)),</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+        <span class="n">new_pmin</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)</span> <span class="p">:],</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;Pmin&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="s2">&quot;Pmin&quot;</span> <span class="ow">in</span> <span class="n">p</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">else</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">new_plant</span><span class="p">]),</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+        <span class="n">new_pmax</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)</span> <span class="p">:],</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">new_plant</span><span class="p">])</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">new_status</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)</span> <span class="p">:],</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)))</span></div>
+
+
+<div class="viewcode-block" id="test_add_gen_add_entries_in_gencost_data_frame"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_add_gen_add_entries_in_gencost_data_frame">[docs]</a><span class="k">def</span> <span class="nf">test_add_gen_add_entries_in_gencost_data_frame</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">new_plant</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="mi">2050363</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="mi">15</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="mi">555</span><span class="p">,</span> <span class="s2">&quot;Pmin&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="mi">60</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;wind_offshore&quot;</span><span class="p">,</span> <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="mi">60123</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="mi">175</span><span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;ng&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="mi">2010687</span><span class="p">,</span>
+            <span class="s2">&quot;Pmin&quot;</span><span class="p">:</span> <span class="mi">25</span><span class="p">,</span>
+            <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="mi">400</span><span class="p">,</span>
+            <span class="s2">&quot;c0&quot;</span><span class="p">:</span> <span class="mi">1500</span><span class="p">,</span>
+            <span class="s2">&quot;c1&quot;</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
+            <span class="s2">&quot;c2&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">]</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">add_plant</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">new_c0</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c0</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">new_c1</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c1</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">new_c2</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">c2</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">new_type</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">new_startup</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">startup</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">new_shutdown</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shutdown</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">new_n</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">n</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">new_index</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">old_index</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;after&quot;</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+        <span class="n">new_index</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)</span> <span class="p">:],</span>
+        <span class="nb">range</span><span class="p">(</span><span class="n">old_index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">old_index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)),</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+        <span class="n">new_c0</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)</span> <span class="p">:],</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;c0&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="s2">&quot;c0&quot;</span> <span class="ow">in</span> <span class="n">p</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">else</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">new_plant</span><span class="p">]),</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+        <span class="n">new_c1</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)</span> <span class="p">:],</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;c1&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="s2">&quot;c1&quot;</span> <span class="ow">in</span> <span class="n">p</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">else</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">new_plant</span><span class="p">]),</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+        <span class="n">new_c2</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)</span> <span class="p">:],</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;c2&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="s2">&quot;c2&quot;</span> <span class="ow">in</span> <span class="n">p</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">else</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">new_plant</span><span class="p">]),</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">new_type</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)</span> <span class="p">:],</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)))</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+        <span class="n">new_startup</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)</span> <span class="p">:],</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">))</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span>
+        <span class="n">new_shutdown</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)</span> <span class="p">:],</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">))</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">new_n</span><span class="p">[</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)</span> <span class="p">:],</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">3</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_plant</span><span class="p">)))</span></div>
+
+
+<div class="viewcode-block" id="test_add_storage"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_add_storage">[docs]</a><span class="k">def</span> <span class="nf">test_add_storage</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">storage</span> <span class="o">=</span> <span class="p">{</span><span class="mi">2021005</span><span class="p">:</span> <span class="mf">116.0</span><span class="p">,</span> <span class="mi">2028827</span><span class="p">:</span> <span class="mf">82.5</span><span class="p">,</span> <span class="mi">2028060</span><span class="p">:</span> <span class="mf">82.5</span><span class="p">}</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">add_storage_capacity</span><span class="p">(</span><span class="n">storage</span><span class="p">)</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">pmin</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">Pmin</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">pmax</span> <span class="o">=</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">pmin</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">storage</span><span class="o">.</span><span class="n">values</span><span class="p">())))</span>
+    <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">pmax</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">storage</span><span class="o">.</span><span class="n">values</span><span class="p">())))</span></div>
+
+
+<div class="viewcode-block" id="test_add_bus"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_grid.test_add_bus">[docs]</a><span class="k">def</span> <span class="nf">test_add_bus</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
+    <span class="n">prev_num_buses</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="n">prev_max_bus</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">prev_num_subs</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">sub</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_bus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="c1"># These two are buses at new locations</span>
+        <span class="p">{</span><span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="mi">40</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="mf">50.5</span><span class="p">,</span> <span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Pd&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;baseKV&quot;</span><span class="p">:</span> <span class="mi">69</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mf">40.5</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mi">50</span><span class="p">,</span> <span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="mi">201</span><span class="p">,</span> <span class="s2">&quot;Pd&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;baseKV&quot;</span><span class="p">:</span> <span class="mi">230</span><span class="p">},</span>
+        <span class="c1"># This one is at the lat/lon of an existing substation</span>
+        <span class="p">{</span><span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="mf">36.0155</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mf">114.738</span><span class="p">,</span> <span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="mi">208</span><span class="p">,</span> <span class="s2">&quot;Pd&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;baseKV&quot;</span><span class="p">:</span> <span class="mi">345</span><span class="p">},</span>
+    <span class="p">]</span>
+    <span class="n">expected_interconnects</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;Eastern&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">)</span>
+    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="o">==</span> <span class="n">prev_num_buses</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_bus&quot;</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">new_bus</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_bus&quot;</span><span class="p">]):</span>
+        <span class="n">new_bus_id</span> <span class="o">=</span> <span class="n">prev_max_bus</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">i</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">new_bus</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">new_bus_id</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">==</span> <span class="n">v</span>
+        <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">new_bus_id</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">expected_interconnects</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+    <span class="c1"># Ensure that we still match with the other dataframes that matter</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_grid</span><span class="o">.</span><span class="n">bus</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_grid</span><span class="o">.</span><span class="n">bus2sub</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_grid</span><span class="o">.</span><span class="n">bus2sub</span><span class="o">.</span><span class="n">sub_id</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_grid</span><span class="o">.</span><span class="n">sub</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_grid</span><span class="o">.</span><span class="n">sub</span><span class="p">)</span> <span class="o">==</span> <span class="n">prev_num_subs</span> <span class="o">+</span> <span class="mi">2</span>
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">bus2sub</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus2sub</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="k">assert</span> <span class="n">new_grid</span><span class="o">.</span><span class="n">sub</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">grid</span><span class="o">.</span><span class="n">sub</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">dtype</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

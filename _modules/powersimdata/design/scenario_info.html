@@ -1,0 +1,394 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.design.scenario_info &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.design.scenario_info</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.usa_tamu_model</span> <span class="kn">import</span> <span class="n">area_to_loadzone</span>
+
+
+<span class="k">def</span> <span class="nf">_check_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check if the state of the scenario object is &#39;analyze&#39;.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario:</span>
+<span class="sd">        scenario instance</span>
+<span class="sd">    :raise TypeError: if the scenario is not in &#39;analyze&#39; state.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="s2">&quot;analyze&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Scenario state must be &#39;analyze.&#39;&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ScenarioInfo"><a class="viewcode-back" href="../../../powersimdata.design.html#powersimdata.design.scenario_info.ScenarioInfo">[docs]</a><span class="k">class</span> <span class="nc">ScenarioInfo</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Gather information from previous scenarios for capacity scaling.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance</span>
+<span class="sd">    :raise TypeError: if the scenario is not in &#39;analyze&#39; state.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario</span><span class="p">):</span>
+        <span class="n">_check_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pg</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_pg</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">demand</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_demand</span><span class="p">()</span>
+        <span class="n">solar</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_solar</span><span class="p">()</span>
+        <span class="n">wind</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_wind</span><span class="p">()</span>
+        <span class="n">hydro</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_hydro</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">profile</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="n">solar</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="n">wind</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">:</span> <span class="n">hydro</span><span class="p">}</span>
+
+<div class="viewcode-block" id="ScenarioInfo.area_to_loadzone"><a class="viewcode-back" href="../../../powersimdata.design.html#powersimdata.design.scenario_info.ScenarioInfo.area_to_loadzone">[docs]</a>    <span class="k">def</span> <span class="nf">area_to_loadzone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Map the query area to a list of loadzones. For more info, see</span>
+<span class="sd">            powersimdata.design.scenario_info.area_to_loadzone().</span>
+
+<span class="sd">        :param str area: one of: *loadzone*, *state*, *state abbreviation*,</span>
+<span class="sd">            *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">        :param str area_type: one of: *&#39;loadzone&#39;*, *&#39;state&#39;*,</span>
+<span class="sd">            *&#39;state_abbr&#39;*, *&#39;interconnect&#39;*</span>
+<span class="sd">        :return: (*set*) -- set of loadzones associated to the query area</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_check_time_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check if the start_time and end_time define a valid time range of</span>
+<span class="sd">            the given scenario</span>
+
+<span class="sd">        :param str start_time: start timestamp in the format</span>
+<span class="sd">            *&#39;YYYY-MM-DD HH:MM:SS&#39;*</span>
+<span class="sd">        :param str end_time: end timestamp in the format</span>
+<span class="sd">            *&#39;YYYY-MM-DD HH:MM:SS&#39;*</span>
+<span class="sd">        :return: (*tuple*) -- a pair of integer indicates the index of</span>
+<span class="sd">            the start timestamp and end timestamp in self.pg</span>
+<span class="sd">        :raise ValueError: if the time range is invalid.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">start_time</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pg</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">end_time</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pg</span><span class="o">.</span><span class="n">index</span><span class="p">):</span>
+            <span class="n">available_times</span> <span class="o">=</span> <span class="s2">&quot;Available time range [</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pg</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+                <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pg</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span>
+            <span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Time range out of scope! </span><span class="si">{</span><span class="n">available_times</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">start_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pg</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span><span class="n">start_time</span><span class="p">)</span>
+        <span class="n">end_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pg</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span><span class="n">end_time</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">start_i</span> <span class="o">&gt;</span> <span class="n">end_i</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid time range: &quot;</span> <span class="s2">&quot;start_time falls behind end_time!&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">start_i</span><span class="p">,</span> <span class="n">end_i</span>
+
+<div class="viewcode-block" id="ScenarioInfo.get_available_resource"><a class="viewcode-back" href="../../../powersimdata.design.html#powersimdata.design.scenario_info.ScenarioInfo.get_available_resource">[docs]</a>    <span class="k">def</span> <span class="nf">get_available_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the available resources of a specific area in the grid of the</span>
+<span class="sd">            given scenario</span>
+
+<span class="sd">        :param str area: one of: *loadzone*, *state*, *state abbreviation*,</span>
+<span class="sd">            *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">        :param str area_type: one of: *&#39;loadzone&#39;*, *&#39;state&#39;*,</span>
+<span class="sd">            *&#39;state_abbr&#39;*, *&#39;interconnect&#39;*</span>
+<span class="sd">        :return: (*list*) -- a list of available resources in the query area</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">loadzone_set</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="p">)</span>
+        <span class="n">available_resources</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">loadzone_set</span><span class="p">)</span>
+        <span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">available_resources</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="ScenarioInfo.get_demand"><a class="viewcode-back" href="../../../powersimdata.design.html#powersimdata.design.scenario_info.ScenarioInfo.get_demand">[docs]</a>    <span class="k">def</span> <span class="nf">get_demand</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the total demand of the query area during the query time</span>
+<span class="sd">            range of the given scenario</span>
+
+<span class="sd">        :param str area: one of: *loadzone*, *state*, *state abbreviation*,</span>
+<span class="sd">            *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">        :param str start_time: start timestamp in the format</span>
+<span class="sd">            *&#39;YYYY-MM-DD HH:MM:SS&#39;*</span>
+<span class="sd">        :param str end_time: end timestamp in the format</span>
+<span class="sd">            *&#39;YYYY-MM-DD HH:MM:SS&#39;*</span>
+<span class="sd">        :param str area_type: one of: *&#39;loadzone&#39;*, *&#39;state&#39;*,</span>
+<span class="sd">            *&#39;state_abbr&#39;*, *&#39;interconnect&#39;*</span>
+<span class="sd">        :return: (*float*) -- total demand (in MWh)</span>
+<span class="sd">            based on the specified parameters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">loadzone_set</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_time_range</span><span class="p">(</span><span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">)</span>
+        <span class="n">total_demand</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">demand</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+                <span class="n">start_time</span><span class="p">:</span><span class="n">end_time</span><span class="p">,</span>
+                <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">loadzone</span><span class="p">]</span> <span class="k">for</span> <span class="n">loadzone</span> <span class="ow">in</span> <span class="n">loadzone_set</span><span class="p">],</span>
+            <span class="p">]</span>
+            <span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">total_demand</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ScenarioInfo.get_capacity"><a class="viewcode-back" href="../../../powersimdata.design.html#powersimdata.design.scenario_info.ScenarioInfo.get_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">get_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gentype</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the total capacity of the query gentype in the query area</span>
+<span class="sd">            of the given scenario</span>
+
+<span class="sd">        :param str gentype: type of generator</span>
+<span class="sd">        :param str area: one of: *loadzone*, *state*, *state abbreviation*,</span>
+<span class="sd">            *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">        :param str area_type: one of: *&#39;loadzone&#39;*, *&#39;state&#39;*,</span>
+<span class="sd">            *&#39;state_abbr&#39;*, *&#39;interconnect&#39;*</span>
+<span class="sd">        :return: (*float*) -- total capacity (in MW) based on the</span>
+<span class="sd">            specified parameters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">loadzone_set</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="p">)</span>
+        <span class="n">total_capacity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span>
+            <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">gentype</span><span class="p">)</span>
+            <span class="o">&amp;</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">loadzone_set</span><span class="p">))</span>
+        <span class="p">][</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">total_capacity</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;No such type of generator in the area specified!&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">total_capacity</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ScenarioInfo.get_generation"><a class="viewcode-back" href="../../../powersimdata.design.html#powersimdata.design.scenario_info.ScenarioInfo.get_generation">[docs]</a>    <span class="k">def</span> <span class="nf">get_generation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gentype</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the total generation of the query gentype in the query</span>
+<span class="sd">            area during the query time range of the given scenario</span>
+
+<span class="sd">        :param str gentype: type of generator</span>
+<span class="sd">        :param str area: one of: *loadzone*, *state*, *state abbreviation*,</span>
+<span class="sd">            *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">        :param str start_time: start timestamp in the format</span>
+<span class="sd">            *&#39;YYYY-MM-DD HH:MM:SS&#39;*</span>
+<span class="sd">        :param str end_time: end timestamp in the format</span>
+<span class="sd">            *&#39;YYYY-MM-DD HH:MM:SS&#39;*</span>
+<span class="sd">        :param str area_type: one of: *&#39;loadzone&#39;*, *&#39;state&#39;*,</span>
+<span class="sd">            *&#39;state_abbr&#39;*, *&#39;interconnect&#39;*</span>
+<span class="sd">        :return: (*float*) -- total generation (in MWh)</span>
+<span class="sd">            based on the specified parameters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">loadzone_set</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="p">)</span>
+        <span class="n">plant_id_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span>
+                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">gentype</span><span class="p">)</span>
+                <span class="o">&amp;</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">loadzone_set</span><span class="p">))</span>
+            <span class="p">]</span><span class="o">.</span><span class="n">index</span>
+        <span class="p">)</span>
+        <span class="n">query_pg_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pg</span><span class="p">[</span><span class="n">plant_id_list</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_time_range</span><span class="p">(</span><span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">)</span>
+        <span class="n">total_generation</span> <span class="o">=</span> <span class="n">query_pg_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">start_time</span><span class="p">:</span><span class="n">end_time</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">total_generation</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ScenarioInfo.get_profile_resource"><a class="viewcode-back" href="../../../powersimdata.design.html#powersimdata.design.scenario_info.ScenarioInfo.get_profile_resource">[docs]</a>    <span class="k">def</span> <span class="nf">get_profile_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gentype</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the total resource from profile of the query gentype in</span>
+<span class="sd">            the query area during the query time range of the given scenario</span>
+
+<span class="sd">        :param str gentype: type of generator</span>
+<span class="sd">        :param str area: one of: *loadzone*, *state*, *state abbreviation*,</span>
+<span class="sd">            *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">        :param str start_time: start timestamp in the format</span>
+<span class="sd">            *&#39;YYYY-MM-DD HH:MM:SS&#39;*</span>
+<span class="sd">        :param str end_time: end timestamp in the format</span>
+<span class="sd">            *&#39;YYYY-MM-DD HH:MM:SS&#39;*</span>
+<span class="sd">        :param str area_type: one of: *&#39;loadzone&#39;*, *&#39;state&#39;*,</span>
+<span class="sd">            *&#39;state_abbr&#39;*, *&#39;interconnect&#39;*</span>
+<span class="sd">        :return: (*float*) -- total resource from profile (in MWh)</span>
+<span class="sd">            based on the specified parameters</span>
+<span class="sd">        :raise ValueError: if the resource type is invalid</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">loadzone_set</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="p">)</span>
+        <span class="n">plant_id_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span>
+                <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">gentype</span><span class="p">)</span>
+                <span class="o">&amp;</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">loadzone_set</span><span class="p">))</span>
+            <span class="p">]</span><span class="o">.</span><span class="n">index</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">gentype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">profile</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid resource type&quot;</span><span class="p">)</span>
+        <span class="n">query_profile_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">profile</span><span class="p">[</span><span class="n">gentype</span><span class="p">][</span><span class="n">plant_id_list</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_time_range</span><span class="p">(</span><span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">)</span>
+        <span class="n">total_resource</span> <span class="o">=</span> <span class="n">query_profile_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">start_time</span><span class="p">:</span><span class="n">end_time</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">total_resource</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ScenarioInfo.get_curtailment"><a class="viewcode-back" href="../../../powersimdata.design.html#powersimdata.design.scenario_info.ScenarioInfo.get_curtailment">[docs]</a>    <span class="k">def</span> <span class="nf">get_curtailment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gentype</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the curtailment of the query gentype in the query</span>
+<span class="sd">            area during the query time range of the given scenario</span>
+
+<span class="sd">        :param str gentype: type of generator</span>
+<span class="sd">        :param str area: one of: *loadzone*, *state*, *state abbreviation*,</span>
+<span class="sd">            *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">        :param str start_time: start timestamp in the format</span>
+<span class="sd">            *&#39;YYYY-MM-DD HH:MM:SS&#39;*</span>
+<span class="sd">        :param str end_time: end timestamp in the format</span>
+<span class="sd">            *&#39;YYYY-MM-DD HH:MM:SS&#39;*</span>
+<span class="sd">        :param str area_type: one of: *&#39;loadzone&#39;*, *&#39;state&#39;*,</span>
+<span class="sd">            *&#39;state_abbr&#39;*, *&#39;interconnect&#39;*</span>
+<span class="sd">        :return: (*float*) -- curtailment percentage (rounded up to</span>
+<span class="sd">            two decimals) based on the specified parameters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">total_generation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_generation</span><span class="p">(</span>
+            <span class="n">gentype</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">area_type</span>
+        <span class="p">)</span>
+        <span class="n">total_profile_resource</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_profile_resource</span><span class="p">(</span>
+            <span class="n">gentype</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">area_type</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">total_profile_resource</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">total_generation</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span>
+        <span class="n">curtailment</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="p">(</span><span class="n">total_generation</span> <span class="o">/</span> <span class="n">total_profile_resource</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">curtailment</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ScenarioInfo.get_capacity_factor"><a class="viewcode-back" href="../../../powersimdata.design.html#powersimdata.design.scenario_info.ScenarioInfo.get_capacity_factor">[docs]</a>    <span class="k">def</span> <span class="nf">get_capacity_factor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gentype</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the capacity factor of the query gentype in the</span>
+<span class="sd">            query area during the query time range of the given scenario</span>
+
+<span class="sd">        :param str gentype: type of generator</span>
+<span class="sd">        :param str area: one of: *loadzone*, *state*, *state abbreviation*,</span>
+<span class="sd">            *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">        :param str start_time: start timestamp in the format</span>
+<span class="sd">            *&#39;YYYY-MM-DD HH:MM:SS&#39;*</span>
+<span class="sd">        :param str end_time: end timestamp in the format</span>
+<span class="sd">            *&#39;YYYY-MM-DD HH:MM:SS&#39;*</span>
+<span class="sd">        :param str area_type: one of: *&#39;loadzone&#39;*, *&#39;state&#39;*,</span>
+<span class="sd">            *&#39;state_abbr&#39;*, *&#39;interconnect&#39;*</span>
+<span class="sd">        :return: (*float*) -- capacity factor based on the specified parameters</span>
+<span class="sd">        :raise ZeroDivisionError: if no generator of gentype is found in the</span>
+<span class="sd">            area</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">start_i</span><span class="p">,</span> <span class="n">end_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_time_range</span><span class="p">(</span><span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">)</span>
+        <span class="n">total_hours</span> <span class="o">=</span> <span class="n">end_i</span> <span class="o">-</span> <span class="n">start_i</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">total_capacity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">(</span><span class="n">gentype</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">total_capacity</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ZeroDivisionError</span><span class="p">(</span>
+                <span class="s2">&quot;No such type of generator in the area &quot;</span> <span class="s2">&quot;specified. Division by zero.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">total_generation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_generation</span><span class="p">(</span>
+            <span class="n">gentype</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">area_type</span>
+        <span class="p">)</span>
+        <span class="n">cf</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">total_generation</span> <span class="o">/</span> <span class="p">(</span><span class="n">total_hours</span> <span class="o">*</span> <span class="n">total_capacity</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">cf</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ScenarioInfo.get_no_congest_capacity_factor"><a class="viewcode-back" href="../../../powersimdata.design.html#powersimdata.design.scenario_info.ScenarioInfo.get_no_congest_capacity_factor">[docs]</a>    <span class="k">def</span> <span class="nf">get_no_congest_capacity_factor</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">gentype</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Calculate the no congestion capacity factor of the query gentype</span>
+<span class="sd">            in the query area during the query time range of the given scenario</span>
+
+<span class="sd">        :param str gentype: type of generator</span>
+<span class="sd">        :param str area: one of: *loadzone*, *state*, *state abbreviation*,</span>
+<span class="sd">            *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">        :param str start_time: start timestamp in the format</span>
+<span class="sd">            *&#39;YYYY-MM-DD HH:MM:SS&#39;*</span>
+<span class="sd">        :param str end_time: end timestamp in the format</span>
+<span class="sd">            *&#39;YYYY-MM-DD HH:MM:SS&#39;*</span>
+<span class="sd">        :param str area_type: one of: *&#39;loadzone&#39;*, *&#39;state&#39;*,</span>
+<span class="sd">            *&#39;state_abbr&#39;*, *&#39;interconnect&#39;*</span>
+<span class="sd">        :return: (*float*) -- no congestion capacity factor based</span>
+<span class="sd">            on the specified parameters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_capacity_factor</span><span class="p">(</span><span class="n">gentype</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">area_type</span><span class="p">)</span>
+        <span class="n">curtailment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_curtailment</span><span class="p">(</span>
+            <span class="n">gentype</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">start_time</span><span class="p">,</span> <span class="n">end_time</span><span class="p">,</span> <span class="n">area_type</span>
+        <span class="p">)</span>
+        <span class="n">no_congest_cf</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">cf</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">curtailment</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">no_congest_cf</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

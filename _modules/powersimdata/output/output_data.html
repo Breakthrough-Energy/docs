@@ -1,0 +1,234 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.output.output_data &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.output.output_data</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">scipy.sparse</span> <span class="kn">import</span> <span class="n">coo_matrix</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.context</span> <span class="kn">import</span> <span class="n">Context</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.input_data</span> <span class="kn">import</span> <span class="n">get_bus_demand</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
+
+
+<div class="viewcode-block" id="OutputData"><a class="viewcode-back" href="../../../powersimdata.output.html#powersimdata.output.output_data.OutputData">[docs]</a><span class="k">class</span> <span class="nc">OutputData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Load output data.</span>
+
+<span class="sd">    :param str data_loc: data location.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_loc</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span> <span class="o">=</span> <span class="n">Context</span><span class="o">.</span><span class="n">get_data_access</span><span class="p">(</span><span class="n">data_loc</span><span class="p">)</span>
+
+<div class="viewcode-block" id="OutputData.get_data"><a class="viewcode-back" href="../../../powersimdata.output.html#powersimdata.output.output_data.OutputData.get_data">[docs]</a>    <span class="k">def</span> <span class="nf">get_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_id</span><span class="p">,</span> <span class="n">field_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns data either from server or from local directory.</span>
+
+<span class="sd">        :param str scenario_id: scenario id.</span>
+<span class="sd">        :param str field_name: *&#39;PG&#39;*, *&#39;PF&#39;*, *&#39;LMP&#39;*, *&#39;CONGU&#39;*, *&#39;CONGL&#39;*,</span>
+<span class="sd">            *&#39;AVERAGED_CONG&#39;*, *&#39;STORAGE_PG&#39;* or *&#39;STORAGE_E&#39;*.</span>
+<span class="sd">        :return: (*pandas.DataFrame*) -- specified field as a data frame.</span>
+<span class="sd">        :raises FileNotFoundError: if file not found on local machine.</span>
+<span class="sd">        :raises ValueError: if second argument is not an allowable field.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_check_field</span><span class="p">(</span><span class="n">field_name</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Loading </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">field_name</span><span class="p">)</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">scenario_id</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">field_name</span> <span class="o">+</span> <span class="s2">&quot;.pkl&quot;</span>
+        <span class="n">from_dir</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">OUTPUT_DIR</span>
+        <span class="n">filepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_pickle</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">pickle</span><span class="o">.</span><span class="n">UnpicklingError</span><span class="p">:</span>
+            <span class="n">err_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Unable to unpickle </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">, possibly corrupted in download.&quot;</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2"> not found on local machine&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">copy_from</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_pickle</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span></div></div>
+
+
+<span class="k">def</span> <span class="nf">_check_field</span><span class="p">(</span><span class="n">field_name</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Checks field name.</span>
+
+<span class="sd">    :param str field_name: *&#39;PG&#39;*, *&#39;PF&#39;*, *&#39;PF_DCLINE&#39;*, *&#39;LMP&#39;*, *&#39;CONGU&#39;*,</span>
+<span class="sd">        *&#39;CONGL&#39;*, *&#39;AVERAGED_CONG&#39;*, *&#39;STORAGE_PG&#39;*, *&#39;STORAGE_E&#39;*,</span>
+<span class="sd">        or *&#39;LOAD_SHED&#39;*</span>
+<span class="sd">    :raises ValueError: if not *&#39;PG&#39;*, *&#39;PF&#39;*, *&#39;PF_DCLINE&#39;*, *&#39;LMP&#39;*,</span>
+<span class="sd">        *&#39;CONGU&#39;*, or *&#39;CONGL&#39;*, *&#39;AVERAGED_CONG&#39;*, *&#39;STORAGE_PG&#39;*,</span>
+<span class="sd">        *&#39;STORAGE_E&#39;*, or *&#39;LOAD_SHED&#39;*.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">possible</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;PG&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;PF&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;PF_DCLINE&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;LMP&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;CONGU&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;CONGL&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;AVERAGED_CONG&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;STORAGE_PG&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;STORAGE_E&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;LOAD_SHED&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="k">if</span> <span class="n">field_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only </span><span class="si">%s</span><span class="s2"> data can be loaded&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="construct_load_shed"><a class="viewcode-back" href="../../../powersimdata.output.html#powersimdata.output.output_data.construct_load_shed">[docs]</a><span class="k">def</span> <span class="nf">construct_load_shed</span><span class="p">(</span><span class="n">scenario_info</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">infeasibilities</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Constructs load_shed dataframe from relevant scenario/grid data.</span>
+
+<span class="sd">    :param dict scenario_info: info attribute of Scenario object.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid to construct load_shed for.</span>
+<span class="sd">    :param dict/None infeasibilities: dictionary of</span>
+<span class="sd">        {interval (int): load shed percentage (int)}, or None.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- data frame of load_shed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">hours</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span>
+        <span class="n">start</span><span class="o">=</span><span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;start_date&quot;</span><span class="p">],</span> <span class="n">end</span><span class="o">=</span><span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;end_date&quot;</span><span class="p">],</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;1H&quot;</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="n">buses</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span>
+    <span class="k">if</span> <span class="n">infeasibilities</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No infeasibilities, constructing DataFrame&quot;</span><span class="p">)</span>
+        <span class="n">load_shed_data</span> <span class="o">=</span> <span class="n">coo_matrix</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">hours</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">buses</span><span class="p">)))</span>
+        <span class="n">load_shed</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">sparse</span><span class="o">.</span><span class="n">from_spmatrix</span><span class="p">(</span><span class="n">load_shed_data</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Infeasibilities, constructing DataFrame&quot;</span><span class="p">)</span>
+        <span class="n">bus_demand</span> <span class="o">=</span> <span class="n">get_bus_demand</span><span class="p">(</span><span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="n">grid</span><span class="p">)</span>
+        <span class="n">load_shed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">hours</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">buses</span><span class="p">)))</span>
+        <span class="c1"># Convert &#39;24H&#39; to 24</span>
+        <span class="n">interval</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;interval&quot;</span><span class="p">][:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">infeasibilities</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="n">interval</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">interval</span>
+            <span class="n">base_demand</span> <span class="o">=</span> <span class="n">bus_demand</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+            <span class="n">shed_demand</span> <span class="o">=</span> <span class="n">base_demand</span> <span class="o">*</span> <span class="p">(</span><span class="n">v</span> <span class="o">/</span> <span class="mi">100</span><span class="p">)</span>
+            <span class="n">load_shed</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">shed_demand</span>
+        <span class="n">load_shed</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">load_shed</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">buses</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">hours</span><span class="p">)</span>
+        <span class="n">load_shed</span> <span class="o">=</span> <span class="n">load_shed</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">SparseDtype</span><span class="p">(</span><span class="s2">&quot;float&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+    <span class="n">load_shed</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">hours</span>
+    <span class="n">load_shed</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;UTC&quot;</span>
+    <span class="n">load_shed</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">buses</span>
+
+    <span class="k">return</span> <span class="n">load_shed</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

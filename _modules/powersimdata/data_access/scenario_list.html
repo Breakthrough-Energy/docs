@@ -1,0 +1,300 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.data_access.scenario_list &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.data_access.scenario_list</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">posixpath</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.csv_store</span> <span class="kn">import</span> <span class="n">CsvStore</span>
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.sql_store</span> <span class="kn">import</span> <span class="n">SqlStore</span><span class="p">,</span> <span class="n">to_data_frame</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
+
+
+<div class="viewcode-block" id="ScenarioTable"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioTable">[docs]</a><span class="k">class</span> <span class="nc">ScenarioTable</span><span class="p">(</span><span class="n">SqlStore</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Storage abstraction for scenario list using sql database.&quot;&quot;&quot;</span>
+
+    <span class="n">table</span> <span class="o">=</span> <span class="s2">&quot;scenario_list&quot;</span>
+    <span class="n">columns</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;plan&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;state&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;base_demand&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;base_hydro&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;base_solar&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;base_wind&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;change_table&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;start_date&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;end_date&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;interval&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;engine&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;runtime&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;infeasibilities&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+<div class="viewcode-block" id="ScenarioTable.get_scenario_by_id"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioTable.get_scenario_by_id">[docs]</a>    <span class="k">def</span> <span class="nf">get_scenario_by_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get entry from scenario list by id</span>
+
+<span class="sd">        :param str scenario_id: scenario id</span>
+<span class="sd">        :return: (*pandas.DataFrame*) -- results as a data frame.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">select_where</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="p">(</span><span class="n">scenario_id</span><span class="p">,))</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cur</span><span class="o">.</span><span class="n">fetchmany</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">to_data_frame</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ScenarioTable.get_scenario_table"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioTable.get_scenario_table">[docs]</a>    <span class="k">def</span> <span class="nf">get_scenario_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns scenario table from database</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- scenario list as a data frame.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">select_all</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">limit</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cur</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cur</span><span class="o">.</span><span class="n">fetchmany</span><span class="p">(</span><span class="n">limit</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">to_data_frame</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ScenarioTable.add_entry"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioTable.add_entry">[docs]</a>    <span class="k">def</span> <span class="nf">add_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_info</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Adds scenario to the scenario list.</span>
+
+<span class="sd">        :param collections.OrderedDict scenario_info: entry to add to scenario list.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">sql</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span></div>
+
+<div class="viewcode-block" id="ScenarioTable.delete_entry"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioTable.delete_entry">[docs]</a>    <span class="k">def</span> <span class="nf">delete_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_info</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Deletes entry in scenario list.</span>
+
+<span class="sd">        :param collections.OrderedDict scenario_info: entry to delete from scenario list.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">sql</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">,</span> <span class="p">(</span><span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],))</span></div></div>
+
+
+<div class="viewcode-block" id="ScenarioListManager"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioListManager">[docs]</a><span class="k">class</span> <span class="nc">ScenarioListManager</span><span class="p">(</span><span class="n">CsvStore</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Storage abstraction for scenario list using a csv file on the server.</span>
+
+<span class="sd">    :param paramiko.client.SSHClient ssh_client: session with an SSH server.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_SCENARIO_LIST</span> <span class="o">=</span> <span class="s2">&quot;ScenarioList.csv&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ssh_client</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">ssh_client</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_server_path</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_SCENARIO_LIST</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="ScenarioListManager.get_scenario_table"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioListManager.get_scenario_table">[docs]</a>    <span class="k">def</span> <span class="nf">get_scenario_table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns scenario table from server if possible, otherwise read local</span>
+<span class="sd">        copy. Updates the local copy upon successful server connection.</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- scenario list as a data frame.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_table</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_SCENARIO_LIST</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ScenarioListManager.generate_scenario_id"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioListManager.generate_scenario_id">[docs]</a>    <span class="k">def</span> <span class="nf">generate_scenario_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generates scenario id.</span>
+
+<span class="sd">        :return: (*str*) -- new scenario id.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Generating scenario id&quot;</span><span class="p">)</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;(flock -x 200; </span><span class="se">\</span>
+<span class="s2">                   id=$(awk -F&#39;,&#39; &#39;END{print $1+1}&#39; </span><span class="si">%s</span><span class="s2">); </span><span class="se">\</span>
+<span class="s2">                   echo $id, &gt;&gt; </span><span class="si">%s</span><span class="s2">; </span><span class="se">\</span>
+<span class="s2">                   echo $id) 200&gt;</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_server_path</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_server_path</span><span class="p">,</span>
+            <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span><span class="p">,</span> <span class="s2">&quot;scenario.lockfile&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="n">err_message</span> <span class="o">=</span> <span class="s2">&quot;Failed to generate id for new scenario&quot;</span>
+        <span class="n">command_output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execute_and_check_err</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">err_message</span><span class="p">)</span>
+        <span class="n">scenario_id</span> <span class="o">=</span> <span class="n">command_output</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">scenario_id</span></div>
+
+<div class="viewcode-block" id="ScenarioListManager.get_scenario"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioListManager.get_scenario">[docs]</a>    <span class="k">def</span> <span class="nf">get_scenario</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">descriptor</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get information for a scenario based on id or name</span>
+
+<span class="sd">        :param int/str descriptor: the id or name of the scenario</span>
+<span class="sd">        :return: (*collections.OrderedDict*) -- matching entry as a dict, or</span>
+<span class="sd">            None if either zero or multiple matches found</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">def</span> <span class="nf">err_message</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;------------------&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;------------------&quot;</span><span class="p">)</span>
+
+        <span class="n">table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_scenario_table</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">matches</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">descriptor</span><span class="p">)])</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">matches</span> <span class="o">=</span> <span class="n">table</span><span class="p">[</span><span class="n">table</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">descriptor</span><span class="p">]</span><span class="o">.</span><span class="n">index</span>
+
+        <span class="n">scenario</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">matches</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="k">if</span> <span class="n">scenario</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">err_message</span><span class="p">(</span><span class="s2">&quot;SCENARIO NOT FOUND&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">scenario</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">err_message</span><span class="p">(</span><span class="s2">&quot;MULTIPLE SCENARIO FOUND&quot;</span><span class="p">)</span>
+            <span class="n">dupes</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">scenario</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Duplicate ids: </span><span class="si">{</span><span class="n">dupes</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Use id to access scenario&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="n">scenario</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+                <span class="o">.</span><span class="n">astype</span><span class="p">({</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;str&quot;</span><span class="p">})</span>
+                <span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="s2">&quot;records&quot;</span><span class="p">,</span> <span class="n">into</span><span class="o">=</span><span class="n">OrderedDict</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ScenarioListManager.add_entry"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioListManager.add_entry">[docs]</a>    <span class="k">def</span> <span class="nf">add_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_info</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Adds scenario to the scenario list file on server.</span>
+
+<span class="sd">        :param collections.OrderedDict scenario_info: entry to add to scenario list.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Adding entry in </span><span class="si">%s</span><span class="s2"> on server&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_SCENARIO_LIST</span><span class="p">)</span>
+        <span class="n">entry</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="n">options</span> <span class="o">=</span> <span class="s2">&quot;-F, -v INPLACE_SUFFIX=.bak -i inplace&quot;</span>
+        <span class="c1"># AWK parses the file line-by-line. When the entry of the first column is</span>
+        <span class="c1"># equal to the scenario identification number, the entire line is replaced</span>
+        <span class="c1"># by the scenaario information.</span>
+        <span class="n">program</span> <span class="o">=</span> <span class="s2">&quot;&#39;{if($1==</span><span class="si">%s</span><span class="s2">) $0=</span><span class="se">\&quot;</span><span class="si">%s</span><span class="se">\&quot;</span><span class="s2">};1&#39;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span>
+            <span class="n">entry</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;awk </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">program</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_server_path</span><span class="p">)</span>
+
+        <span class="n">err_message</span> <span class="o">=</span> <span class="s2">&quot;Failed to add entry in </span><span class="si">%s</span><span class="s2"> on server&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_SCENARIO_LIST</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execute_and_check_err</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">err_message</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ScenarioListManager.delete_entry"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioListManager.delete_entry">[docs]</a>    <span class="k">def</span> <span class="nf">delete_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_info</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Deletes entry in scenario list.</span>
+
+<span class="sd">        :param collections.OrderedDict scenario_info: entry to delete from scenario list.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Deleting entry in </span><span class="si">%s</span><span class="s2"> on server&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_SCENARIO_LIST</span><span class="p">)</span>
+        <span class="n">entry</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">scenario_info</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;sed -i.bak &#39;/</span><span class="si">%s</span><span class="s2">/d&#39; </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_server_path</span><span class="p">)</span>
+
+        <span class="n">err_message</span> <span class="o">=</span> <span class="s2">&quot;Failed to delete entry in </span><span class="si">%s</span><span class="s2"> on server&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_SCENARIO_LIST</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execute_and_check_err</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">err_message</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

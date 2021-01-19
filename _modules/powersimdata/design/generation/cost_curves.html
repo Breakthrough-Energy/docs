@@ -1,0 +1,713 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.design.generation.cost_curves &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.design.generation.cost_curves</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">copy</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.usa_tamu_model</span> <span class="kn">import</span> <span class="n">area_to_loadzone</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility.helpers</span> <span class="kn">import</span> <span class="n">_check_import</span>
+
+
+<div class="viewcode-block" id="linearize_gencost"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.cost_curves.linearize_gencost">[docs]</a><span class="k">def</span> <span class="nf">linearize_gencost</span><span class="p">(</span><span class="n">input_grid</span><span class="p">,</span> <span class="n">num_segments</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Updates the generator cost information to include piecewise linear cost curve</span>
+<span class="sd">    information. Allows the user to specify the number of piecewise segments into which</span>
+<span class="sd">    the cost curve should be split.</span>
+
+<span class="sd">    :param powersimdata.inout.grid.Grid input_grid: Grid object.</span>
+<span class="sd">    :param int num_segments: The number of segments into which the piecewise linear</span>
+<span class="sd">        cost curve will be split.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- An updated DataFrame containing the piecewise</span>
+<span class="sd">        linear cost curve parameters.</span>
+<span class="sd">    :raises ValueError: if the generator cost curve is not of an acceptable form.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Access the generator cost and plant information components</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">input_grid</span><span class="p">)</span>
+    <span class="n">gencost_before</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span>
+    <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+
+    <span class="c1"># Raise errors if the provided cost curves are not in a form that can be handled</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gencost_before</span><span class="p">[</span><span class="n">gencost_before</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;gencost currently limited to polynomial&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gencost_before</span><span class="p">[</span><span class="n">gencost_before</span><span class="o">.</span><span class="n">n</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;gencost currently limited to quadratic&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Access the quadratic cost curve information</span>
+    <span class="n">old_a</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">c2</span>
+    <span class="n">old_b</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">c1</span>
+    <span class="n">old_c</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">c0</span>
+
+    <span class="c1"># Convert dispatchable generators to piecewise segments</span>
+    <span class="n">dispatchable_gens</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span> <span class="o">!=</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span>
+    <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">dispatchable_gens</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">gencost_after</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">gencost_before</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;startup&quot;</span><span class="p">,</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c0&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">gencost_after</span><span class="p">[[</span><span class="s2">&quot;startup&quot;</span><span class="p">,</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c0&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="p">[</span>
+            <span class="p">[</span><span class="s2">&quot;startup&quot;</span><span class="p">,</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c0&quot;</span><span class="p">]</span>
+        <span class="p">]</span>
+        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_segments</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">power_step</span> <span class="o">=</span> <span class="p">(</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">-</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span><span class="p">)</span> <span class="o">/</span> <span class="n">num_segments</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_segments</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">x_label</span> <span class="o">=</span> <span class="s2">&quot;p&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">y_label</span> <span class="o">=</span> <span class="s2">&quot;f&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">x_data</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span> <span class="o">+</span> <span class="n">power_step</span> <span class="o">*</span> <span class="n">i</span>
+            <span class="n">y_data</span> <span class="o">=</span> <span class="n">old_a</span> <span class="o">*</span> <span class="n">x_data</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">old_b</span> <span class="o">*</span> <span class="n">x_data</span> <span class="o">+</span> <span class="n">old_c</span>
+            <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dispatchable_gens</span><span class="p">,</span> <span class="n">x_label</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_data</span><span class="p">[</span><span class="n">dispatchable_gens</span><span class="p">]</span>
+            <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dispatchable_gens</span><span class="p">,</span> <span class="n">y_label</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_data</span><span class="p">[</span><span class="n">dispatchable_gens</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;after&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Convert non-dispatchable gens to fixed values</span>
+    <span class="n">nondispatchable_gens</span> <span class="o">=</span> <span class="o">~</span><span class="n">dispatchable_gens</span>
+    <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">nondispatchable_gens</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+            <span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span>
+        <span class="p">]</span>
+        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+            <span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span>
+        <span class="p">]</span>
+        <span class="n">power</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span>
+        <span class="n">y_data</span> <span class="o">=</span> <span class="n">old_a</span> <span class="o">*</span> <span class="n">power</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">old_b</span> <span class="o">*</span> <span class="n">power</span> <span class="o">+</span> <span class="n">old_c</span>
+        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;c0&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">y_data</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">]</span>
+
+    <span class="n">gencost_after</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
+
+    <span class="c1"># Return the updated generator cost information</span>
+    <span class="k">return</span> <span class="n">gencost_after</span></div>
+
+
+<div class="viewcode-block" id="get_supply_data"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.cost_curves.get_supply_data">[docs]</a><span class="k">def</span> <span class="nf">get_supply_data</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">num_segments</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Accesses the generator cost and plant information data from a specified Grid</span>
+<span class="sd">    object.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid object.</span>
+<span class="sd">    :param int num_segments: The number of segments into which the piecewise linear</span>
+<span class="sd">        cost curve will be split.</span>
+<span class="sd">    :param str save: Saves a .csv if a str representing a valid file path and file</span>
+<span class="sd">        name is provided. If None, nothing is saved.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- Supply information needed to analyze cost and</span>
+<span class="sd">        supply curves.</span>
+<span class="sd">    :raises TypeError: if a powersimdata.input.grid.Grid object is not input, or</span>
+<span class="sd">        if the save parameter is not input as a str.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Check that a Grid object is input</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">Grid</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;A Grid object must be input.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Obtain a copy of the Grid object</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+
+    <span class="c1"># Access the generator cost and plant information data</span>
+    <span class="n">gencost_df</span> <span class="o">=</span> <span class="n">linearize_gencost</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">num_segments</span><span class="p">)</span>
+    <span class="n">plant_df</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+
+    <span class="c1"># Create a new DataFrame with the desired columns</span>
+    <span class="n">supply_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">plant_df</span><span class="p">[[</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="s2">&quot;zone_name&quot;</span><span class="p">]],</span>
+            <span class="n">gencost_df</span><span class="p">[</span>
+                <span class="n">gencost_df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span>
+                    <span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;startup&quot;</span><span class="p">,</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">],</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">)</span>
+            <span class="p">],</span>
+        <span class="p">],</span>
+        <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Add p_diff and slope according to the number of cost curve segments</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_segments</span><span class="p">):</span>
+        <span class="n">supply_df</span><span class="p">[</span><span class="s2">&quot;p_diff&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">supply_df</span><span class="p">[</span><span class="s2">&quot;p&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)]</span> <span class="o">-</span> <span class="n">supply_df</span><span class="p">[</span><span class="s2">&quot;p&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+        <span class="p">)</span>
+        <span class="n">supply_df</span><span class="p">[</span><span class="s2">&quot;slope&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">supply_df</span><span class="p">[</span><span class="s2">&quot;f&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)]</span> <span class="o">-</span> <span class="n">supply_df</span><span class="p">[</span><span class="s2">&quot;f&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+        <span class="p">)</span> <span class="o">/</span> <span class="n">supply_df</span><span class="p">[</span><span class="s2">&quot;p_diff&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+
+    <span class="c1"># Save the supply data to a .csv file if desired</span>
+    <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">save</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;The file path and file name must be input as a str.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">supply_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">save</span><span class="p">)</span>
+
+    <span class="c1"># Return the necessary supply information</span>
+    <span class="k">return</span> <span class="n">supply_df</span></div>
+
+
+<div class="viewcode-block" id="check_supply_data"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.cost_curves.check_supply_data">[docs]</a><span class="k">def</span> <span class="nf">check_supply_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">num_segments</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Checks to make sure that the input supply data is a DataFrame and has the</span>
+<span class="sd">    correct columns. This is especially needed for checking instances where the input</span>
+<span class="sd">    supply data is not the DataFrame returned from get_supply_data().</span>
+
+<span class="sd">    :param pandas.DataFrame data: DataFrame containing the supply curve information.</span>
+<span class="sd">    :param int num_segments: The number of segments into which the piecewise linear</span>
+<span class="sd">        cost curve will be split.</span>
+<span class="sd">    :raises TypeError: if the input supply data is not a pandas.DataFrame.</span>
+<span class="sd">    :raises ValueError: if one of the mandatory columns is missing from the input</span>
+<span class="sd">        supply data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Check that the data is input as a DataFrame</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Supply data must be input as a DataFrame.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Mandatory columns to be contained in the DataFrame</span>
+    <span class="n">mand_cols</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;type&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;zone_name&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;c2&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;c1&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;c0&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Add mandatory columns based on the number piecewise segments</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_segments</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">mand_cols</span><span class="o">.</span><span class="n">update</span><span class="p">([</span><span class="s2">&quot;p&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;f&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)])</span>
+
+        <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">mand_cols</span><span class="o">.</span><span class="n">update</span><span class="p">([</span><span class="s2">&quot;p_diff&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">),</span> <span class="s2">&quot;slope&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)])</span>
+
+    <span class="c1"># Make sure all of the mandatory columns are contained in the input DataFrame</span>
+    <span class="n">miss_cols</span> <span class="o">=</span> <span class="n">mand_cols</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">miss_cols</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Missing columns: </span><span class="si">{</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">miss_cols</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="build_supply_curve"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.cost_curves.build_supply_curve">[docs]</a><span class="k">def</span> <span class="nf">build_supply_curve</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">num_segments</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Builds a supply curve for a specified area and generation type.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid object.</span>
+<span class="sd">    :param int num_segments: The number of segments into which the piecewise linear</span>
+<span class="sd">        cost curve is split.</span>
+<span class="sd">    :param str area: Either the load zone, state name, state abbreviation, or</span>
+<span class="sd">        interconnect.</span>
+<span class="sd">    :param str gen_type: Generation type.</span>
+<span class="sd">    :param str area_type: one of: *&#39;loadzone&#39;*, *&#39;state&#39;*, *&#39;state_abbr&#39;*,</span>
+<span class="sd">        *&#39;interconnect&#39;*. Defaults to None, which allows area_to_loadzone() to infer</span>
+<span class="sd">        the type.</span>
+<span class="sd">    :param bool plot: If True, the supply curve plot is shown. If False, the plot is</span>
+<span class="sd">        not shown.</span>
+<span class="sd">    :return: (*tuple*) -- First element is a list of capacity (MW) amounts needed</span>
+<span class="sd">        to create supply curve. Second element is a list of bids ($/MW) in the supply</span>
+<span class="sd">        curve.</span>
+<span class="sd">    :raises TypeError: if a powersimdata.input.grid.Grid object is not input.</span>
+<span class="sd">    :raises ValueError: if the specified area or generator type is not applicable.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Check that a Grid object is input</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">Grid</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;A Grid object must be input.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check that the desired number of linearized cost curve segments is an int</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">num_segments</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="s2">&quot;The number of linearized cost curve segments must be input as an int.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Obtain the desired generator cost and plant information data</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">get_supply_data</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">num_segments</span><span class="p">)</span>
+
+    <span class="c1"># Check the input supply data</span>
+    <span class="n">check_supply_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">num_segments</span><span class="p">)</span>
+
+    <span class="c1"># Check to make sure the generator type is valid</span>
+    <span class="k">if</span> <span class="n">gen_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">gen_type</span><span class="si">}</span><span class="s2"> is not a valid generation type.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Identify the load zones that correspond to the specified area and area_type</span>
+    <span class="n">returned_zones</span> <span class="o">=</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="p">)</span>
+
+    <span class="c1"># Trim the DataFrame to only be of the desired area and generation type</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">zone_name</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">returned_zones</span><span class="p">)]</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">gen_type</span><span class="p">]</span>
+
+    <span class="c1"># Remove generators that have no capacity (e.g., Maine coal generators)</span>
+    <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;slope1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;slope1&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Check if the area contains generators of the specified type</span>
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[],</span> <span class="p">[]</span>
+
+    <span class="c1"># Combine the p_diff and slope information for each cost segment</span>
+    <span class="n">df_cols</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_segments</span><span class="p">):</span>
+        <span class="n">df_cols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="p">(</span><span class="s2">&quot;p_diff&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;slope&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))])</span>
+        <span class="n">df_cols</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
+            <span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;p_diff&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span> <span class="s2">&quot;p_diff&quot;</span><span class="p">,</span> <span class="s2">&quot;slope&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span> <span class="s2">&quot;slope&quot;</span><span class="p">},</span>
+            <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">df_cols</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1"># Sort the trimmed DataFrame by slope</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="s2">&quot;slope&quot;</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Determine the points that comprise the supply curve</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">F</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">p_diff_sum</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+        <span class="n">P</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p_diff_sum</span><span class="p">)</span>
+        <span class="n">F</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;slope&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">P</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;p_diff&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">p_diff_sum</span><span class="p">)</span>
+        <span class="n">F</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;slope&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+        <span class="n">p_diff_sum</span> <span class="o">+=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;p_diff&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+
+    <span class="c1"># Plot the curve</span>
+    <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+        <span class="n">plt</span> <span class="o">=</span> <span class="n">_check_import</span><span class="p">(</span><span class="s2">&quot;matplotlib.pyplot&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">[</span><span class="mi">20</span><span class="p">,</span> <span class="mi">10</span><span class="p">])</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">F</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Supply curve for </span><span class="si">{</span><span class="n">gen_type</span><span class="si">}</span><span class="s2"> generators in </span><span class="si">{</span><span class="n">area</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Capacity (MW)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;Price ($/MW)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">yticks</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="c1"># Return the capacity and bid amounts</span>
+    <span class="k">return</span> <span class="n">P</span><span class="p">,</span> <span class="n">F</span></div>
+
+
+<div class="viewcode-block" id="lower_bound_index"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.cost_curves.lower_bound_index">[docs]</a><span class="k">def</span> <span class="nf">lower_bound_index</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">l</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Determines the index of the lower capacity value that defines a price segment.</span>
+<span class="sd">    Useful for accessing the prices associated with capacity values that aren&#39;t</span>
+<span class="sd">    explicitly stated in the capacity lists that are generated by the</span>
+<span class="sd">    build_supply_curve() function. Needed for ks_test().</span>
+
+<span class="sd">    :param float/int x: Capacity value for which you want to determine the index of the</span>
+<span class="sd">        lowest capacity value in a price segment.</span>
+<span class="sd">    :param list l: List of capacity values used to generate a supply curve.</span>
+<span class="sd">    :return: (*int*) -- Index of a price segment&#39;s capacity lower bound.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Check that the list is not empty and that the capacity falls within the list range</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">l</span> <span class="ow">or</span> <span class="n">l</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">x</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="c1"># Get the index of the value that is immediately less than the provided capacity</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">l</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">j</span> <span class="o">&gt;</span> <span class="n">x</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="ks_test"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.cost_curves.ks_test">[docs]</a><span class="k">def</span> <span class="nf">ks_test</span><span class="p">(</span><span class="n">P1</span><span class="p">,</span> <span class="n">F1</span><span class="p">,</span> <span class="n">P2</span><span class="p">,</span> <span class="n">F2</span><span class="p">,</span> <span class="n">area</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gen_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Runs a test that is similar to the Kolmogorov-Smirnov test. This function takes</span>
+<span class="sd">    two supply curves as inputs and returns the greatest difference in price between</span>
+<span class="sd">    the two supply curves. This function requires that the supply curves offer the same</span>
+<span class="sd">    amount of capacity.</span>
+
+<span class="sd">    :param list P1: List of capacity values for the first supply curve.</span>
+<span class="sd">    :param list F1: List of price values for the first supply curve.</span>
+<span class="sd">    :param list P2: List of capacity values for the second supply curve.</span>
+<span class="sd">    :param list F2: List of price values for the second supply curve.</span>
+<span class="sd">    :param str area: Either the load zone, state name, state abbreviation, or</span>
+<span class="sd">        interconnect. Defaults to None because it&#39;s not essential.</span>
+<span class="sd">    :param str gen_type: Generation type. Defaults to None because it&#39;s not essential.</span>
+<span class="sd">    :param bool plot: If True, the supply curve plot is shown. If False, the plot is</span>
+<span class="sd">        not shown.</span>
+<span class="sd">    :return: (*float*) -- The maximum price difference between the two supply curves.</span>
+<span class="sd">    :raises TypeError: if the capacity and price inputs are not provided as lists.</span>
+<span class="sd">    :raises ValueError: if the supply curves do not offer the same amount of capacity.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Check that input capacities and prices are provided as lists</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="n">P1</span><span class="p">,</span> <span class="n">F1</span><span class="p">,</span> <span class="n">P2</span><span class="p">,</span> <span class="n">F2</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;P1, F1, P2, and F2 must be input as lists.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check that the supply curves offer the same amount of capacity</span>
+    <span class="k">if</span> <span class="nb">max</span><span class="p">(</span><span class="n">P1</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">max</span><span class="p">(</span><span class="n">P2</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;The two supply curves do not offer the same amount of capacity (MW).&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Create a list that has every capacity value in which either supply curve steps up</span>
+    <span class="n">P_all</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">P1</span><span class="p">)</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">P2</span><span class="p">))</span>
+    <span class="n">P_all</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+
+    <span class="c1"># For each capacity value, associate the two corresponding price values</span>
+    <span class="n">F_all</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">P_all</span><span class="p">)):</span>
+        <span class="c1"># Determine the correpsonding price from the first supply curve</span>
+        <span class="k">if</span> <span class="n">P_all</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">P1</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">f1</span> <span class="o">=</span> <span class="n">F1</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">f1</span> <span class="o">=</span> <span class="n">F1</span><span class="p">[</span><span class="n">lower_bound_index</span><span class="p">(</span><span class="n">P_all</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">P1</span><span class="p">)]</span>
+
+        <span class="c1"># Determine the correpsonding price from the second supply curve</span>
+        <span class="k">if</span> <span class="n">P_all</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">P2</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">f2</span> <span class="o">=</span> <span class="n">F2</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">f2</span> <span class="o">=</span> <span class="n">F2</span><span class="p">[</span><span class="n">lower_bound_index</span><span class="p">(</span><span class="n">P_all</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">P2</span><span class="p">)]</span>
+
+        <span class="c1"># Pair the two price values</span>
+        <span class="n">F_all</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">f1</span><span class="p">,</span> <span class="n">f2</span><span class="p">])</span>
+
+    <span class="c1"># Determine the price differences for each capacity value</span>
+    <span class="n">F_diff</span> <span class="o">=</span> <span class="p">[</span><span class="nb">abs</span><span class="p">(</span><span class="n">F_all</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">F_all</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">F_all</span><span class="p">))]</span>
+
+    <span class="c1"># Determine the maximum price difference</span>
+    <span class="n">max_diff</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">F_diff</span><span class="p">)</span>
+
+    <span class="c1"># Plot the two supply curves overlaid</span>
+    <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+        <span class="n">plt</span> <span class="o">=</span> <span class="n">_check_import</span><span class="p">(</span><span class="s2">&quot;matplotlib.pyplot&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">[</span><span class="mi">20</span><span class="p">,</span> <span class="mi">10</span><span class="p">])</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">P1</span><span class="p">,</span> <span class="n">F1</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">P2</span><span class="p">,</span> <span class="n">F2</span><span class="p">)</span>
+        <span class="k">if</span> <span class="kc">None</span> <span class="ow">in</span> <span class="p">{</span><span class="n">area</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">}:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Supply Curve Comparison&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Supply curve comparison for </span><span class="si">{</span><span class="n">gen_type</span><span class="si">}</span><span class="s2"> generators in </span><span class="si">{</span><span class="n">area</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Capacity (MW)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;Price ($/MW)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">yticks</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+    <span class="c1"># Return the maximum price difference (this corresponds to the K-S statistic)</span>
+    <span class="k">return</span> <span class="n">max_diff</span></div>
+
+
+<div class="viewcode-block" id="plot_c1_vs_c2"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.cost_curves.plot_c1_vs_c2">[docs]</a><span class="k">def</span> <span class="nf">plot_c1_vs_c2</span><span class="p">(</span>
+    <span class="n">grid</span><span class="p">,</span>
+    <span class="n">area</span><span class="p">,</span>
+    <span class="n">gen_type</span><span class="p">,</span>
+    <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">zoom</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">num_sd</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Compares the c1 and c2 parameters from the quadratic generator cost curves.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid object.</span>
+<span class="sd">    :param str area: Either the load zone, state name, state abbreviation, or</span>
+<span class="sd">        interconnect.</span>
+<span class="sd">    :param str gen_type: Generation type.</span>
+<span class="sd">    :param str area_type: one of: *&#39;loadzone&#39;*, *&#39;state&#39;*, *&#39;state_abbr&#39;*,</span>
+<span class="sd">        *&#39;interconnect&#39;*. Defaults to None, which allows area_to_loadzone() to infer</span>
+<span class="sd">        the type.</span>
+<span class="sd">    :param bool plot: If True, the c1 vs. c2 plot is shown. If False, the plot is not</span>
+<span class="sd">        shown.</span>
+<span class="sd">    :param bool zoom: If True, filters out c2 outliers to enable better visualization.</span>
+<span class="sd">        If False, there is no filtering.</span>
+<span class="sd">    :param float/int num_sd: The number of standard deviations used to filter out c2</span>
+<span class="sd">        outliers.</span>
+<span class="sd">    :param float alpha: The alpha blending value for the scatter plot; takes values</span>
+<span class="sd">        between 0 (transparent) and 1 (opaque).</span>
+<span class="sd">    :return: (*None*) -- The c1 vs. c2 plot is displayed according to the user.</span>
+<span class="sd">    :raises TypeError: if a powersimdata.input.grid.Grid object is not input.</span>
+<span class="sd">    :raises ValueError: if the specified area or generator type is not applicable.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">plt</span> <span class="o">=</span> <span class="n">_check_import</span><span class="p">(</span><span class="s2">&quot;matplotlib.pyplot&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check that a Grid object is input</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">Grid</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;A Grid object must be input.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Obtain a copy of the Grid object</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+
+    <span class="c1"># Access the generator cost and plant information data</span>
+    <span class="n">gencost_df</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span>
+    <span class="n">plant_df</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+
+    <span class="c1"># Create a new DataFrame with the desired columns</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">plant_df</span><span class="p">[[</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="s2">&quot;zone_name&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmin&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">]],</span>
+            <span class="n">gencost_df</span><span class="p">[</span>
+                <span class="n">gencost_df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span>
+                    <span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;startup&quot;</span><span class="p">,</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">],</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">)</span>
+            <span class="p">],</span>
+        <span class="p">],</span>
+        <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Check to make sure the generator type is valid</span>
+    <span class="k">if</span> <span class="n">gen_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">gen_type</span><span class="si">}</span><span class="s2"> is not a valid generation type.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Identify the load zones that correspond to the specified area and area_type</span>
+    <span class="n">returned_zones</span> <span class="o">=</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="p">)</span>
+
+    <span class="c1"># Trim the DataFrame to only be of the desired area and generation type</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">zone_name</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">returned_zones</span><span class="p">)]</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">gen_type</span><span class="p">]</span>
+
+    <span class="c1"># Remove generators that have no capacity (e.g., Maine coal generators)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;Pmin&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]]</span>
+
+    <span class="c1"># Check if the area contains generators of the specified type</span>
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="c1"># Filters out large c2 outlier values so the overall trend can be better visualized</span>
+    <span class="n">zoom_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">zoom</span><span class="p">:</span>
+        <span class="c1"># Drop values outside a specified number of standard deviations of c2</span>
+        <span class="n">sd_c2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;c2&quot;</span><span class="p">])</span>
+        <span class="n">mean_c2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;c2&quot;</span><span class="p">])</span>
+        <span class="n">cutoff</span> <span class="o">=</span> <span class="n">mean_c2</span> <span class="o">+</span> <span class="n">num_sd</span> <span class="o">*</span> <span class="n">sd_c2</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;c2&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">cutoff</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">zoom</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;c2&quot;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">cutoff</span><span class="p">]</span>
+            <span class="n">max_ylim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;c2&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.01</span><span class="p">)</span>
+            <span class="n">min_ylim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;c2&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.01</span><span class="p">)</span>
+            <span class="n">max_xlim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;c1&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">min_xlim</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;c1&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">zoom_name</span> <span class="o">=</span> <span class="s2">&quot;(zoomed)&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">zoom</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># Plot the c1 vs. c2 comparison</span>
+    <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+        <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">set_size_inches</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">&quot;c1&quot;</span><span class="p">],</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">&quot;c2&quot;</span><span class="p">],</span>
+            <span class="n">s</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">])</span> <span class="o">*</span> <span class="mi">10</span><span class="p">,</span>
+            <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span>
+            <span class="n">c</span><span class="o">=</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">],</span>
+            <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;plasma&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;c1 vs. c2 for </span><span class="si">{</span><span class="n">gen_type</span><span class="si">}</span><span class="s2"> generators in </span><span class="si">{</span><span class="n">area</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">zoom_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">zoom</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">([</span><span class="n">min_ylim</span><span class="p">,</span> <span class="n">max_ylim</span><span class="p">])</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">xlim</span><span class="p">([</span><span class="n">min_xlim</span><span class="p">,</span> <span class="n">max_xlim</span><span class="p">])</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">yticks</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">cbar</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+        <span class="n">cbar</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="s2">&quot;Capacity (MW)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">cbar</span><span class="o">.</span><span class="n">ax</span><span class="o">.</span><span class="n">tick_params</span><span class="p">(</span><span class="n">labelsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="plot_capacity_vs_price"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.cost_curves.plot_capacity_vs_price">[docs]</a><span class="k">def</span> <span class="nf">plot_capacity_vs_price</span><span class="p">(</span>
+    <span class="n">grid</span><span class="p">,</span> <span class="n">num_segments</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Plots the generator capacity vs. the generator price for a specified area</span>
+<span class="sd">        and generation type.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid object.</span>
+<span class="sd">    :param int num_segments: The number of segments into which the piecewise linear</span>
+<span class="sd">        cost curve is split.</span>
+<span class="sd">    :param str area: Either the load zone, state name, state abbreviation, or</span>
+<span class="sd">        interconnect.</span>
+<span class="sd">    :param str gen_type: Generation type.</span>
+<span class="sd">    :param str area_type: one of: *&#39;loadzone&#39;*, *&#39;state&#39;*, *&#39;state_abbr&#39;*,</span>
+<span class="sd">        *&#39;interconnect&#39;*. Defaults to None, which allows area_to_loadzone() to infer</span>
+<span class="sd">        the type.</span>
+<span class="sd">    :param bool plot: If True, the supply curve plot is shown. If False, the plot is</span>
+<span class="sd">        not shown.</span>
+<span class="sd">    :return: (*None*) -- The capacity vs. price plot is displayed according to the user.</span>
+<span class="sd">    :raises TypeError: if a powersimdata.input.grid.Grid object is not input.</span>
+<span class="sd">    :raises ValueError: if the specified area or generator type is not applicable.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">plt</span> <span class="o">=</span> <span class="n">_check_import</span><span class="p">(</span><span class="s2">&quot;matplotlib.pyplot&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check that a Grid object is input</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">Grid</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;A Grid object must be input.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check that the desired number of linearized cost curve segments is an int</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">num_segments</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="s2">&quot;The number of linearized cost curve segments must be input as an int.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Obtain the desired generator cost and plant information data</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">get_supply_data</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">num_segments</span><span class="p">)</span>
+
+    <span class="c1"># Check the input supply data</span>
+    <span class="n">check_supply_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">num_segments</span><span class="p">)</span>
+
+    <span class="c1"># Check to make sure the generator type is valid</span>
+    <span class="k">if</span> <span class="n">gen_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">gen_type</span><span class="si">}</span><span class="s2"> is not a valid generation type.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Identify the load zones that correspond to the specified area and area_type</span>
+    <span class="n">returned_zones</span> <span class="o">=</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="p">)</span>
+
+    <span class="c1"># Trim the DataFrame to only be of the desired area and generation type</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">zone_name</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">returned_zones</span><span class="p">)]</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">gen_type</span><span class="p">]</span>
+
+    <span class="c1"># Remove generators that have no capacity (e.g., Maine coal generators)</span>
+    <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;slope1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;slope1&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Check if the area contains generators of the specified type</span>
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="c1"># Combine the p_diff and slope information for each cost segment</span>
+    <span class="n">df_cols</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_segments</span><span class="p">):</span>
+        <span class="n">df_cols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="p">(</span><span class="s2">&quot;p_diff&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;slope&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))])</span>
+        <span class="n">df_cols</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
+            <span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;p_diff&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span> <span class="s2">&quot;p_diff&quot;</span><span class="p">,</span> <span class="s2">&quot;slope&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span> <span class="s2">&quot;slope&quot;</span><span class="p">},</span>
+            <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">df_cols</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Determine the average</span>
+    <span class="n">total_cap</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;p_diff&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">total_cap</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">data_avg</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">data_avg</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;slope&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;p_diff&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">total_cap</span>
+
+    <span class="c1"># Plot the comparison</span>
+    <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="s2">&quot;p_diff&quot;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="s2">&quot;slope&quot;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">[</span><span class="mi">20</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span> <span class="n">grid</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span>
+        <span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Capacity vs. Price for </span><span class="si">{</span><span class="n">gen_type</span><span class="si">}</span><span class="s2"> generators in </span><span class="si">{</span><span class="n">area</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span>
+        <span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Segment Capacity (MW)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;Segment Price ($/MW)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;p_diff&quot;</span><span class="p">],</span> <span class="p">[</span><span class="n">data_avg</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="p">),</span> <span class="n">c</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,364 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.data_access.data_access &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.data_access.data_access</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">posixpath</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">subprocess</span> <span class="kn">import</span> <span class="n">Popen</span>
+
+<span class="kn">import</span> <span class="nn">paramiko</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility.helpers</span> <span class="kn">import</span> <span class="n">CommandBuilder</span>
+
+
+<div class="viewcode-block" id="DataAccess"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess">[docs]</a><span class="k">class</span> <span class="nc">DataAccess</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Interface to a local or remote data store.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="DataAccess.copy_from"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.copy_from">[docs]</a>    <span class="k">def</span> <span class="nf">copy_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Copy a file from data store to userspace.</span>
+
+<span class="sd">        :param str file_name: file name to copy.</span>
+<span class="sd">        :param str from_dir: data store directory to copy file from.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="DataAccess.copy_to"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.copy_to">[docs]</a>    <span class="k">def</span> <span class="nf">copy_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">to_dir</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Copy a file from userspace to data store.</span>
+
+<span class="sd">        :param str file_name: file name to copy.</span>
+<span class="sd">        :param str to_dir: data store directory to copy file to.</span>
+<span class="sd">        :param str change_name_to: new name for file when copied to data store.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="DataAccess.copy"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">dest</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">update</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Wrapper around cp command</span>
+
+<span class="sd">        :param str src: path to original</span>
+<span class="sd">        :param str dest: destination path</span>
+<span class="sd">        :param bool recursive: create directories recursively</span>
+<span class="sd">        :param bool update: only copy if needed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="n">CommandBuilder</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dest</span><span class="p">,</span> <span class="n">recursive</span><span class="p">,</span> <span class="n">update</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="n">command</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DataAccess.remove"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.remove">[docs]</a>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Wrapper around rm command</span>
+
+<span class="sd">        :param str target: path to remove</span>
+<span class="sd">        :param bool recursive: delete directories recursively</span>
+<span class="sd">        :param bool force: remove without confirmation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="n">CommandBuilder</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="p">,</span> <span class="n">force</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="n">command</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DataAccess.check_file_exists"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.check_file_exists">[docs]</a>    <span class="k">def</span> <span class="nf">check_file_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">,</span> <span class="n">should_exist</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check that file exists (or not) at the given path</span>
+
+<span class="sd">        :param str filepath: the full path to the file</span>
+<span class="sd">        :param bool should_exist: whether the file is expected to exist</span>
+<span class="sd">        :raises OSError: if the expected condition is not met</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="n">CommandBuilder</span><span class="o">.</span><span class="n">list</span><span class="p">(</span><span class="n">filepath</span><span class="p">))</span>
+        <span class="n">compare</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">ne</span> <span class="k">if</span> <span class="n">should_exist</span> <span class="k">else</span> <span class="n">operator</span><span class="o">.</span><span class="n">eq</span>
+        <span class="k">if</span> <span class="n">compare</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">()),</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;not found&quot;</span> <span class="k">if</span> <span class="n">should_exist</span> <span class="k">else</span> <span class="s2">&quot;already exists&quot;</span>
+            <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s2"> on server&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DataAccess.check_filename"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.check_filename">[docs]</a>    <span class="k">def</span> <span class="nf">check_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check that filename is only the name part</span>
+
+<span class="sd">        :param str filename: the filename to verify</span>
+<span class="sd">        :raises ValueError: if filename contains path segments</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">filename</span><span class="p">))</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expecting file name but got path </span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DataAccess.execute_command"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.execute_command">[docs]</a>    <span class="k">def</span> <span class="nf">execute_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Execute a command locally at the data access.</span>
+
+<span class="sd">        :param list command: list of str to be passed to command line.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="DataAccess.execute_command_async"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.execute_command_async">[docs]</a>    <span class="k">def</span> <span class="nf">execute_command_async</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Execute a command locally at the DataAccess, without waiting for completion.</span>
+
+<span class="sd">        :param list command: list of str to be passed to command line.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+<div class="viewcode-block" id="DataAccess.close"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Perform any necessary cleanup for the object.&quot;&quot;&quot;</span>
+        <span class="k">pass</span></div></div>
+
+
+<div class="viewcode-block" id="SSHDataAccess"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess">[docs]</a><span class="k">class</span> <span class="nc">SSHDataAccess</span><span class="p">(</span><span class="n">DataAccess</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Interface to a remote data store, accessed via SSH.&quot;&quot;&quot;</span>
+
+    <span class="n">_last_attempt</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ssh</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_retry_after</span> <span class="o">=</span> <span class="mi">5</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span> <span class="k">if</span> <span class="n">root</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">root</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_root</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ssh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get or create the ssh connection object, with attempts rate limited.</span>
+
+<span class="sd">        :raises IOError: if connection failed or still within retry window</span>
+<span class="sd">        :return: (*paramiko.SSHClient*) -- the client instance</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">should_attempt</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">SSHDataAccess</span><span class="o">.</span><span class="n">_last_attempt</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retry_after</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ssh</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">should_attempt</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_setup_server_connection</span><span class="p">()</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ssh</span>
+                <span class="k">except</span><span class="p">:</span>  <span class="c1"># noqa</span>
+                    <span class="n">SSHDataAccess</span><span class="o">.</span><span class="n">_last_attempt</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Could not connect to server, will try again after </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_retry_after</span><span class="si">}</span><span class="s2"> seconds&quot;</span>
+            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ssh</span>
+
+    <span class="k">def</span> <span class="nf">_setup_server_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This function setup the connection to the server.&quot;&quot;&quot;</span>
+        <span class="n">client</span> <span class="o">=</span> <span class="n">paramiko</span><span class="o">.</span><span class="n">SSHClient</span><span class="p">()</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">set_missing_host_key_policy</span><span class="p">(</span><span class="n">paramiko</span><span class="o">.</span><span class="n">AutoAddPolicy</span><span class="p">())</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">client</span><span class="o">.</span><span class="n">load_system_host_keys</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">IOError</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Could not find ssh host keys.&quot;</span><span class="p">)</span>
+            <span class="n">ssh_known_hosts</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Provide ssh known_hosts key file =&quot;</span><span class="p">)</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">client</span><span class="o">.</span><span class="n">load_system_host_keys</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ssh_known_hosts</span><span class="p">))</span>
+                    <span class="k">break</span>
+                <span class="k">except</span> <span class="ne">IOError</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Cannot read file, try again&quot;</span><span class="p">)</span>
+                    <span class="n">ssh_known_hosts</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Provide ssh known_hosts key file =&quot;</span><span class="p">)</span>
+
+        <span class="n">server_user</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">get_server_user</span><span class="p">()</span>
+        <span class="n">client</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span>
+            <span class="n">server_setup</span><span class="o">.</span><span class="n">SERVER_ADDRESS</span><span class="p">,</span>
+            <span class="n">username</span><span class="o">=</span><span class="n">server_user</span><span class="p">,</span>
+            <span class="n">port</span><span class="o">=</span><span class="n">server_setup</span><span class="o">.</span><span class="n">SERVER_SSH_PORT</span><span class="p">,</span>
+            <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ssh</span> <span class="o">=</span> <span class="n">client</span>
+
+<div class="viewcode-block" id="SSHDataAccess.copy_from"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess.copy_from">[docs]</a>    <span class="k">def</span> <span class="nf">copy_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Copy a file from data store to userspace.</span>
+
+<span class="sd">        :param str file_name: file name to copy.</span>
+<span class="sd">        :param str from_dir: data store directory to copy file from.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_filename</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span>
+        <span class="n">from_dir</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="n">from_dir</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">from_dir</span>
+        <span class="n">to_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_root</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">to_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">from_path</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_file_exists</span><span class="p">(</span><span class="n">from_path</span><span class="p">,</span> <span class="n">should_exist</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">ssh</span><span class="o">.</span><span class="n">open_sftp</span><span class="p">()</span> <span class="k">as</span> <span class="n">sftp</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Transferring </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2"> from server&quot;</span><span class="p">)</span>
+            <span class="n">cbk</span><span class="p">,</span> <span class="n">bar</span> <span class="o">=</span> <span class="n">progress_bar</span><span class="p">(</span><span class="n">ascii</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="n">unit_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">to_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">to_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+            <span class="n">sftp</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">from_path</span><span class="p">,</span> <span class="n">to_path</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">cbk</span><span class="p">)</span>
+            <span class="n">bar</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="SSHDataAccess.copy_to"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess.copy_to">[docs]</a>    <span class="k">def</span> <span class="nf">copy_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">to_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Copy a file from userspace to data store.</span>
+
+<span class="sd">        :param str file_name: file name to copy.</span>
+<span class="sd">        :param str to_dir: data store directory to copy file to.</span>
+<span class="sd">        :param str change_name_to: new name for file when copied to data store.</span>
+<span class="sd">        :raises FileNotFoundError: if specified file does not exist</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_filename</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span>
+        <span class="n">from_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_root</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">from_path</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2"> not found in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">local_root</span><span class="si">}</span><span class="s2"> on local machine&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">file_name</span> <span class="k">if</span> <span class="n">change_name_to</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">change_name_to</span>
+        <span class="n">to_dir</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="n">to_dir</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">to_dir</span>
+        <span class="n">to_path</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">to_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_file_exists</span><span class="p">(</span><span class="n">to_path</span><span class="p">,</span> <span class="n">should_exist</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">ssh</span><span class="o">.</span><span class="n">open_sftp</span><span class="p">()</span> <span class="k">as</span> <span class="n">sftp</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Transferring </span><span class="si">{</span><span class="n">from_path</span><span class="si">}</span><span class="s2"> to server&quot;</span><span class="p">)</span>
+            <span class="n">sftp</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">from_path</span><span class="p">,</span> <span class="n">to_path</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--&gt; Deleting </span><span class="si">{</span><span class="n">from_path</span><span class="si">}</span><span class="s2"> on local machine&quot;</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">from_path</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SSHDataAccess.execute_command"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess.execute_command">[docs]</a>    <span class="k">def</span> <span class="nf">execute_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Execute a command locally at the data access.</span>
+
+<span class="sd">        :param list command: list of str to be passed to command line.</span>
+<span class="sd">        :return: (*tuple*) -- stdin, stdout, stderr of executed command.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ssh</span><span class="o">.</span><span class="n">exec_command</span><span class="p">(</span><span class="n">command</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SSHDataAccess.execute_command_async"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess.execute_command_async">[docs]</a>    <span class="k">def</span> <span class="nf">execute_command_async</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Execute a command via ssh, without waiting for completion.</span>
+
+<span class="sd">        :param list command: list of str to be passed to command line.</span>
+<span class="sd">        :return: (*subprocess.Popen*) -- the local ssh process</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">username</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">get_server_user</span><span class="p">()</span>
+        <span class="n">cmd_ssh</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;ssh&quot;</span><span class="p">,</span> <span class="n">username</span> <span class="o">+</span> <span class="s2">&quot;@&quot;</span> <span class="o">+</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">SERVER_ADDRESS</span><span class="p">]</span>
+        <span class="n">full_command</span> <span class="o">=</span> <span class="n">cmd_ssh</span> <span class="o">+</span> <span class="n">command</span>
+        <span class="n">process</span> <span class="o">=</span> <span class="n">Popen</span><span class="p">(</span><span class="n">full_command</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">process</span></div>
+
+<div class="viewcode-block" id="SSHDataAccess.close"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Close the connection that was opened when the object was created.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ssh</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="progress_bar"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.progress_bar">[docs]</a><span class="k">def</span> <span class="nf">progress_bar</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Creates progress bar</span>
+
+<span class="sd">    :param \\*args: variable length argument list passed to the tqdm constructor.</span>
+<span class="sd">    :param \\*\\*kwargs: arbitrary keyword arguments passed to the tqdm constructor.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bar</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="n">last</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">show</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="n">bar</span><span class="o">.</span><span class="n">total</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+        <span class="n">bar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">last</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="n">last</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span>
+
+    <span class="k">return</span> <span class="n">show</span><span class="p">,</span> <span class="n">bar</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

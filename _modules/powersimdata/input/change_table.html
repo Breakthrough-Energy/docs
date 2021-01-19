@@ -1,0 +1,870 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.input.change_table &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.input.change_table</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.design.transmission.upgrade</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">scale_congested_mesh_branches</span><span class="p">,</span>
+    <span class="n">scale_renewable_stubs</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility.distance</span> <span class="kn">import</span> <span class="n">find_closest_neighbor</span>
+
+<span class="n">_resources</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">&quot;coal&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;dfo&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;geothermal&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ng&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;nuclear&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;hydro&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;solar&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;wind&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;wind_offshore&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;biomass&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;other&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">_renewable_resource</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;wind_offshore&quot;</span><span class="p">}</span>
+
+
+<div class="viewcode-block" id="ordinal"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ordinal">[docs]</a><span class="k">def</span> <span class="nf">ordinal</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Translate a 0-based index into a 1-based ordinal, e.g. 0 -&gt; 1st, 1 -&gt; 2nd, etc.</span>
+
+<span class="sd">    :param int n: the index to be translated.</span>
+<span class="sd">    :return: (*str*) -- Ordinal.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ord_dict</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="s2">&quot;st&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="s2">&quot;nd&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="s2">&quot;rd&quot;</span><span class="p">}</span>
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">ord_dict</span><span class="o">.</span><span class="n">get</span><span class="p">((</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">20</span> <span class="k">else</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;th&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ChangeTable"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable">[docs]</a><span class="k">class</span> <span class="nc">ChangeTable</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Create change table for changes that need to be applied to the original</span>
+<span class="sd">    grid as well as to the original demand, hydro, solar and wind profiles.</span>
+<span class="sd">    A pickle file enclosing the change table in form of a dictionary can be</span>
+<span class="sd">    created and transferred on the server. Keys are *&#39;demand&#39;*, *&#39;branch&#39;*, *&#39;dcline&#39;*,</span>
+<span class="sd">    &#39;*new_branch*&#39;, *&#39;new_dcline&#39;*, *&#39;new_plant&#39;*, *&#39;storage&#39;*,</span>
+<span class="sd">    *&#39;[resource]&#39;*, *&#39;[resource]_cost&#39;*, and *&#39;[resource]_pmin&#39;*,; where &#39;resource&#39;</span>
+<span class="sd">    is one of: {*&#39;biomass&#39;*, *&#39;coal&#39;*, *&#39;dfo&#39;*, *&#39;geothermal&#39;*, *&#39;ng&#39;*, *&#39;nuclear&#39;*,</span>
+<span class="sd">    *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*, *&#39;wind_offshore&#39;*, *&#39;other&#39;*}.</span>
+<span class="sd">    If a key is missing in the dictionary, then no changes will be applied.</span>
+<span class="sd">    The data structure is given below:</span>
+
+<span class="sd">    * *&#39;demand&#39;*:</span>
+<span class="sd">        value is a dictionary. The latter has *&#39;zone_id&#39;* as keys and a</span>
+<span class="sd">        factor indicating the desired increase/decrease of load in zone</span>
+<span class="sd">        (1.2 would correspond to a 20% increase while 0.95 would be a 5%</span>
+<span class="sd">        decrease) as value.</span>
+<span class="sd">    * *&#39;branch&#39;*:</span>
+<span class="sd">        value is a dictionary. The latter has *&#39;branch_id&#39;* and/or</span>
+<span class="sd">        *&#39;zone_id&#39;* as keys. The *&#39;branch_id&#39;* dictionary has the branch</span>
+<span class="sd">        ids as keys while the *&#39;zone_id&#39;* dictionary has the zone ids as</span>
+<span class="sd">        keys. The value of those dictionaries is a factor indicating the</span>
+<span class="sd">        desired increase/decrease of capacity of the line or the lines in</span>
+<span class="sd">        the zone (1.2 would correspond to a 20% increase while 0.95 would</span>
+<span class="sd">        be a 5% decrease).</span>
+<span class="sd">    * *&#39;[resource]&#39;*:</span>
+<span class="sd">        value is a dictionary. The latter has *&#39;plant_id&#39;* and/or</span>
+<span class="sd">        *&#39;zone_id&#39;* as keys. The *&#39;plant_id&#39;* dictionary has the plant ids</span>
+<span class="sd">        as keys while the *&#39;zone_id&#39;* dictionary has the zone ids as keys.</span>
+<span class="sd">        The value of those dictionaries is a factor indicating the desired</span>
+<span class="sd">        increase/decrease of capacity of the plant or plants in the zone fueled by</span>
+<span class="sd">        *&#39;[resource]&#39;* (1.2 would correspond to a 20% increase while 0.95 would be</span>
+<span class="sd">        a 5% decrease).</span>
+<span class="sd">    * *&#39;[resource]_cost&#39;*:</span>
+<span class="sd">        value is a dictionary. The latter has *&#39;plant_id&#39;* and/or</span>
+<span class="sd">        *&#39;zone_id&#39;* as keys. The *&#39;plant_id&#39;* dictionary has the plant ids</span>
+<span class="sd">        as keys while the *&#39;zone_id&#39;* dictionary has the zone ids as keys.</span>
+<span class="sd">        The value of those dictionaries is a factor indicating the desired</span>
+<span class="sd">        increase/decrease of cost of the plant or plants in the zone fueled by</span>
+<span class="sd">        *&#39;[resource]&#39;* (1.2 would correspond to a 20% increase while 0.95 would be</span>
+<span class="sd">        a 5% decrease).</span>
+<span class="sd">    * *&#39;[resource]_pmin*:</span>
+<span class="sd">        value is a dictionary. The latter has *&#39;plant_id&#39;* and/or</span>
+<span class="sd">        *&#39;zone_id&#39;* as keys. The *&#39;plant_id&#39;* dictionary has the plant ids</span>
+<span class="sd">        as keys while the *&#39;zone_id&#39;* dictionary has the zone ids as keys.</span>
+<span class="sd">        The value of those dictionaries is a factor indicating the desired</span>
+<span class="sd">        increase/decrease of minimum generation of the plant or plants in the zone</span>
+<span class="sd">        fueled by *&#39;[resource]&#39;* (1.2 would correspond to a 20% increase while</span>
+<span class="sd">        0.95 would be a 5% decrease).</span>
+<span class="sd">    * *&#39;dcline&#39;*:</span>
+<span class="sd">        value is a dictionary. The latter has *&#39;dcline_id&#39;* as keys and</span>
+<span class="sd">        the and the scaling factor for the increase/decrease in capacity</span>
+<span class="sd">        of the line as value.</span>
+<span class="sd">    * *&#39;storage&#39;*:</span>
+<span class="sd">        value is a dictionary. The latter has *&#39;bus_id&#39;* as keys and the</span>
+<span class="sd">        capacity of storage (in MW) to add as value.</span>
+<span class="sd">    * *&#39;new_dcline&#39;*:</span>
+<span class="sd">        value is a list. Each entry in this list is a dictionary enclosing</span>
+<span class="sd">        all the information needed to add a new dcline to the grid. The</span>
+<span class="sd">        keys in the dictionary are: *&#39;capacity&#39;*, *&#39;from_bus_id&#39;* and</span>
+<span class="sd">        *&#39;to_bus_id&#39;* with values giving the capacity of the HVDC line and</span>
+<span class="sd">        the bus id at each end of the line.</span>
+<span class="sd">    * *&#39;new_branch&#39;*:</span>
+<span class="sd">        value is a list. Each entry in this list is a dictionary enclosing</span>
+<span class="sd">        all the information needed to add a new branch to the grid. The</span>
+<span class="sd">        keys in the dictionary are: *&#39;capacity&#39;*, *&#39;from_bus_id&#39;* and</span>
+<span class="sd">        *&#39;to_bus_id&#39;* with values giving the capacity of the line and</span>
+<span class="sd">        the bus id at each end of the line.</span>
+<span class="sd">    * *&#39;new_plant&#39;*:</span>
+<span class="sd">        value is a list. Each entry in this list is a dictionary enclosing</span>
+<span class="sd">        all the information needed to add a new generator to the grid. The</span>
+<span class="sd">        keys in the dictionary are *&#39;type&#39;*, *&#39;bus_id&#39;*, *&#39;Pmax&#39;* for</span>
+<span class="sd">        renewable generators and *&#39;type&#39;*, *&#39;bus_id&#39;*, *&#39;Pmax&#39;*, *&#39;c0&#39;*,</span>
+<span class="sd">        *&#39;c1&#39;*, *&#39;c2&#39;* for thermal generators. An optional *&#39;Pmin&#39;* can be</span>
+<span class="sd">        passed for both renewable and thermal generators. The values give</span>
+<span class="sd">        the fuel type, the identification number of the bus, the maximum</span>
+<span class="sd">        capacity of the generator, the coefficients of the cost curve</span>
+<span class="sd">        (polynomials) and optionally the minimum capacity of the generator.</span>
+<span class="sd">    * *&#39;new_bus&#39;*:</span>
+<span class="sd">        value is a list. Each entry in this list is a dictionary enclosing</span>
+<span class="sd">        all the information needed to add a new bus to the grid. The</span>
+<span class="sd">        keys in the dictionary are: *&#39;lat&#39;*, *&#39;lon&#39;*, one of *&#39;zone_id&#39;*/*&#39;zone_name&#39;*,</span>
+<span class="sd">        and optionally *&#39;Pd&#39;*, specifying the location of the bus, the demand zone, and</span>
+<span class="sd">        optionally the nominal demand at that bus (defaults to 0).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param powersimdata.input.grid.Grid grid: a Grid object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">grid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">new_bus_cache</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_check_resource</span><span class="p">(</span><span class="n">resource</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Checks resource.</span>
+
+<span class="sd">        :param str resource: type of generator.</span>
+<span class="sd">        :raises ValueError: if resource cannot be changed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">possible</span> <span class="o">=</span> <span class="n">_resources</span>
+        <span class="k">if</span> <span class="n">resource</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-----------------------&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Possible Generator type&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-----------------------&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid resource: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">resource</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_check_zone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">zone_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Checks load zones.</span>
+
+<span class="sd">        :param list zone_name: load zones.</span>
+<span class="sd">        :raise ValueError: if zone(s) do(es) not exist.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">possible</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">zone_name</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+        <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">zone_name</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">z</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--------------&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Possible zones&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--------------&quot;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid load zone(s): </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">zone_name</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_get_plant_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">zone_name</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the plant identification number of all the generators</span>
+<span class="sd">            located in specified zone and fueled by specified resource.</span>
+
+<span class="sd">        :param str zone_name: load zone to consider.</span>
+<span class="sd">        :param str resource: type of generator to consider.</span>
+<span class="sd">        :return: (*list*) -- plant identification number of all the generators</span>
+<span class="sd">            located in zone and fueled by resource.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">plant_id</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">plant_id</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;zone_name&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">])</span>
+                <span class="o">.</span><span class="n">get_group</span><span class="p">((</span><span class="n">zone_name</span><span class="p">,</span> <span class="n">resource</span><span class="p">))</span>
+                <span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+        <span class="k">return</span> <span class="n">plant_id</span>
+
+<div class="viewcode-block" id="ChangeTable.clear"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.clear">[docs]</a>    <span class="k">def</span> <span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">which</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Clear all or part of the change table.</span>
+
+<span class="sd">        :param str/set which: str or set of strings of what to clear from self.ct</span>
+<span class="sd">            If None (default), everything is cleared.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Clear all</span>
+        <span class="k">if</span> <span class="n">which</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            <span class="k">return</span>
+        <span class="c1"># Input validation</span>
+        <span class="n">allowed</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">,</span> <span class="s2">&quot;dcline&quot;</span><span class="p">,</span> <span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;plant&quot;</span><span class="p">,</span> <span class="s2">&quot;storage&quot;</span><span class="p">}</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">which</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">which</span> <span class="o">=</span> <span class="p">{</span><span class="n">which</span><span class="p">}</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">which</span><span class="p">,</span> <span class="nb">set</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Which must be a str, a set, or None (defaults to all)&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">which</span> <span class="o">&lt;=</span> <span class="n">allowed</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;which must contain only: &quot;</span> <span class="o">+</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">allowed</span><span class="p">))</span>
+        <span class="c1"># Clear only top-level keys specified in which</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;storage&quot;</span><span class="p">}:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">which</span><span class="p">:</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="c1"># Clear multiple keys for each entry in which</span>
+        <span class="k">for</span> <span class="n">line_type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">,</span> <span class="s2">&quot;dcline&quot;</span><span class="p">}:</span>
+            <span class="k">if</span> <span class="n">line_type</span> <span class="ow">in</span> <span class="n">which</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">prefix</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;new_&quot;</span><span class="p">}:</span>
+                    <span class="n">key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="n">line_type</span>
+                    <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+                        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;plant&quot;</span> <span class="ow">in</span> <span class="n">which</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;new_plant&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_plant&quot;</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">_resources</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">suffix</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;_cost&quot;</span><span class="p">,</span> <span class="s2">&quot;_pmin&quot;</span><span class="p">}:</span>
+                    <span class="n">key</span> <span class="o">=</span> <span class="n">r</span> <span class="o">+</span> <span class="n">suffix</span>
+                    <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+                        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">key</span><span class="p">]</span></div>
+
+    <span class="k">def</span> <span class="nf">_add_plant_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource</span><span class="p">,</span> <span class="n">ct_key</span><span class="p">,</span> <span class="n">zone_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">plant_id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets plant entries in change table.</span>
+
+<span class="sd">        :param str resource: type of generator to consider.</span>
+<span class="sd">        :param str ct_key: top-level key to add to the change table.</span>
+<span class="sd">        :param dict zone_name: load zones. The key(s) is (are) the name of the</span>
+<span class="sd">            load zone(s) and the associated value is the entry for all the generators</span>
+<span class="sd">            fueled by specified resource in the load zone.</span>
+<span class="sd">        :param dict plant_id: identification numbers of plants. The key(s) is</span>
+<span class="sd">            (are) the id of the plant(s) and the associated value is the entry for</span>
+<span class="sd">            that generator.</span>
+<span class="sd">        :raise ValueError: if any values within zone_name or plant_id are negative.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_resource</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="n">zone_name</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">bool</span><span class="p">(</span><span class="n">plant_id</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">ct_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">ct_key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">if</span> <span class="n">zone_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_check_zone</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">zone_name</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">ct_key</span><span class="p">)</span>
+                    <span class="k">raise</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">v</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">zone_name</span><span class="o">.</span><span class="n">values</span><span class="p">()]):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;All entries for </span><span class="si">{</span><span class="n">ct_key</span><span class="si">}</span><span class="s2"> must be non-negative&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="s2">&quot;zone_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">ct_key</span><span class="p">]:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">ct_key</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">zone_name</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_plant_id</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">resource</span><span class="p">))</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No </span><span class="si">%s</span><span class="s2"> plants in </span><span class="si">%s</span><span class="s2">.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">resource</span><span class="p">,</span> <span class="n">z</span><span class="p">))</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">zone_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">z</span><span class="p">]</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">ct_key</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">][</span><span class="n">zone_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">zone_name</span><span class="p">[</span><span class="n">z</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">ct_key</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">ct_key</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">plant_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">plant_id_interconnect</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_group</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span><span class="o">.</span><span class="n">index</span>
+                <span class="p">)</span>
+                <span class="n">diff</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">plant_id</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="n">plant_id_interconnect</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">err_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;No </span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2"> plant(s) with the following id: &quot;</span>
+                    <span class="n">err_msg</span> <span class="o">+=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">diff</span><span class="p">]))</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">ct_key</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">v</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">plant_id</span><span class="o">.</span><span class="n">values</span><span class="p">()]):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;All entries for </span><span class="si">{</span><span class="n">ct_key</span><span class="si">}</span><span class="s2"> must be non-negative&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="s2">&quot;plant_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">ct_key</span><span class="p">]:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">ct_key</span><span class="p">][</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">plant_id</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">ct_key</span><span class="p">][</span><span class="s2">&quot;plant_id&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">plant_id</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&lt;zone&gt; and/or &lt;plant_id&gt; must be set.&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ChangeTable.scale_plant_capacity"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.scale_plant_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">scale_plant_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource</span><span class="p">,</span> <span class="n">zone_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">plant_id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets plant capacity scaling factor in change table.</span>
+
+<span class="sd">        :param str resource: type of generator to consider.</span>
+<span class="sd">        :param dict zone_name: load zones. The key(s) is (are) the name of the</span>
+<span class="sd">            load zone(s) and the associated value is the scaling factor for the</span>
+<span class="sd">            increase/decrease in capacity of all the generators fueled by</span>
+<span class="sd">            specified resource in the load zone.</span>
+<span class="sd">        :param dict plant_id: identification numbers of plants. The key(s) is</span>
+<span class="sd">            (are) the id of the plant(s) and the associated value is the</span>
+<span class="sd">            scaling factor for the increase/decrease in capacity of the</span>
+<span class="sd">            generator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add_plant_entries</span><span class="p">(</span><span class="n">resource</span><span class="p">,</span> <span class="n">resource</span><span class="p">,</span> <span class="n">zone_name</span><span class="p">,</span> <span class="n">plant_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ChangeTable.scale_plant_cost"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.scale_plant_cost">[docs]</a>    <span class="k">def</span> <span class="nf">scale_plant_cost</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource</span><span class="p">,</span> <span class="n">zone_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">plant_id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets plant cost scaling factor in change table.</span>
+
+<span class="sd">        :param str resource: type of generator to consider.</span>
+<span class="sd">        :param dict zone_name: load zones. The key(s) is (are) the name of the</span>
+<span class="sd">            load zone(s) and the associated value is the scaling factor for the</span>
+<span class="sd">            increase/decrease in cost of all the generators fueled by</span>
+<span class="sd">            specified resource in the load zone.</span>
+<span class="sd">        :param dict plant_id: identification numbers of plants. The key(s) is</span>
+<span class="sd">            (are) the id of the plant(s) and the associated value is the</span>
+<span class="sd">            scaling factor for the increase/decrease in cost of the</span>
+<span class="sd">            generator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add_plant_entries</span><span class="p">(</span><span class="n">resource</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2">_cost&quot;</span><span class="p">,</span> <span class="n">zone_name</span><span class="p">,</span> <span class="n">plant_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ChangeTable.scale_plant_pmin"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.scale_plant_pmin">[docs]</a>    <span class="k">def</span> <span class="nf">scale_plant_pmin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource</span><span class="p">,</span> <span class="n">zone_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">plant_id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets plant cost scaling factor in change table.</span>
+
+<span class="sd">        :param str resource: type of generator to consider.</span>
+<span class="sd">        :param dict zone_name: load zones. The key(s) is (are) the name of the</span>
+<span class="sd">            load zone(s) and the associated value is the scaling factor for the</span>
+<span class="sd">            minimum generation for all generators fueled by</span>
+<span class="sd">            specified resource in the load zone.</span>
+<span class="sd">        :param dict plant_id: identification numbers of plants. The key(s) is</span>
+<span class="sd">            (are) the id of the plant(s) and the associated value is the</span>
+<span class="sd">            scaling factor for the minimum generation of the generator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add_plant_entries</span><span class="p">(</span><span class="n">resource</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2">_pmin&quot;</span><span class="p">,</span> <span class="n">zone_name</span><span class="p">,</span> <span class="n">plant_id</span><span class="p">)</span>
+        <span class="c1"># Check for situations where Pmin would be scaled above Pmax</span>
+        <span class="n">candidate_grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+        <span class="n">pmax_pmin_ratio</span> <span class="o">=</span> <span class="n">candidate_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">/</span> <span class="n">candidate_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span>
+        <span class="n">to_be_clipped</span> <span class="o">=</span> <span class="n">pmax_pmin_ratio</span> <span class="o">&lt;</span> <span class="mi">1</span>
+        <span class="n">num_clipped</span> <span class="o">=</span> <span class="n">to_be_clipped</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">num_clipped</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">err_msg</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">num_clipped</span><span class="si">}</span><span class="s2"> plants would have Pmin &gt; Pmax; &quot;</span>
+                <span class="s2">&quot;these plants will have Pmin scaling clipped so that Pmin = Pmax&quot;</span>
+            <span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
+            <span class="c1"># Add by-plant correction factors as necessary</span>
+            <span class="k">for</span> <span class="n">plant_id</span><span class="p">,</span> <span class="n">correction</span> <span class="ow">in</span> <span class="n">pmax_pmin_ratio</span><span class="p">[</span><span class="n">to_be_clipped</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="s2">&quot;plant_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2">_pmin&quot;</span><span class="p">]:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2">_pmin&quot;</span><span class="p">][</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">if</span> <span class="n">plant_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2">_pmin&quot;</span><span class="p">][</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2">_pmin&quot;</span><span class="p">][</span><span class="s2">&quot;plant_id&quot;</span><span class="p">][</span><span class="n">plant_id</span><span class="p">]</span> <span class="o">*=</span> <span class="n">correction</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2">_pmin&quot;</span><span class="p">][</span><span class="s2">&quot;plant_id&quot;</span><span class="p">][</span><span class="n">plant_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">correction</span></div>
+
+<div class="viewcode-block" id="ChangeTable.scale_branch_capacity"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.scale_branch_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">scale_branch_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">zone_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">branch_id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets branch capacity scaling factor in change table.</span>
+
+<span class="sd">        :param dict zone_name: load zones. The key(s) is (are) the name of the</span>
+<span class="sd">            load zone(s) and the associated value is the scaling factor for</span>
+<span class="sd">            the increase/decrease in capacity of all the branches in the load</span>
+<span class="sd">            zone. Only lines that have both ends in zone are considered.</span>
+<span class="sd">        :param dict branch_id: identification numbers of branches. The key(s)</span>
+<span class="sd">            is (are) the id of the line(s) and the associated value is the</span>
+<span class="sd">            scaling factor for the increase/decrease in capacity of the line(s).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="n">zone_name</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">bool</span><span class="p">(</span><span class="n">branch_id</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;branch&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">if</span> <span class="n">zone_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_check_zone</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">zone_name</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;branch&quot;</span><span class="p">)</span>
+                    <span class="k">return</span>
+                <span class="k">if</span> <span class="s2">&quot;zone_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">]:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">zone_name</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">z</span><span class="p">]]</span> <span class="o">=</span> <span class="n">zone_name</span><span class="p">[</span><span class="n">z</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">branch_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">branch_id_interconnect</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+                <span class="n">diff</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">branch_id</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="n">branch_id_interconnect</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No branch with the following id:&quot;</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">diff</span><span class="p">):</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;branch&quot;</span><span class="p">)</span>
+                    <span class="k">return</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="s2">&quot;branch_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">]:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">branch_id</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">branch_id</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&lt;zone&gt; and/or &lt;branch_id&gt; must be set. Return.&quot;</span><span class="p">)</span>
+            <span class="k">return</span></div>
+
+<div class="viewcode-block" id="ChangeTable.scale_dcline_capacity"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.scale_dcline_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">scale_dcline_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dcline_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets DC line capacity scaling factor in change table.</span>
+
+<span class="sd">        :param dict dcline_id: identification numbers of dc line. The key(s) is</span>
+<span class="sd">            (are) the id of the line(s) and the associated value is the scaling</span>
+<span class="sd">            factor for the increase/decrease in capacity of the line(s).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s2">&quot;dcline&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;dcline&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">dcline_id</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">index</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No dc line with the following id:&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">diff</span><span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;dcline&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;dcline_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;dcline&quot;</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;dcline&quot;</span><span class="p">][</span><span class="s2">&quot;dcline_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">dcline_id</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;dcline&quot;</span><span class="p">][</span><span class="s2">&quot;dcline_id&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">dcline_id</span><span class="p">[</span><span class="n">i</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="ChangeTable.scale_demand"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.scale_demand">[docs]</a>    <span class="k">def</span> <span class="nf">scale_demand</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">zone_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">zone_id</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets load scaling factor in change table.</span>
+
+<span class="sd">        :param dict zone_name: load zones. The key(s) is (are) the name of the</span>
+<span class="sd">            load zone(s) and the value is the scaling factor for the</span>
+<span class="sd">            increase/decrease in load.</span>
+<span class="sd">        :param dict zone_id: identification numbers of the load zones. The</span>
+<span class="sd">            key(s) is (are) the id of the zone(s) and the associated value is</span>
+<span class="sd">            the scaling factor for the increase/decrease in load.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="n">zone_name</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">bool</span><span class="p">(</span><span class="n">zone_id</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;demand&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">if</span> <span class="s2">&quot;zone_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">if</span> <span class="n">zone_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_check_zone</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">zone_name</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;demand&quot;</span><span class="p">)</span>
+                    <span class="k">return</span>
+                <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">zone_name</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">z</span><span class="p">]]</span> <span class="o">=</span> <span class="n">zone_name</span><span class="p">[</span><span class="n">z</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">zone_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">zone_id_interconnect</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+                <span class="n">diff</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">zone_id</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="n">zone_id_interconnect</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No zone with the following id:&quot;</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">diff</span><span class="p">):</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;demand&quot;</span><span class="p">)</span>
+                    <span class="k">return</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">zone_id</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">zone_id</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&lt;zone&gt; and/or &lt;zone_id&gt; must be set. Return.&quot;</span><span class="p">)</span>
+            <span class="k">return</span></div>
+
+<div class="viewcode-block" id="ChangeTable.scale_renewable_stubs"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.scale_renewable_stubs">[docs]</a>    <span class="k">def</span> <span class="nf">scale_renewable_stubs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Scales undersized stub branches connected to renewable generators.</span>
+
+<span class="sd">        Optional kwargs as documented in the</span>
+<span class="sd">            :mod:`powersimdata.design.transmission.upgrade` module.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">scale_renewable_stubs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ChangeTable.scale_congested_mesh_branches"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.scale_congested_mesh_branches">[docs]</a>    <span class="k">def</span> <span class="nf">scale_congested_mesh_branches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_scenario</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Scales congested branches based on previous scenario results.</span>
+
+<span class="sd">        :param powersimdata.scenario.scenario.Scenario ref_scenario: the</span>
+<span class="sd">            reference scenario to be used in determining branch scaling.</span>
+
+<span class="sd">        Optional kwargs as documented in the</span>
+<span class="sd">            :mod:`powersimdata.design.transmission.upgrade` module.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">scale_congested_mesh_branches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ref_scenario</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ChangeTable.add_storage_capacity"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.add_storage_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">add_storage_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bus_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets storage parameters in change table.</span>
+
+<span class="sd">        :param dict bus_id: key(s) for the id of bus(es), value(s) is (are)</span>
+<span class="sd">            capacity of the energy storage system in MW.</span>
+<span class="sd">        :raises TypeError: if bus_id is not a dict.</span>
+<span class="sd">        :raises ValueError: if bus_id contains any bus ids not present in the grid,</span>
+<span class="sd">            or any non-positive values are given.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bus_id</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;bus_id must be a dict&quot;</span><span class="p">)</span>
+        <span class="n">anticipated_bus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_new_bus</span><span class="p">()</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">bus_id</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">anticipated_bus</span><span class="o">.</span><span class="n">index</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No bus with the following id: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">bus_id</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;values must be numeric, bad type for bus </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">v</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;values must be positive, bad value for bus </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;storage&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;storage&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="s2">&quot;bus_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;storage&quot;</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;storage&quot;</span><span class="p">][</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;storage&quot;</span><span class="p">][</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">bus_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ChangeTable.add_dcline"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.add_dcline">[docs]</a>    <span class="k">def</span> <span class="nf">add_dcline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Adds HVDC line(s).</span>
+
+<span class="sd">        :param list info: each entry is a dictionary. The dictionary gathers</span>
+<span class="sd">            the information needed to create a new dcline.</span>
+<span class="sd">        :raises TypeError: if info is not a list.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Argument enclosing new HVDC line(s) must be a list&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add_line</span><span class="p">(</span><span class="s2">&quot;new_dcline&quot;</span><span class="p">,</span> <span class="n">info</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ChangeTable.add_branch"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.add_branch">[docs]</a>    <span class="k">def</span> <span class="nf">add_branch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets parameters of new branch(es) in change table.</span>
+
+<span class="sd">        :param list info: each entry is a dictionary. The dictionary gathers</span>
+<span class="sd">            the information needed to create a new branch.</span>
+<span class="sd">        :raises TypeError: if info is not a list.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Argument enclosing new AC line(s) must be a list&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add_line</span><span class="p">(</span><span class="s2">&quot;new_branch&quot;</span><span class="p">,</span> <span class="n">info</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_check_entry_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entry</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">xor_sets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check the validity of the dict keys used to add new components to the</span>
+<span class="sd">        network (e.g. plants, AC lines), checking for: missing keys, extra keys, or</span>
+<span class="sd">        incompatible sets of keys.</span>
+
+<span class="sd">        :param dict entry: dict of key/value pairs for a new entry.</span>
+<span class="sd">        :param int n: index of the new entry (used in error messages).</span>
+<span class="sd">        :param str key: type of new entry (used in error messages).</span>
+<span class="sd">        :param set required: keys which must be specified.</span>
+<span class="sd">        :param set xor_sets: set of tuples, for which exactly one key must be specified.</span>
+<span class="sd">        :param set optional: set of acceptable keys which are not required or in an xor</span>
+<span class="sd">            set.</span>
+<span class="sd">        :raises TypeError: if entry is not a dict.</span>
+<span class="sd">        :raises ValueError: if any required keys are missing, the number of specified</span>
+<span class="sd">            keys in each xor set is not exactly one, or an unexpected key is received.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">xor_sets</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">tuple</span><span class="p">())</span> <span class="k">if</span> <span class="n">xor_sets</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">xor_sets</span>
+        <span class="n">optional</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span> <span class="k">if</span> <span class="n">optional</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">optional</span>
+        <span class="n">nth</span> <span class="o">=</span> <span class="n">ordinal</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Each entry must be a dictionary, error on </span><span class="si">{</span><span class="n">nth</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">required</span> <span class="o">-</span> <span class="n">entry</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">missing_keys</span> <span class="o">=</span> <span class="n">required</span> <span class="o">-</span> <span class="n">entry</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Each entry of </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> requires keys of: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">required</span><span class="p">))</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Missing </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">missing_keys</span><span class="p">)</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="n">nth</span><span class="si">}</span><span class="s2"> entry, possibly others.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">allowable_keys</span> <span class="o">=</span> <span class="n">required</span> <span class="o">|</span> <span class="n">optional</span> <span class="o">|</span> <span class="nb">set</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="o">*</span><span class="n">xor_sets</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&lt;=</span> <span class="n">allowable_keys</span><span class="p">:</span>
+            <span class="n">unknown_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">-</span> <span class="n">allowable_keys</span>
+            <span class="n">err_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Got unknown keys in </span><span class="si">{</span><span class="n">nth</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">unknown_keys</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">xor_set</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">xor_sets</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">xor_set</span> <span class="o">&amp;</span> <span class="n">entry</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">err_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;For </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">, must specify one of </span><span class="si">{</span><span class="n">xor_set</span><span class="si">}</span><span class="s2"> but not both&quot;</span>
+                <span class="n">err_msg</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;. Error on </span><span class="si">{</span><span class="n">nth</span><span class="si">}</span><span class="s2"> entry, possibly others&quot;</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_add_line</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handles line(s) addition in change table.</span>
+
+<span class="sd">        :param str key: key in change table. Either *&#39;new_branch&#39;* or *&#39;new_dcline&#39;*</span>
+<span class="sd">        :param list info: parameters of the line.</span>
+<span class="sd">        :raises ValueError: if any of the new lines to be added have nonsensical values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
+        <span class="n">anticipated_bus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_new_bus</span><span class="p">()</span>
+        <span class="n">new_lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">required</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;from_bus_id&quot;</span><span class="p">,</span> <span class="s2">&quot;to_bus_id&quot;</span><span class="p">}</span>
+        <span class="n">xor_sets</span> <span class="o">=</span> <span class="p">{(</span><span class="s2">&quot;capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmin&quot;</span><span class="p">)}</span>
+        <span class="n">optional</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Pmin&quot;</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">info</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_entry_keys</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">xor_sets</span><span class="p">,</span> <span class="n">optional</span><span class="p">)</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="s2">&quot;from_bus_id&quot;</span><span class="p">]</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="s2">&quot;to_bus_id&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">start</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">anticipated_bus</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;No bus with the following id for line #</span><span class="si">%d</span><span class="s2">: </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">start</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">end</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">anticipated_bus</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;No bus with the following id for line #</span><span class="si">%d</span><span class="s2">: </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">start</span> <span class="o">==</span> <span class="n">end</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;to/from buses of line #</span><span class="si">{</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="si">}</span><span class="s2"> must be different&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s2">&quot;capacity&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="s2">&quot;capacity&quot;</span><span class="p">],</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;capacity&#39; must be a number (int/float)&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">line</span><span class="p">[</span><span class="s2">&quot;capacity&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;capacity of line #</span><span class="si">%d</span><span class="s2"> must be positive&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+                <span class="c1"># Everything looks good, let&#39;s translate this to Pmin/Pmax</span>
+                <span class="n">line</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="s2">&quot;capacity&quot;</span><span class="p">]</span>
+                <span class="n">line</span><span class="p">[</span><span class="s2">&quot;Pmin&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">line</span><span class="p">[</span><span class="s2">&quot;capacity&quot;</span><span class="p">]</span>
+                <span class="k">del</span> <span class="n">line</span><span class="p">[</span><span class="s2">&quot;capacity&quot;</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="p">{</span><span class="s2">&quot;Pmin&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">}</span> <span class="o">&lt;</span> <span class="nb">set</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;new_branch&quot;</span><span class="p">:</span>
+                    <span class="n">err_msg</span> <span class="o">=</span> <span class="s2">&quot;Can&#39;t independently set Pmin &amp; Pmax for AC branches&quot;</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Pmin&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">}:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2">&#39; must be a number (int/float)&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">line</span><span class="p">[</span><span class="s2">&quot;Pmin&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">line</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Pmin cannot be greater than Pmax&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must specify either &#39;capacity&#39; or Pmin and Pmax&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;new_branch&quot;</span>
+                <span class="ow">and</span> <span class="n">anticipated_bus</span><span class="o">.</span><span class="n">interconnect</span><span class="p">[</span><span class="n">start</span><span class="p">]</span>
+                <span class="o">!=</span> <span class="n">anticipated_bus</span><span class="o">.</span><span class="n">interconnect</span><span class="p">[</span><span class="n">end</span><span class="p">]</span>
+            <span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Buses of line #</span><span class="si">%d</span><span class="s2"> must be in same interconnect&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="p">(</span>
+                <span class="n">anticipated_bus</span><span class="o">.</span><span class="n">lat</span><span class="p">[</span><span class="n">start</span><span class="p">]</span> <span class="o">==</span> <span class="n">anticipated_bus</span><span class="o">.</span><span class="n">lat</span><span class="p">[</span><span class="n">end</span><span class="p">]</span>
+                <span class="ow">and</span> <span class="n">anticipated_bus</span><span class="o">.</span><span class="n">lon</span><span class="p">[</span><span class="n">start</span><span class="p">]</span> <span class="o">==</span> <span class="n">anticipated_bus</span><span class="o">.</span><span class="n">lon</span><span class="p">[</span><span class="n">end</span><span class="p">]</span>
+            <span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Distance between buses of line #</span><span class="si">%d</span><span class="s2"> is 0&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="n">new_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">+=</span> <span class="n">new_lines</span>
+
+<div class="viewcode-block" id="ChangeTable.add_plant"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.add_plant">[docs]</a>    <span class="k">def</span> <span class="nf">add_plant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets parameters of new generator(s) in change table.</span>
+
+<span class="sd">        :param list info: each entry is a dictionary. The dictionary gathers</span>
+<span class="sd">            the information needed to create a new generator.</span>
+<span class="sd">        :raises TypeError: if info is not a list.</span>
+<span class="sd">        :raises ValueError: if any of the new plants to be added have bad values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Argument enclosing new plant(s) must be a list&quot;</span><span class="p">)</span>
+
+        <span class="n">info</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
+        <span class="n">anticipated_bus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_new_bus</span><span class="p">()</span>
+        <span class="n">new_plants</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">required</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;bus_id&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">}</span>
+        <span class="n">optional</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;c0&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmin&quot;</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">plant</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">info</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_entry_keys</span><span class="p">(</span><span class="n">plant</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;plant&quot;</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">optional</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_resource</span><span class="p">(</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">plant</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">anticipated_bus</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;No bus id </span><span class="si">{</span><span class="n">plant</span><span class="p">[</span><span class="s1">&#39;bus_id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> available for plant #</span><span class="si">{</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">plant</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pmax &gt;= 0 must be satisfied for plant #</span><span class="si">{</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s2">&quot;Pmin&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">plant</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">plant</span><span class="p">[</span><span class="s2">&quot;Pmin&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="n">plant</span><span class="p">[</span><span class="s2">&quot;Pmin&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">plant</span><span class="p">[</span><span class="s2">&quot;Pmin&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">plant</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]:</span>
+                <span class="n">err_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;0 &lt;= Pmin &lt;= Pmax must be satisfied for plant #</span><span class="si">{</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">_renewable_resource</span><span class="p">:</span>
+                <span class="n">lon</span> <span class="o">=</span> <span class="n">anticipated_bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">lon</span>
+                <span class="n">lat</span> <span class="o">=</span> <span class="n">anticipated_bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">lat</span>
+                <span class="n">plant_same_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_group</span><span class="p">(</span>
+                    <span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="n">neighbor_id</span> <span class="o">=</span> <span class="n">find_closest_neighbor</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">),</span> <span class="n">plant_same_type</span><span class="p">[[</span><span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
+                <span class="p">)</span>
+                <span class="n">plant</span><span class="p">[</span><span class="s2">&quot;plant_id_neighbor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">plant_same_type</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">neighbor_id</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;0&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">,</span> <span class="s2">&quot;2&quot;</span><span class="p">]:</span>
+                    <span class="k">if</span> <span class="s2">&quot;c&quot;</span> <span class="o">+</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">plant</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing key c</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> for plant #</span><span class="si">{</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">plant</span><span class="p">[</span><span class="s2">&quot;c&quot;</span> <span class="o">+</span> <span class="n">c</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">err_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;c</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2"> &gt;= 0 must be satisfied for plant #</span><span class="si">{</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
+            <span class="n">new_plants</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">plant</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">&quot;new_plant&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_plant&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_plant&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">new_plants</span></div>
+
+<div class="viewcode-block" id="ChangeTable.add_bus"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.add_bus">[docs]</a>    <span class="k">def</span> <span class="nf">add_bus</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets parameters of new bus(es) in change table.</span>
+
+<span class="sd">        :param list info: each entry is a dictionary. The dictionary gathers</span>
+<span class="sd">            the information needed to create a new bus.</span>
+<span class="sd">            Required keys: &quot;lat&quot;, &quot;lon&quot;, [&quot;zone_id&quot; XOR &quot;zone_name&quot;].</span>
+<span class="sd">            Optional key: &quot;Pd&quot;, &quot;baseKV&quot;.</span>
+<span class="sd">        :raises TypeError: if info is not a list.</span>
+<span class="sd">        :raises ValueError: if any new bus doesn&#39;t have appropriate keys/values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Argument enclosing new bus(es) must be a list&quot;</span><span class="p">)</span>
+
+        <span class="n">info</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
+        <span class="n">new_buses</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">required</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">}</span>
+        <span class="n">xor_sets</span> <span class="o">=</span> <span class="p">{(</span><span class="s2">&quot;zone_id&quot;</span><span class="p">,</span> <span class="s2">&quot;zone_name&quot;</span><span class="p">)}</span>
+        <span class="n">defaults</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Pd&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;baseKV&quot;</span><span class="p">:</span> <span class="mi">230</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">new_bus</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">info</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_entry_keys</span><span class="p">(</span>
+                <span class="n">new_bus</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;new_bus&quot;</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">xor_sets</span><span class="p">,</span> <span class="n">defaults</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">}:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_bus</span><span class="p">[</span><span class="n">l</span><span class="p">],</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">l</span><span class="si">}</span><span class="s2"> must be numeric (int/float)&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">90</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;lat&#39; must be between -90 and +90&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">180</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;lon&#39; must be between -180 and +180&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s2">&quot;zone_id&quot;</span> <span class="ow">in</span> <span class="n">new_bus</span> <span class="ow">and</span> <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">id2zone</span><span class="p">:</span>
+                <span class="n">zone_id</span> <span class="o">=</span> <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;zone_id </span><span class="si">{</span><span class="n">zone_id</span><span class="si">}</span><span class="s2"> not present in Grid&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s2">&quot;zone_name&quot;</span> <span class="ow">in</span> <span class="n">new_bus</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]]</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="n">zone_name</span> <span class="o">=</span> <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;zone_name </span><span class="si">{</span><span class="n">zone_name</span><span class="si">}</span><span class="s2"> not present in Grid&quot;</span><span class="p">)</span>
+                <span class="k">del</span> <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="s2">&quot;Pd&quot;</span> <span class="ow">in</span> <span class="n">new_bus</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;Pd&quot;</span><span class="p">],</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Pd must be numeric (int/float)&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;Pd&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">defaults</span><span class="p">[</span><span class="s2">&quot;Pd&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="s2">&quot;baseKV&quot;</span> <span class="ow">in</span> <span class="n">new_bus</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;baseKV&quot;</span><span class="p">],</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;baseKV must be numeric (int/float)&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;baseKV&quot;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;baseKV must be positive&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;baseKV&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">defaults</span><span class="p">[</span><span class="s2">&quot;baseKV&quot;</span><span class="p">]</span>
+            <span class="n">new_buses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_bus</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;new_bus&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_bus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_bus&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">new_buses</span></div>
+
+    <span class="k">def</span> <span class="nf">_get_new_bus</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s2">&quot;new_bus&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span>
+        <span class="n">new_bus_tuple</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_bus&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">new_bus_tuple</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_bus_cache</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_bus_cache</span><span class="p">[</span><span class="n">new_bus_tuple</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">bus</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span><span class="o">.</span><span class="n">bus</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">new_bus_cache</span><span class="p">[</span><span class="n">new_bus_tuple</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus</span>
+            <span class="k">return</span> <span class="n">bus</span>
+
+<div class="viewcode-block" id="ChangeTable.write"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_id</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Saves change table to disk.</span>
+
+<span class="sd">        :param str scenario_id: scenario index.</span>
+<span class="sd">        :raises IOError: if file already exists on local machine.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">scenario_id</span> <span class="o">+</span> <span class="s2">&quot;_ct.pkl&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Writing </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">file_name</span><span class="p">)</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> already exists&quot;</span> <span class="o">%</span> <span class="n">file_name</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

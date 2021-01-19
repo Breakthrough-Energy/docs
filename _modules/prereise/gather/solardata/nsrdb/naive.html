@@ -1,0 +1,176 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.solardata.nsrdb.naive &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.solardata.nsrdb.naive</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span> <span class="nn">prereise.gather.solardata.helpers</span> <span class="kn">import</span> <span class="n">get_plant_info_unique_location</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.solardata.nsrdb.nrel_api</span> <span class="kn">import</span> <span class="n">NrelApi</span>
+
+
+<div class="viewcode-block" id="retrieve_data"><a class="viewcode-back" href="../../../../../prereise.gather.solardata.nsrdb.html#prereise.gather.solardata.nsrdb.naive.retrieve_data">[docs]</a><span class="k">def</span> <span class="nf">retrieve_data</span><span class="p">(</span><span class="n">solar_plant</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">api_key</span><span class="p">,</span> <span class="n">year</span><span class="o">=</span><span class="s2">&quot;2016&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Retrieve irradiance data from NSRDB and calculate the power output</span>
+<span class="sd">    using a simple normalization.</span>
+
+<span class="sd">    :param pandas.DataFrame solar_plant: data frame with *&#39;lat&#39;*, *&#39;lon&#39;* and</span>
+<span class="sd">        *&#39;Pmax&#39; as columns and *&#39;plant_id&#39;* as index.</span>
+<span class="sd">    :param str email: email used for API key</span>
+<span class="sd">        `sign up &lt;https://developer.nrel.gov/signup/&gt;`_.</span>
+<span class="sd">    :param str api_key: API key.</span>
+<span class="sd">    :param str year: year.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- data frame with *&#39;Pout&#39;*, *&#39;plant_id&#39;*,</span>
+<span class="sd">        *&#39;ts&#39;* and *&#39;ts_id&#39;* as columns. The power output is in MWh.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Identify unique location</span>
+    <span class="n">coord</span> <span class="o">=</span> <span class="n">get_plant_info_unique_location</span><span class="p">(</span><span class="n">solar_plant</span><span class="p">)</span>
+
+    <span class="n">api</span> <span class="o">=</span> <span class="n">NrelApi</span><span class="p">(</span><span class="n">email</span><span class="p">,</span> <span class="n">api_key</span><span class="p">)</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;Pout&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;ts&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;ts_id&quot;</span><span class="p">:</span> <span class="p">[]})</span>
+
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">coord</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">coord</span><span class="p">)):</span>
+        <span class="n">lat</span><span class="p">,</span> <span class="n">lon</span> <span class="o">=</span> <span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">data_loc</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">get_psm3_at</span><span class="p">(</span>
+            <span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">attributes</span><span class="o">=</span><span class="s2">&quot;ghi&quot;</span><span class="p">,</span> <span class="n">year</span><span class="o">=</span><span class="n">year</span><span class="p">,</span> <span class="n">leap_day</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">data_resource</span>
+        <span class="n">ghi</span> <span class="o">=</span> <span class="n">data_loc</span><span class="o">.</span><span class="n">GHI</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">data_loc</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;Pout&quot;</span><span class="p">:</span> <span class="n">ghi</span><span class="p">})</span>
+        <span class="n">data_loc</span><span class="p">[</span><span class="s2">&quot;Pout&quot;</span><span class="p">]</span> <span class="o">/=</span> <span class="nb">max</span><span class="p">(</span><span class="n">ghi</span><span class="p">)</span>
+        <span class="n">data_loc</span><span class="p">[</span><span class="s2">&quot;ts_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ghi</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">data_loc</span><span class="p">[</span><span class="s2">&quot;ts&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="n">year</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">year</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">)[</span>
+            <span class="p">:</span><span class="o">-</span><span class="mi">1</span>
+        <span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">coord</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
+            <span class="n">data_site</span> <span class="o">=</span> <span class="n">data_loc</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">data_site</span><span class="p">[</span><span class="s2">&quot;Pout&quot;</span><span class="p">]</span> <span class="o">*=</span> <span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">data_site</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_site</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">data</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">[</span><span class="s2">&quot;ts_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;ts_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+
+    <span class="n">data</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ts_id&quot;</span><span class="p">,</span> <span class="s2">&quot;plant_id&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">data</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

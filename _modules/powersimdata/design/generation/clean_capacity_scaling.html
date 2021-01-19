@@ -1,0 +1,678 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.design.generation.clean_capacity_scaling &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.design.generation.clean_capacity_scaling</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.design.mimic_grid</span> <span class="kn">import</span> <span class="n">mimic_generation_capacity</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.usa_tamu_model</span> <span class="kn">import</span> <span class="n">area_to_loadzone</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.scenario</span> <span class="kn">import</span> <span class="n">Scenario</span>
+
+
+<span class="k">def</span> <span class="nf">_check_solar_fraction</span><span class="p">(</span><span class="n">solar_fraction</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Checks that the solar_fraction is between 0 and 1, or is None.</span>
+
+<span class="sd">    :param float scale_fraction: desired solar fraction for new capacity.</span>
+<span class="sd">    :raises TypeError: if type is not int, float, or None.</span>
+<span class="sd">    :raises ValueError: if value is not between 0 and 1.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">solar_fraction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">solar_fraction</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">solar_fraction</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;solar_fraction must be between 0 and 1&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;solar_fraction must be int/float or None&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_apply_zone_scale_factor_to_ct</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">fuel</span><span class="p">,</span> <span class="n">zone_id</span><span class="p">,</span> <span class="n">scale_factor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Applies a zone scaling factor to a change table, creating internal</span>
+<span class="sd">    change table structure as necessary. New keys are added, existing keys are</span>
+<span class="sd">    multiplied.</span>
+
+<span class="sd">    :param dict ct: a dictionary of scale factors, with structure matching</span>
+<span class="sd">        ct from powersimdata.input.change_table.ChangeTable.</span>
+<span class="sd">    :param str fuel: the fuel to be scaled.</span>
+<span class="sd">    :param int zone_id: the zone_id to be scaled.</span>
+<span class="sd">    :param int/float scale_factor: how much the zone should be scaled up by.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">fuel</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ct</span><span class="p">:</span>
+        <span class="n">ct</span><span class="p">[</span><span class="n">fuel</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="s2">&quot;zone_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ct</span><span class="p">[</span><span class="n">fuel</span><span class="p">]:</span>
+        <span class="n">ct</span><span class="p">[</span><span class="n">fuel</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">zone_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ct</span><span class="p">[</span><span class="n">fuel</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]:</span>
+        <span class="n">ct</span><span class="p">[</span><span class="n">fuel</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">][</span><span class="n">zone_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">scale_factor</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ct</span><span class="p">[</span><span class="n">fuel</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">][</span><span class="n">zone_id</span><span class="p">]</span> <span class="o">*=</span> <span class="n">scale_factor</span>
+
+
+<div class="viewcode-block" id="load_targets_from_csv"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.clean_capacity_scaling.load_targets_from_csv">[docs]</a><span class="k">def</span> <span class="nf">load_targets_from_csv</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">drop_ignored</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Interprets a CSV file as a set of targets, ensuring that required columns are present,</span>
+<span class="sd">    and filling in default values for optional columns.</span>
+
+<span class="sd">    :param str filename: filepath to targets csv.</span>
+<span class="sd">    :param bool drop_ignored: if True, drop all ignored columns from output.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- DataFrame of targets from csv file</span>
+<span class="sd">    :raises TypeError: if filename is not a string</span>
+<span class="sd">    :raises ValueError: if one or more required columns is missing.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Constants</span>
+    <span class="n">mandatory_columns</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;region_name&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ce_target_fraction&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">optional_column_defaults</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;allowed_resources&quot;</span><span class="p">:</span> <span class="s2">&quot;solar, wind&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;external_ce_addl_historical_amount&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;solar_percentage&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
+        <span class="s2">&quot;area_type&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Validate input</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;filename must be a str&quot;</span><span class="p">)</span>
+    <span class="c1"># Interpret as object so that we can fillna() with a mixed-type dict</span>
+    <span class="n">raw_targets</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">object</span><span class="p">)</span>
+    <span class="n">raw_columns</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">raw_targets</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">mandatory_columns</span> <span class="o">&lt;=</span> <span class="n">raw_columns</span><span class="p">:</span>
+        <span class="n">missing_columns</span> <span class="o">=</span> <span class="n">mandatory_columns</span> <span class="o">-</span> <span class="n">raw_columns</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Missing columns: </span><span class="si">{</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing_columns</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">raw_targets</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;region_name&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># Report which columns are used vs. unused</span>
+    <span class="n">ignored_columns</span> <span class="o">=</span> <span class="n">raw_columns</span> <span class="o">-</span> <span class="n">mandatory_columns</span> <span class="o">-</span> <span class="n">optional_column_defaults</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ignoring: </span><span class="si">{</span><span class="n">ignored_columns</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">drop_ignored</span><span class="p">:</span>
+        <span class="n">raw_targets</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">ignored_columns</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">optional_column_defaults</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="c1"># Fill optional columns that are missing entirely</span>
+        <span class="k">if</span> <span class="n">column</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">raw_columns</span><span class="p">:</span>
+            <span class="n">raw_targets</span><span class="p">[</span><span class="n">column</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="c1"># Fill any empty cells within optional columns</span>
+    <span class="n">raw_targets</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">optional_column_defaults</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">raw_targets</span></div>
+
+
+<span class="k">def</span> <span class="nf">_make_zonename2target</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Creates a dictionary of {zone_name: target_name} pairs.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance defining the set of zones.</span>
+<span class="sd">    :param pandas.DataFrame targets: a dataframe used to look up constituent zones.</span>
+<span class="sd">    :return: (*dict*) -- a dictionary of {zone_name: target_name} pairs.</span>
+<span class="sd">    :raises ValueError: if a zone is not present in any target areas, or</span>
+<span class="sd">        if a zone is present in more than one target area.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">target_zones</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">target_name</span><span class="p">:</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">target_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isnull</span><span class="p">(</span><span class="n">targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">target_name</span><span class="p">,</span> <span class="s2">&quot;area_type&quot;</span><span class="p">])</span>
+        <span class="k">else</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">target_name</span><span class="p">,</span> <span class="n">targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">target_name</span><span class="p">,</span> <span class="s2">&quot;area_type&quot;</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">target_name</span> <span class="ow">in</span> <span class="n">targets</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="p">}</span>
+    <span class="c1"># Check for any collisions</span>
+    <span class="n">zone_sets</span> <span class="o">=</span> <span class="n">target_zones</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="o">*</span><span class="n">zone_sets</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">sum</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">zone_sets</span><span class="p">]):</span>
+        <span class="n">zone_sets_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">zone</span> <span class="k">for</span> <span class="n">_set</span> <span class="ow">in</span> <span class="n">zone_sets</span> <span class="k">for</span> <span class="n">zone</span> <span class="ow">in</span> <span class="n">_set</span><span class="p">]</span>
+        <span class="n">duplicates</span> <span class="o">=</span> <span class="p">{</span><span class="n">zone</span> <span class="k">for</span> <span class="n">zone</span> <span class="ow">in</span> <span class="n">zone_sets_list</span> <span class="k">if</span> <span class="n">zone_sets_list</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">zone</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">}</span>
+        <span class="n">error_areas</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">zone</span><span class="p">:</span> <span class="p">{</span><span class="n">area</span> <span class="k">for</span> <span class="n">area</span><span class="p">,</span> <span class="n">zone_set</span> <span class="ow">in</span> <span class="n">target_zones</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">zone</span> <span class="ow">in</span> <span class="n">zone_set</span><span class="p">}</span>
+            <span class="k">for</span> <span class="n">zone</span> <span class="ow">in</span> <span class="n">duplicates</span>
+        <span class="p">}</span>
+        <span class="n">error_msgs</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> within: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">error_areas</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Zone(s) within multiple area! </span><span class="si">{</span><span class="s1">&#39;; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">error_msgs</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">zonename2target</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">target_name</span><span class="p">,</span> <span class="n">zone_set</span> <span class="ow">in</span> <span class="n">target_zones</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="c1"># Filter out parts of states not in the interconnect(s) in this Grid</span>
+        <span class="n">filtered_zone_set</span> <span class="o">=</span> <span class="n">zone_set</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">zonename2target</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">zone</span><span class="p">:</span> <span class="n">target_name</span> <span class="k">for</span> <span class="n">zone</span> <span class="ow">in</span> <span class="n">filtered_zone_set</span><span class="p">})</span>
+    <span class="n">untargetted_zones</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">zonename2target</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">untargetted_zones</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">err_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Targets do not cover all load zones. Missing: </span><span class="si">{</span><span class="n">untargetted_zones</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">zonename2target</span>
+
+
+<span class="k">def</span> <span class="nf">_get_scenario_length</span><span class="p">(</span><span class="n">scenario</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get the number of hours in a scenario.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: A Scenario instance.</span>
+<span class="sd">    :return: (*int*) -- the number of hours in the scenario.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">Scenario</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;next_scenario must be a Scenario object&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;create&quot;</span><span class="p">:</span>
+        <span class="n">start_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">start_date</span><span class="p">)</span>
+        <span class="n">end_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">end_date</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">start_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;start_date&quot;</span><span class="p">])</span>
+        <span class="n">end_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;end_date&quot;</span><span class="p">])</span>
+    <span class="n">num_hours</span> <span class="o">=</span> <span class="p">(</span><span class="n">end_ts</span> <span class="o">-</span> <span class="n">start_ts</span><span class="p">)</span> <span class="o">/</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">num_hours</span>
+
+
+<div class="viewcode-block" id="add_resource_data_to_targets"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.clean_capacity_scaling.add_resource_data_to_targets">[docs]</a><span class="k">def</span> <span class="nf">add_resource_data_to_targets</span><span class="p">(</span><span class="n">input_targets</span><span class="p">,</span> <span class="n">scenario</span><span class="p">,</span> <span class="n">calculate_curtailment</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Add resource data to targets. This data includes: previous capacity,</span>
+<span class="sd">    previous generation, previous capacity factor (with and without curtailment),</span>
+<span class="sd">    and previous curtailment.</span>
+
+<span class="sd">    :param pandas.DataFrame input_targets: table includeing target names, used to</span>
+<span class="sd">        summarize resource data.</span>
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: A Scenario instance.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- DataFrame of targets including resource data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">input_targets</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+    <span class="n">curtailment_types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">]</span>
+    <span class="n">scenario_length</span> <span class="o">=</span> <span class="n">_get_scenario_length</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+
+    <span class="c1"># Map each zone in the grid to a target</span>
+    <span class="n">zonename2target</span> <span class="o">=</span> <span class="n">_make_zonename2target</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
+    <span class="n">plant</span><span class="p">[</span><span class="s2">&quot;target_area&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">zonename2target</span><span class="p">[</span><span class="n">z</span><span class="p">]</span> <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]]</span>
+
+    <span class="c1"># Summarize important values by target area &amp; type</span>
+    <span class="n">groupby_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">plant</span><span class="o">.</span><span class="n">target_area</span><span class="p">,</span> <span class="n">plant</span><span class="o">.</span><span class="n">type</span><span class="p">]</span>
+    <span class="c1"># Capacity</span>
+    <span class="n">capacity_groupby</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">groupby_cols</span><span class="p">)</span>
+    <span class="n">capacity_by_target_type</span> <span class="o">=</span> <span class="n">capacity_groupby</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">unstack</span><span class="p">(</span><span class="n">fill_value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="c1"># Generated energy</span>
+    <span class="n">pg_groupby</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_pg</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">groupby_cols</span><span class="p">)</span>
+    <span class="n">summed_generation</span> <span class="o">=</span> <span class="n">pg_groupby</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">unstack</span><span class="p">(</span><span class="n">fill_value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="c1"># Calculate capacity factors</span>
+    <span class="n">possible_energy</span> <span class="o">=</span> <span class="n">scenario_length</span> <span class="o">*</span> <span class="n">capacity_by_target_type</span><span class="p">[</span><span class="n">curtailment_types</span><span class="p">]</span>
+    <span class="n">capacity_factor</span> <span class="o">=</span> <span class="n">summed_generation</span><span class="p">[</span><span class="n">curtailment_types</span><span class="p">]</span> <span class="o">/</span> <span class="n">possible_energy</span>
+    <span class="k">if</span> <span class="n">calculate_curtailment</span><span class="p">:</span>
+        <span class="c1"># Calculate: curtailment, no_curtailment_cap_factor</span>
+        <span class="c1"># Hydro and solar are straightforward</span>
+        <span class="n">hydro_plant_sum</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_hydro</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">hydro_plant_targets</span> <span class="o">=</span> <span class="n">plant</span><span class="p">[</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;hydro&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">target_area</span>
+        <span class="n">hydro_potential_by_target</span> <span class="o">=</span> <span class="n">hydro_plant_sum</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">hydro_plant_targets</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">solar_plant_sum</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_solar</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">solar_plant_targets</span> <span class="o">=</span> <span class="n">plant</span><span class="p">[</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;solar&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">target_area</span>
+        <span class="n">solar_potential_by_target</span> <span class="o">=</span> <span class="n">solar_plant_sum</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">solar_plant_targets</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="c1"># Wind is a little tricker because get_wind() returns &#39;wind&#39; and &#39;wind_offshore&#39;</span>
+        <span class="n">onshore_wind_plants</span> <span class="o">=</span> <span class="n">plant</span><span class="p">[</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;wind&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span>
+        <span class="n">onshore_wind_plant_sum</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_wind</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()[</span><span class="n">onshore_wind_plants</span><span class="p">]</span>
+        <span class="n">wind_plant_targets</span> <span class="o">=</span> <span class="n">plant</span><span class="p">[</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;wind&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">target_area</span>
+        <span class="n">wind_potential_by_target</span> <span class="o">=</span> <span class="n">onshore_wind_plant_sum</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span>
+            <span class="n">wind_plant_targets</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">potentials_series</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">hydro_potential_by_target</span><span class="p">,</span>
+            <span class="n">solar_potential_by_target</span><span class="p">,</span>
+            <span class="n">wind_potential_by_target</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="n">potential</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">potentials_series</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">curtailment</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">potential</span> <span class="o">-</span> <span class="n">summed_generation</span><span class="p">[</span><span class="n">curtailment_types</span><span class="p">]</span>
+        <span class="p">)</span> <span class="o">/</span> <span class="n">possible_energy</span>
+        <span class="n">no_curtailment_cap_factor</span> <span class="o">=</span> <span class="n">potential</span> <span class="o">/</span> <span class="n">possible_energy</span>
+    <span class="c1"># Now add these calculations to the DataFrame</span>
+    <span class="n">total_capacity</span> <span class="o">=</span> <span class="n">capacity_by_target_type</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">nonzero_capacity_resources</span> <span class="o">=</span> <span class="n">total_capacity</span><span class="p">[</span><span class="n">total_capacity</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">nonzero_capacity_resources</span><span class="p">:</span>
+        <span class="n">targets</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.prev_capacity&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">capacity_by_target_type</span><span class="p">[</span><span class="n">r</span><span class="p">]</span>
+        <span class="n">targets</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.prev_generation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">summed_generation</span><span class="p">[</span><span class="n">r</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">curtailment_types</span><span class="p">:</span>
+            <span class="n">targets</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.prev_cap_factor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">capacity_factor</span><span class="p">[</span><span class="n">r</span><span class="p">]</span>
+            <span class="n">targets</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.addl_curtailment&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="n">calculate_curtailment</span><span class="p">:</span>
+                <span class="n">targets</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.no_curtailment_cap_factor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">no_curtailment_cap_factor</span><span class="p">[</span><span class="n">r</span><span class="p">]</span>
+                <span class="n">targets</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.curtailment&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">curtailment</span><span class="p">[</span><span class="n">r</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">targets</span></div>
+
+
+<div class="viewcode-block" id="add_demand_to_targets"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.clean_capacity_scaling.add_demand_to_targets">[docs]</a><span class="k">def</span> <span class="nf">add_demand_to_targets</span><span class="p">(</span><span class="n">input_targets</span><span class="p">,</span> <span class="n">scenario</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Add demand data to targets.</span>
+
+<span class="sd">    :param pandas.DataFrame input_targets: table including target names, used to</span>
+<span class="sd">        summarize demand.</span>
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: A Scenario instance.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- DataFrame of targets including demand data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">input_targets</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="n">zonename2target</span> <span class="o">=</span> <span class="n">_make_zonename2target</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
+    <span class="n">zoneid2target</span> <span class="o">=</span> <span class="p">{</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">z</span><span class="p">]:</span> <span class="n">target</span> <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">zonename2target</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="n">summed_demand</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_demand</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">to_frame</span><span class="p">()</span>
+    <span class="n">summed_demand</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">zoneid2target</span><span class="p">[</span><span class="nb">id</span><span class="p">]</span> <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">summed_demand</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+    <span class="n">targets</span><span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">summed_demand</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;target&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">targets</span></div>
+
+
+<div class="viewcode-block" id="add_shortfall_to_targets"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.clean_capacity_scaling.add_shortfall_to_targets">[docs]</a><span class="k">def</span> <span class="nf">add_shortfall_to_targets</span><span class="p">(</span><span class="n">input_targets</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Add shortfall data to targets.</span>
+
+<span class="sd">    :param pandas.DataFrame input_targets: table with demand, prev_generation,</span>
+<span class="sd">        and ce_target_fraction.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- DataFrame of targets including shortfall data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">input_targets</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">allowed_resources_dict</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">allowed_resources</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+    <span class="n">allowed_sets</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">target</span><span class="p">:</span> <span class="p">{</span><span class="n">resource</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">resource</span> <span class="ow">in</span> <span class="n">allowed</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)}</span>
+        <span class="k">for</span> <span class="n">target</span><span class="p">,</span> <span class="n">allowed</span> <span class="ow">in</span> <span class="n">allowed_resources_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+    <span class="c1"># Detect if there are allowed resources that aren&#39;t in the grid, and add them</span>
+    <span class="n">all_allowed</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="o">*</span><span class="n">allowed_sets</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+    <span class="k">for</span> <span class="n">resource</span> <span class="ow">in</span> <span class="n">all_allowed</span><span class="p">:</span>
+        <span class="k">if</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2">.prev_generation&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">targets</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">targets</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2">.prev_generation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">targets</span><span class="p">[</span><span class="s2">&quot;prev_ce_generation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">sum</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.prev_generation&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">allowed_sets</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">name</span><span class="p">]]),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+    <span class="n">targets</span><span class="p">[</span><span class="s2">&quot;ce_target&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">demand</span> <span class="o">*</span> <span class="n">targets</span><span class="o">.</span><span class="n">ce_target_fraction</span>
+    <span class="n">total_ce_generation</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">targets</span><span class="o">.</span><span class="n">prev_ce_generation</span> <span class="o">+</span> <span class="n">targets</span><span class="o">.</span><span class="n">external_ce_addl_historical_amount</span>
+    <span class="p">)</span>
+    <span class="n">raw_shortfall</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">ce_target</span> <span class="o">-</span> <span class="n">total_ce_generation</span>
+    <span class="n">targets</span><span class="p">[</span><span class="s2">&quot;ce_shortfall&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">raw_shortfall</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">targets</span><span class="p">[</span><span class="s2">&quot;ce_overgeneration&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">raw_shortfall</span><span class="p">)</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">targets</span></div>
+
+
+<div class="viewcode-block" id="calculate_overall_shortfall"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.clean_capacity_scaling.calculate_overall_shortfall">[docs]</a><span class="k">def</span> <span class="nf">calculate_overall_shortfall</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">normalized</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculates overall shortfall.</span>
+
+<span class="sd">    :param pandas.DataFrame targets: table of targets.</span>
+<span class="sd">    :param str method: shortfall calculation method (&quot;independent&quot; or &quot;collaborative&quot;).</span>
+<span class="sd">    :param bool normalized: whether to normalize by total demand.</span>
+<span class="sd">    :return: (*float*) -- overall shortfall, either in MWh or normalized by</span>
+<span class="sd">        total demand.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;targets must be a pandas DataFrame&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;ce_shortfall&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">targets</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;targets missing shortfall, see add_shortfall_to_targets()&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">normalized</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;normalized must be bool&quot;</span><span class="p">)</span>
+    <span class="n">allowed_methods</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;independent&quot;</span><span class="p">,</span> <span class="s2">&quot;collaborative&quot;</span><span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;collaborative&quot;</span><span class="p">:</span>
+        <span class="n">participating_targets</span> <span class="o">=</span> <span class="n">targets</span><span class="p">[</span><span class="n">targets</span><span class="o">.</span><span class="n">ce_target</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">summed_shortfall</span> <span class="o">=</span> <span class="n">participating_targets</span><span class="o">.</span><span class="n">ce_shortfall</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">summed_overgeneration</span> <span class="o">=</span> <span class="n">participating_targets</span><span class="o">.</span><span class="n">ce_overgeneration</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">overall_shortfall</span> <span class="o">=</span> <span class="n">summed_shortfall</span> <span class="o">-</span> <span class="n">summed_overgeneration</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;independent&quot;</span><span class="p">:</span>
+        <span class="n">overall_shortfall</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">ce_shortfall</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;method must be one of: </span><span class="si">{</span><span class="n">allowed_methods</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">normalized</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">overall_shortfall</span> <span class="o">/</span> <span class="n">targets</span><span class="o">.</span><span class="n">demand</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">overall_shortfall</span></div>
+
+
+<div class="viewcode-block" id="add_new_capacities_independent"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.clean_capacity_scaling.add_new_capacities_independent">[docs]</a><span class="k">def</span> <span class="nf">add_new_capacities_independent</span><span class="p">(</span>
+    <span class="n">input_targets</span><span class="p">,</span> <span class="n">scenario_length</span><span class="p">,</span> <span class="n">addl_curtailment</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculates new capacities based on an Independent strategy.</span>
+
+<span class="sd">    :param pandas.DataFrame input_targets: table of targets.</span>
+<span class="sd">    :param int scenario_length: number of hours in new scenario.</span>
+<span class="sd">    :param pandas.DataFrame/None addl_curtailment: additional expected curtailment</span>
+<span class="sd">        by target/resource. If None, assumed zero for all targets/resources.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- targets dataframe with next capacities added.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">calculate_added_capacity</span><span class="p">(</span><span class="n">target</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isnull</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="s2">&quot;solar_percentage&quot;</span><span class="p">]):</span>
+            <span class="n">new_solar_percentage</span> <span class="o">=</span> <span class="n">target</span><span class="p">[</span><span class="s2">&quot;solar.prev_capacity&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span>
+                <span class="n">target</span><span class="p">[</span><span class="s2">&quot;solar.prev_capacity&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">target</span><span class="p">[</span><span class="s2">&quot;wind.prev_capacity&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_solar_percentage</span> <span class="o">=</span> <span class="n">target</span><span class="p">[</span><span class="s2">&quot;solar_percentage&quot;</span><span class="p">]</span>
+        <span class="n">new_wind_percentage</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">new_solar_percentage</span>
+        <span class="n">solar_expected_cf</span> <span class="o">=</span> <span class="n">target</span><span class="p">[</span><span class="s2">&quot;solar.prev_cap_factor&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span>
+            <span class="mi">1</span> <span class="o">-</span> <span class="n">target</span><span class="p">[</span><span class="s2">&quot;solar.addl_curtailment&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">wind_expected_cf</span> <span class="o">=</span> <span class="n">target</span><span class="p">[</span><span class="s2">&quot;wind.prev_cap_factor&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span>
+            <span class="mi">1</span> <span class="o">-</span> <span class="n">target</span><span class="p">[</span><span class="s2">&quot;wind.addl_curtailment&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">solar_expected_cf</span><span class="p">):</span>
+            <span class="n">avg_new_cf</span> <span class="o">=</span> <span class="n">wind_expected_cf</span> <span class="o">*</span> <span class="n">new_wind_percentage</span>
+        <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">wind_expected_cf</span><span class="p">):</span>
+            <span class="n">avg_new_cf</span> <span class="o">=</span> <span class="n">solar_expected_cf</span> <span class="o">*</span> <span class="n">new_solar_percentage</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">avg_new_cf</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">solar_expected_cf</span> <span class="o">*</span> <span class="n">new_solar_percentage</span>
+                <span class="o">+</span> <span class="n">wind_expected_cf</span> <span class="o">*</span> <span class="n">new_wind_percentage</span>
+            <span class="p">)</span>
+        <span class="n">total_new_capacity</span> <span class="o">=</span> <span class="n">target</span><span class="p">[</span><span class="s2">&quot;ce_shortfall&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">avg_new_cf</span> <span class="o">*</span> <span class="n">scenario_length</span><span class="p">)</span>
+        <span class="n">new_solar</span> <span class="o">=</span> <span class="n">total_new_capacity</span> <span class="o">*</span> <span class="n">new_solar_percentage</span>
+        <span class="n">new_wind</span> <span class="o">=</span> <span class="n">total_new_capacity</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">new_solar_percentage</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">new_solar</span><span class="p">,</span> <span class="n">new_wind</span>
+
+    <span class="c1"># Parse inputs</span>
+    <span class="n">resources</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">]</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">input_targets</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">addl_curtailment</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">addl_curtailment</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">targets</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">resources</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">addl_curtailment</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.addl_curtailment&quot;</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">addl_curtailment</span><span class="o">.</span><span class="n">columns</span>
+        <span class="p">]</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">addl_curtailment</span><span class="p">)</span>
+    <span class="c1"># Calculate new capacity</span>
+    <span class="n">new_solar_wind</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="n">calculate_added_capacity</span><span class="p">,</span> <span class="n">result_type</span><span class="o">=</span><span class="s2">&quot;expand&quot;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+    <span class="c1"># Add new capacity to targets dataframe</span>
+    <span class="n">new_solar_wind</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;solar.added_capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;wind.added_capacity&quot;</span><span class="p">]</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">targets</span><span class="p">,</span> <span class="n">new_solar_wind</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">resources</span><span class="p">:</span>
+        <span class="n">targets</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.next_capacity&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">targets</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.prev_capacity&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">targets</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.added_capacity&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">targets</span></div>
+
+
+<div class="viewcode-block" id="add_new_capacities_collaborative"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.clean_capacity_scaling.add_new_capacities_collaborative">[docs]</a><span class="k">def</span> <span class="nf">add_new_capacities_collaborative</span><span class="p">(</span>
+    <span class="n">input_targets</span><span class="p">,</span> <span class="n">scenario_length</span><span class="p">,</span> <span class="n">solar_fraction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">addl_curtailment</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculates new capacities based on a Collaborative strategy.</span>
+
+<span class="sd">    :param pandas.DataFrame input_targets: table of targets.</span>
+<span class="sd">    :param int scenario_length: number of hours in new scenario.</span>
+<span class="sd">    :param float/None solar_fraction: how much new capacity should be solar.</span>
+<span class="sd">        If given None, maintain previous ratio.</span>
+<span class="sd">    :param dict/None addl_curtailment: how much new curtailment is expected, by resource.</span>
+<span class="sd">        If given None, assume zero.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- targets dataframe with next capacities added.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">input_targets</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">new_resources</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">}</span>
+
+    <span class="n">participating_targets</span> <span class="o">=</span> <span class="n">targets</span><span class="p">[</span><span class="n">targets</span><span class="o">.</span><span class="n">ce_target</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">participating_capacity</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="n">resource</span><span class="p">:</span> <span class="n">participating_targets</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2">.prev_capacity&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">resource</span> <span class="ow">in</span> <span class="n">new_resources</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">participating_generation</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="n">resource</span><span class="p">:</span> <span class="n">participating_targets</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2">.prev_generation&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">resource</span> <span class="ow">in</span> <span class="n">new_resources</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">participating_cap_factor</span> <span class="o">=</span> <span class="n">participating_generation</span> <span class="o">/</span> <span class="p">(</span>
+        <span class="n">participating_capacity</span> <span class="o">*</span> <span class="n">scenario_length</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">addl_curtailment</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">addl_curtailment</span> <span class="o">=</span> <span class="p">{</span><span class="n">resource</span><span class="p">:</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">resource</span> <span class="ow">in</span> <span class="n">new_resources</span><span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">addl_curtailment</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;addl_curtailment must be supplied as a dict&quot;</span><span class="p">)</span>
+        <span class="c1"># Check that only proper keys are supplied</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">addl_curtailment</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&lt;=</span> <span class="n">new_resources</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;addl_curtailment keys are limited to </span><span class="si">{</span><span class="n">new_resources</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="c1"># Check that values are numbers between 0 and 1</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">addl_curtailment</span><span class="o">.</span><span class="n">values</span><span class="p">()]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;addl_curtailment values must be numeric&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">([(</span><span class="n">x</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">addl_curtailment</span><span class="o">.</span><span class="n">values</span><span class="p">()]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;addl_curtailment must be between 0 and 1&quot;</span><span class="p">)</span>
+    <span class="n">expected_cf</span> <span class="o">=</span> <span class="n">participating_cap_factor</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">addl_curtailment</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">solar_fraction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">solar_fraction</span> <span class="o">=</span> <span class="n">participating_capacity</span><span class="p">[</span><span class="s2">&quot;solar&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">participating_capacity</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">avg_new_cf</span> <span class="o">=</span> <span class="p">(</span><span class="n">expected_cf</span><span class="p">[</span><span class="s2">&quot;solar&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">solar_fraction</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span>
+        <span class="n">expected_cf</span><span class="p">[</span><span class="s2">&quot;wind&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">solar_fraction</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">overall_shortfall</span> <span class="o">=</span> <span class="n">calculate_overall_shortfall</span><span class="p">(</span><span class="n">input_targets</span><span class="p">,</span> <span class="s2">&quot;collaborative&quot;</span><span class="p">)</span>
+    <span class="n">total_new_capacity</span> <span class="o">=</span> <span class="n">overall_shortfall</span> <span class="o">/</span> <span class="p">(</span><span class="n">avg_new_cf</span> <span class="o">*</span> <span class="n">scenario_length</span><span class="p">)</span>
+    <span class="n">new_type_capacity</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="n">total_new_capacity</span> <span class="o">*</span> <span class="n">solar_fraction</span><span class="p">,</span>
+            <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="n">total_new_capacity</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">solar_fraction</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">scaling_factors</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">new_type_capacity</span> <span class="o">/</span> <span class="n">participating_capacity</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">):</span>
+        <span class="c1"># Fill non-participating targets with previous capacity</span>
+        <span class="n">targets</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.next_capacity&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">targets</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.prev_capacity&quot;</span><span class="p">]</span>
+        <span class="c1"># Scale participating targets</span>
+        <span class="n">targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">targets</span><span class="o">.</span><span class="n">ce_target</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.next_capacity&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">targets</span><span class="o">.</span><span class="n">ce_target</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.prev_capacity&quot;</span><span class="p">]</span>
+            <span class="o">*</span> <span class="n">scaling_factors</span><span class="p">[</span><span class="n">r</span><span class="p">]</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">targets</span></div>
+
+
+<div class="viewcode-block" id="create_change_table"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.clean_capacity_scaling.create_change_table">[docs]</a><span class="k">def</span> <span class="nf">create_change_table</span><span class="p">(</span><span class="n">input_targets</span><span class="p">,</span> <span class="n">ref_scenario</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Using a reference scenario, create a change table which scales all</span>
+<span class="sd">    plants in a base grid to capacities matching the reference grid, with</span>
+<span class="sd">    the exception of wind and solar plants which are scaled up according to</span>
+<span class="sd">    the clean capacity scaling logic.</span>
+
+<span class="sd">    :param pandas.DataFrame input_targets: table of targets, with previous and</span>
+<span class="sd">        next capacities.</span>
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario ref_scenario: reference scenario</span>
+<span class="sd">        to mimic.</span>
+<span class="sd">    :return: (*dict*) -- dictionary to be passed to a change table.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">1e-3</span>
+    <span class="n">interconnect</span> <span class="o">=</span> <span class="n">ref_scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
+    <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">([</span><span class="n">interconnect</span><span class="p">])</span>
+    <span class="n">grid_zones</span> <span class="o">=</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">zone_name</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+    <span class="n">ref_grid</span> <span class="o">=</span> <span class="n">ref_scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">ct</span> <span class="o">=</span> <span class="n">mimic_generation_capacity</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">ref_grid</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">region</span> <span class="ow">in</span> <span class="n">input_targets</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+        <span class="n">prev_solar</span> <span class="o">=</span> <span class="n">input_targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region</span><span class="p">,</span> <span class="s2">&quot;solar.prev_capacity&quot;</span><span class="p">]</span>
+        <span class="n">prev_wind</span> <span class="o">=</span> <span class="n">input_targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region</span><span class="p">,</span> <span class="s2">&quot;wind.prev_capacity&quot;</span><span class="p">]</span>
+        <span class="n">next_solar</span> <span class="o">=</span> <span class="n">input_targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region</span><span class="p">,</span> <span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">]</span>
+        <span class="n">next_wind</span> <span class="o">=</span> <span class="n">input_targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region</span><span class="p">,</span> <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">]</span>
+        <span class="n">zone_names</span> <span class="o">=</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">region</span><span class="p">)</span>
+        <span class="n">zone_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">base_grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">zone_names</span> <span class="k">if</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">grid_zones</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">prev_solar</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="n">next_solar</span> <span class="o">/</span> <span class="n">prev_solar</span>
+            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">scale</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">epsilon</span><span class="p">:</span>
+                <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">zone_ids</span><span class="p">:</span>
+                    <span class="n">_apply_zone_scale_factor_to_ct</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">prev_wind</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="n">next_wind</span> <span class="o">/</span> <span class="n">prev_wind</span>
+            <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">scale</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">epsilon</span><span class="p">:</span>
+                <span class="k">for</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">zone_ids</span><span class="p">:</span>
+                    <span class="n">_apply_zone_scale_factor_to_ct</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ct</span></div>
+
+
+<div class="viewcode-block" id="calculate_clean_capacity_scaling"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.clean_capacity_scaling.calculate_clean_capacity_scaling">[docs]</a><span class="k">def</span> <span class="nf">calculate_clean_capacity_scaling</span><span class="p">(</span>
+    <span class="n">ref_scenario</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">,</span>
+    <span class="n">targets</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">targets_filename</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">addl_curtailment</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">next_scenario</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">solar_fraction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given a reference scenario (to get &#39;baseline&#39; values), a method, and a set</span>
+<span class="sd">    of targets (either via a dataframe or a filename to load a dataframe),</span>
+<span class="sd">    calculate capacities for a new scenario to meet the calculated shortfall.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario ref_scenario: Scenario instance</span>
+<span class="sd">        to get baseline capacities and capacity factors from.</span>
+<span class="sd">    :param str method: which capacity scaling method to use.</span>
+<span class="sd">    :param pandas.DataFrame/None targets: a dataframe of targets,</span>
+<span class="sd">        containing appropriate columns.</span>
+<span class="sd">    :param str/None targets_filename: a filepath to a CSV file of targets,</span>
+<span class="sd">        containing appropriate columns.</span>
+<span class="sd">    :param dict/pandas.DataFrame/None addl_curtailment: additional expected curtailment,</span>
+<span class="sd">        either by resource (for method == &#39;collaborative&#39;),</span>
+<span class="sd">        or by target/resource (for method == &#39;independent&#39;).</span>
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario/None next_scenario: a Scenario</span>
+<span class="sd">        to plan for, using this Scenario&#39;s length and demand to determine capacity</span>
+<span class="sd">        additions.</span>
+<span class="sd">    :param float/None solar_fraction: the fraction of new capacity to be solar,</span>
+<span class="sd">        for method == &#39;collaborative&#39; only.</span>
+<span class="sd">        For method == &#39;independent&#39;, these values are specified in the targets table.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- dataframe of targets including new capacities,</span>
+<span class="sd">        plus intermediate values used in calculation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">allowed_methods</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;independent&quot;</span><span class="p">,</span> <span class="s2">&quot;collaborative&quot;</span><span class="p">}</span>
+    <span class="c1"># Input validation</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ref_scenario</span><span class="p">,</span> <span class="n">Scenario</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;ref_scenario must be a Scenario object&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ref_scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="s2">&quot;analyze&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;ref_scenario must be in Analyze state&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed_methods</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;method must be one of: </span><span class="si">{</span><span class="n">allowed_methods</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">targets</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">targets_filename</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;One of targets or targets_filename must be given&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">targets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">targets_filename</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;targets and targets_filename cannot both be given&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">targets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;targets must be passed as a pandas.DataFrame&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">targets_filename</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="n">load_targets_from_csv</span><span class="p">(</span><span class="n">targets_filename</span><span class="p">)</span>
+
+    <span class="c1"># Add extra information to targets</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">add_resource_data_to_targets</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">ref_scenario</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">next_scenario</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="n">add_demand_to_targets</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">next_scenario</span><span class="p">)</span>
+        <span class="n">next_scenario_length</span> <span class="o">=</span> <span class="n">_get_scenario_length</span><span class="p">(</span><span class="n">next_scenario</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="n">add_demand_to_targets</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">ref_scenario</span><span class="p">)</span>
+        <span class="n">next_scenario_length</span> <span class="o">=</span> <span class="n">_get_scenario_length</span><span class="p">(</span><span class="n">ref_scenario</span><span class="p">)</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">add_shortfall_to_targets</span><span class="p">(</span><span class="n">targets</span><span class="p">)</span>
+    <span class="c1"># Calculate new capacities</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;independent&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">addl_curtailment</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">addl_curtailment</span><span class="p">,</span> <span class="p">(</span><span class="nb">dict</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;addl_curtailment must be dict or pandas.DataFrame&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">addl_curtailment</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">addl_curtailment</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">addl_curtailment</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">addl_curtailment</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">targets</span><span class="o">.</span><span class="n">index</span><span class="p">):</span>
+                    <span class="n">addl_curtailment</span> <span class="o">=</span> <span class="n">addl_curtailment</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">addl_curtailment</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;addl_curtailment contains negative values&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">addl_curtailment</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;addl_curtailment contains values &gt; 1&quot;</span><span class="p">)</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="n">add_new_capacities_independent</span><span class="p">(</span>
+            <span class="n">targets</span><span class="p">,</span> <span class="n">next_scenario_length</span><span class="p">,</span> <span class="n">addl_curtailment</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;collaborative&quot;</span><span class="p">:</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="n">add_new_capacities_collaborative</span><span class="p">(</span>
+            <span class="n">targets</span><span class="p">,</span> <span class="n">next_scenario_length</span><span class="p">,</span> <span class="n">solar_fraction</span><span class="p">,</span> <span class="n">addl_curtailment</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">targets</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

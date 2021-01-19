@@ -1,0 +1,614 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.scenario.execute &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.scenario.execute</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">posixpath</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">from</span> <span class="nn">scipy.io</span> <span class="kn">import</span> <span class="n">savemat</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.input_data</span> <span class="kn">import</span> <span class="n">InputData</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.transform_profile</span> <span class="kn">import</span> <span class="n">TransformProfile</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.helpers</span> <span class="kn">import</span> <span class="n">interconnect2name</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.state</span> <span class="kn">import</span> <span class="n">State</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility.server_setup</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DeploymentMode</span><span class="p">,</span>
+    <span class="n">get_deployment_mode</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="Execute"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.Execute">[docs]</a><span class="k">class</span> <span class="nc">Execute</span><span class="p">(</span><span class="n">State</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Scenario is in a state of being executed.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;execute&quot;</span>
+    <span class="n">allowed</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">status</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">&quot;SCENARIO: </span><span class="si">%s</span><span class="s2"> | </span><span class="si">%s</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;plan&quot;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">])</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; State</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Status</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_ct_and_grid</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_set_ct_and_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets change table and grid.&quot;&quot;&quot;</span>
+        <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;change_table&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Yes&quot;</span><span class="p">:</span>
+            <span class="n">input_data</span> <span class="o">=</span> <span class="n">InputData</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="n">input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="s2">&quot;ct&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">base_grid</span>
+
+<div class="viewcode-block" id="Execute.get_ct"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.Execute.get_ct">[docs]</a>    <span class="k">def</span> <span class="nf">get_ct</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns change table.</span>
+
+<span class="sd">        :return: (*dict*) -- change table.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Execute.get_grid"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.Execute.get_grid">[docs]</a>    <span class="k">def</span> <span class="nf">get_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns Grid.</span>
+
+<span class="sd">        :return: (*powersimdata.input.grid.Grid*) -- a Grid object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_update_scenario_status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Updates scenario status.&quot;&quot;&quot;</span>
+        <span class="n">scenario_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execute_list_manager</span><span class="o">.</span><span class="n">get_status</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_update_scenario_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Updates scenario information.&quot;&quot;&quot;</span>
+        <span class="n">scenario_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_list_manager</span><span class="o">.</span><span class="n">get_scenario</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_run_script</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">script</span><span class="p">,</span> <span class="n">extra_args</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns running process</span>
+
+<span class="sd">        :param str script: script to be used.</span>
+<span class="sd">        :param list extra_args: list of strings to be passed after scenario id.</span>
+<span class="sd">        :return: (*subprocess.Popen*) -- process used to run script</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">extra_args</span><span class="p">:</span>
+            <span class="n">extra_args</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">path_to_package</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">server_setup</span><span class="o">.</span><span class="n">MODEL_DIR</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;engine&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;engine&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;REISE&quot;</span><span class="p">:</span>
+            <span class="n">folder</span> <span class="o">=</span> <span class="s2">&quot;pyreise&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">folder</span> <span class="o">=</span> <span class="s2">&quot;pyreisejl&quot;</span>
+
+        <span class="n">path_to_script</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path_to_package</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="s2">&quot;utility&quot;</span><span class="p">,</span> <span class="n">script</span><span class="p">)</span>
+        <span class="n">cmd_pythonpath</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s1">&#39;export PYTHONPATH=&quot;</span><span class="si">{</span><span class="n">path_to_package</span><span class="si">}</span><span class="s1">:$PYTHONPATH&quot;;&#39;</span><span class="p">]</span>
+        <span class="n">cmd_pythoncall</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;nohup&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;python3&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-u&quot;</span><span class="p">,</span>
+            <span class="n">path_to_script</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span>
+        <span class="p">]</span>
+        <span class="n">cmd_io_redirect</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&lt;/dev/null &gt;/dev/null 2&gt;&amp;1 &amp;&quot;</span><span class="p">]</span>
+        <span class="n">cmd</span> <span class="o">=</span> <span class="n">cmd_pythonpath</span> <span class="o">+</span> <span class="n">cmd_pythoncall</span> <span class="o">+</span> <span class="n">extra_args</span> <span class="o">+</span> <span class="n">cmd_io_redirect</span>
+        <span class="n">process</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">execute_command_async</span><span class="p">(</span><span class="n">cmd</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;PID: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">process</span><span class="o">.</span><span class="n">pid</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">process</span>
+
+<div class="viewcode-block" id="Execute.print_scenario_info"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.Execute.print_scenario_info">[docs]</a>    <span class="k">def</span> <span class="nf">print_scenario_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Prints scenario information.&quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--------------------&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SCENARIO INFORMATION&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--------------------&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_scenario_info</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Execute.print_scenario_status"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.Execute.print_scenario_status">[docs]</a>    <span class="k">def</span> <span class="nf">print_scenario_status</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Prints scenario status.&quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;---------------&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SCENARIO STATUS&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;---------------&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_scenario_status</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Execute.prepare_simulation_input"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.Execute.prepare_simulation_input">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_simulation_input</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">profiles_as</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Prepares scenario for execution</span>
+
+<span class="sd">        :param int/str/None profiles_as: if given, copy profiles from this scenario.</span>
+<span class="sd">        :raises TypeError: if profiles_as parameter not a str or int.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">profiles_as</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">profiles_as</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;profiles_as must be None, str, or int.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_scenario_status</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span> <span class="o">==</span> <span class="s2">&quot;created&quot;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;---------------------------&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;PREPARING SIMULATION INPUTS&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;---------------------------&quot;</span><span class="p">)</span>
+
+            <span class="n">si</span> <span class="o">=</span> <span class="n">SimulationInput</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span>
+            <span class="p">)</span>
+            <span class="n">si</span><span class="o">.</span><span class="n">create_folder</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">]:</span>
+                <span class="n">si</span><span class="o">.</span><span class="n">prepare_profile</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">profiles_as</span><span class="p">)</span>
+
+            <span class="n">si</span><span class="o">.</span><span class="n">prepare_mpc_file</span><span class="p">()</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_execute_list_manager</span><span class="o">.</span><span class="n">update_execute_list</span><span class="p">(</span>
+                <span class="s2">&quot;prepared&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;---------------------------&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SCENARIO CANNOT BE PREPARED&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;---------------------------&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Current status: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span><span class="p">)</span>
+            <span class="k">return</span></div>
+
+    <span class="k">def</span> <span class="nf">_check_if_ready</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check if the current scenario is ready to launch</span>
+
+<span class="sd">        :raises ValueError: if status is invalid</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">valid_status</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;prepared&quot;</span><span class="p">,</span> <span class="s2">&quot;failed&quot;</span><span class="p">,</span> <span class="s2">&quot;finished&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">valid_status</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Status must be one of </span><span class="si">{</span><span class="n">valid_status</span><span class="si">}</span><span class="s2">, but got status=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_launch_on_server</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extract_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Launch simulation on server, via ssh.</span>
+
+<span class="sd">        :param int/None threads: the number of threads to be used. This defaults to None,</span>
+<span class="sd">            where None means auto.</span>
+<span class="sd">        :param bool extract_data: whether the results of the simulation engine should</span>
+<span class="sd">            automatically extracted after the simulation has run. This defaults to True.</span>
+<span class="sd">        :raises TypeError: if extract_data is not a boolean</span>
+<span class="sd">        :return: (*subprocess.Popen*) -- new process used to launch simulation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">extra_args</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="n">threads</span><span class="p">:</span>
+            <span class="c1"># Use the -t flag as defined in call.py in REISE.jl</span>
+            <span class="n">extra_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;--threads &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threads</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">extract_data</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;extract_data must be a boolean: &#39;True&#39; or &#39;False&#39;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">extract_data</span><span class="p">:</span>
+            <span class="n">extra_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;--extract-data&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_script</span><span class="p">(</span><span class="s2">&quot;call.py&quot;</span><span class="p">,</span> <span class="n">extra_args</span><span class="o">=</span><span class="n">extra_args</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_launch_in_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threads</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Launches simulation in container via http call</span>
+
+<span class="sd">        :param int/None threads: the number of threads to be used. This defaults to None,</span>
+<span class="sd">            where None means auto.</span>
+<span class="sd">        :return: (*requests.Response*) -- the http response object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">scenario_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;http://</span><span class="si">{</span><span class="n">server_setup</span><span class="o">.</span><span class="n">SERVER_ADDRESS</span><span class="si">}</span><span class="s2">:5000/launch/</span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;threads&quot;</span><span class="p">:</span> <span class="n">threads</span><span class="p">})</span>
+        <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Failed to launch simulation: status=</span><span class="si">{</span><span class="n">resp</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2">. See response for details&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">resp</span>
+
+<div class="viewcode-block" id="Execute.launch_simulation"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.Execute.launch_simulation">[docs]</a>    <span class="k">def</span> <span class="nf">launch_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extract_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Launches simulation on target environment (server or container)</span>
+
+<span class="sd">        :param int/None threads: the number of threads to be used. This defaults to None,</span>
+<span class="sd">            where None means auto.</span>
+<span class="sd">        :param bool extract_data: whether the results of the simulation engine should</span>
+<span class="sd">            automatically extracted after the simulation has run. This defaults to True.</span>
+<span class="sd">        :raises TypeError: if threads is not an int</span>
+<span class="sd">        :raises ValueError: if threads is not a positive value</span>
+<span class="sd">        :return: (*subprocess.Popen*) or (*requests.Response*) - either the</span>
+<span class="sd">            process (if using ssh to server) or http response (if run in container)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_if_ready</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">threads</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">threads</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;threads must be an int&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">threads</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;threads must be a positive value&quot;</span><span class="p">)</span>
+
+        <span class="n">mode</span> <span class="o">=</span> <span class="n">get_deployment_mode</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--&gt; Launching simulation on </span><span class="si">{</span><span class="n">mode</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="n">DeploymentMode</span><span class="o">.</span><span class="n">Server</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_launch_on_server</span><span class="p">(</span><span class="n">threads</span><span class="p">,</span> <span class="n">extract_data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_launch_in_container</span><span class="p">(</span><span class="n">threads</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Execute.extract_simulation_output"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.Execute.extract_simulation_output">[docs]</a>    <span class="k">def</span> <span class="nf">extract_simulation_output</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Extracts simulation outputs {PG, PF, LMP, CONGU, CONGL} on server.</span>
+
+<span class="sd">        :return: (*subprocess.Popen*) -- new process used to extract output</span>
+<span class="sd">            data.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_scenario_status</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span> <span class="o">==</span> <span class="s2">&quot;finished&quot;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Extracting output data on server&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_script</span><span class="p">(</span><span class="s2">&quot;extract_data.py&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;---------------------------&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;OUTPUTS CANNOT BE EXTRACTED&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;---------------------------&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Current status: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span><span class="p">)</span>
+            <span class="k">return</span></div></div>
+
+
+<div class="viewcode-block" id="SimulationInput"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput">[docs]</a><span class="k">class</span> <span class="nc">SimulationInput</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Prepares scenario for execution.</span>
+
+<span class="sd">    :param powersimdata.utility.transfer_data.DataAccess data_access:</span>
+<span class="sd">        data access object.</span>
+<span class="sd">    :param dict scenario_info: scenario information.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: a Grid object.</span>
+<span class="sd">    :param dict ct: change table.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_access</span><span class="p">,</span> <span class="n">scenario_info</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span> <span class="o">=</span> <span class="n">data_access</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span> <span class="o">=</span> <span class="n">scenario_info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">grid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="n">ct</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">server_config</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">PathConfig</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scenario_folder</span> <span class="o">=</span> <span class="s2">&quot;scenario_</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">TMP_DIR</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">server_config</span><span class="o">.</span><span class="n">execute_dir</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_folder</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">server_setup</span><span class="o">.</span><span class="n">EXECUTE_DIR</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_folder</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="SimulationInput.create_folder"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput.create_folder">[docs]</a>    <span class="k">def</span> <span class="nf">create_folder</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates folder on server that will enclose simulation inputs.</span>
+
+<span class="sd">        :raises IOError: if folder cannot be created.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Creating temporary folder on server for simulation inputs&quot;</span><span class="p">)</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;mkdir </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">TMP_DIR</span>
+        <span class="n">stdin</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;Failed to create </span><span class="si">%s</span><span class="s2"> on server&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">TMP_DIR</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SimulationInput.prepare_mpc_file"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput.prepare_mpc_file">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_mpc_file</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates MATPOWER case file.&quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Preparing MPC file&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Scaling grid&quot;</span><span class="p">)</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Building MPC file&quot;</span><span class="p">)</span>
+        <span class="n">mpc</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;mpc&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="s2">&quot;2&quot;</span><span class="p">,</span> <span class="s2">&quot;baseMVA&quot;</span><span class="p">:</span> <span class="mf">100.0</span><span class="p">}}</span>
+
+        <span class="c1"># zone</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;zone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">items</span><span class="p">()),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+
+        <span class="c1"># sub</span>
+        <span class="n">sub</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">sub</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">subid</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;sub&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;subid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">subid</span>
+
+        <span class="c1"># bus</span>
+        <span class="n">bus</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">busid</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">bus</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">bus</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;bus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;busid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">busid</span>
+
+        <span class="c1"># bus2sub</span>
+        <span class="n">bus2sub</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus2sub</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;bus2sub&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus2sub</span><span class="o">.</span><span class="n">values</span>
+
+        <span class="c1"># plant</span>
+        <span class="n">gen</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">genid</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">genfuel</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">genfuelcost</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">GenFuelCost</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">heatratecurve</span> <span class="o">=</span> <span class="n">gen</span><span class="p">[[</span><span class="s2">&quot;GenIOB&quot;</span><span class="p">,</span> <span class="s2">&quot;GenIOC&quot;</span><span class="p">,</span> <span class="s2">&quot;GenIOD&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">gen</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">gen</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span>
+            <span class="n">columns</span><span class="o">=</span><span class="p">[</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;lat&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;lon&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;zone_id&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;zone_name&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;GenFuelCost&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;GenIOB&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;GenIOC&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;GenIOD&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;genid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">genid</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;genfuel&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">genfuel</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;genfuelcost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">genfuelcost</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;heatratecurve&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">heatratecurve</span>
+        <span class="c1"># branch</span>
+        <span class="n">branch</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">branchid</span> <span class="o">=</span> <span class="n">branch</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">branchdevicetype</span> <span class="o">=</span> <span class="n">branch</span><span class="o">.</span><span class="n">branch_device_type</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+        <span class="n">branch</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">branch</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span>
+            <span class="n">columns</span><span class="o">=</span><span class="p">[</span>
+                <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;from_lat&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;from_lon&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;to_lat&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;to_lon&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;from_zone_id&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;to_zone_id&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;from_zone_name&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;to_zone_name&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;branch_device_type&quot;</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;branch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branch</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;branchid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branchid</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;branchdevicetype&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branchdevicetype</span>
+
+        <span class="c1"># generation cost</span>
+        <span class="n">gencost</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;gencost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+        <span class="c1"># DC line</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">dcline</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">dclineid</span> <span class="o">=</span> <span class="n">dcline</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">dcline</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">dcline</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;from_interconnect&quot;</span><span class="p">,</span> <span class="s2">&quot;to_interconnect&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;dcline&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dcline</span><span class="o">.</span><span class="n">values</span>
+            <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;dclineid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dclineid</span>
+
+        <span class="c1"># energy storage</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">storage</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+            <span class="n">mpc_storage</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;storage&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;xgd_table&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
+                    <span class="s2">&quot;gen&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
+                    <span class="s2">&quot;sd_table&quot;</span><span class="p">:</span> <span class="p">{</span>
+                        <span class="s2">&quot;colnames&quot;</span><span class="p">:</span> <span class="n">storage</span><span class="p">[</span><span class="s2">&quot;StorageData&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span>
+                        <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="n">storage</span><span class="p">[</span><span class="s2">&quot;StorageData&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                    <span class="p">},</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+
+            <span class="n">file_name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_case_storage.mat&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+            <span class="n">savemat</span><span class="p">(</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">file_name</span><span class="p">),</span>
+                <span class="n">mpc_storage</span><span class="p">,</span>
+                <span class="n">appendmat</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">copy_to</span><span class="p">(</span>
+                <span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="s2">&quot;case_storage.mat&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># MPC file</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_case.mat&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+        <span class="n">savemat</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">file_name</span><span class="p">),</span> <span class="n">mpc</span><span class="p">,</span> <span class="n">appendmat</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">copy_to</span><span class="p">(</span>
+            <span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="s2">&quot;case.mat&quot;</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="SimulationInput.prepare_profile"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput.prepare_profile">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">profile_as</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Prepares profile for simulation.</span>
+
+<span class="sd">        :param kind: one of *demand*, *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
+<span class="sd">        :param int/str/None profile_as: if given, copy profile from this scenario.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">profile_as</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">profile</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s2">&quot;new_plant&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">new_plant_types</span> <span class="o">=</span> <span class="p">{</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">plant</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_plant&quot;</span><span class="p">]}</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_plant_types</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="n">profile</span><span class="o">.</span><span class="n">scale_keys</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">new_plant_types</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">()))):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_transformed_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">profile</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_create_link_to_base_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">from_dir</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">server_config</span><span class="o">.</span><span class="n">execute_dir</span><span class="p">(),</span>
+                <span class="sa">f</span><span class="s2">&quot;scenario_</span><span class="si">{</span><span class="n">profile_as</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">to_dir</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">server_config</span><span class="o">.</span><span class="n">execute_dir</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_folder</span>
+            <span class="p">)</span>
+            <span class="n">command</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;cp </span><span class="si">{</span><span class="n">from_dir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">.csv </span><span class="si">{</span><span class="n">to_dir</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">stdin</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to copy </span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">.csv on server&quot;</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_create_link_to_base_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates link to base profile in temporary directory on server.</span>
+
+<span class="sd">        :param str kind: one of *demand*, *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
+<span class="sd">        :raises IOError: if link cannot be created.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Creating link to </span><span class="si">%s</span><span class="s2"> base profile into temporary folder&quot;</span> <span class="o">%</span> <span class="n">kind</span><span class="p">)</span>
+
+        <span class="n">interconnect</span> <span class="o">=</span> <span class="n">interconnect2name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span>
+        <span class="n">version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;base_&quot;</span> <span class="o">+</span> <span class="n">kind</span><span class="p">]</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">interconnect</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">kind</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">version</span> <span class="o">+</span> <span class="s2">&quot;.csv&quot;</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">kind</span> <span class="o">+</span> <span class="s2">&quot;.csv&quot;</span>
+
+        <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;ln -s </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;../../raw&quot;</span><span class="p">,</span> <span class="n">source</span><span class="p">),</span>
+            <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">TMP_DIR</span><span class="p">,</span> <span class="n">target</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">stdin</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;Failed to create link to </span><span class="si">%s</span><span class="s2"> profile.&quot;</span> <span class="o">%</span> <span class="n">kind</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_transformed_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">profile</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Loads, scales and writes on local machine a base profile.</span>
+
+<span class="sd">        :param powersimdata.input.transform_profile.TransformProfile profile: a</span>
+<span class="sd">            TransformProfile object.</span>
+<span class="sd">        :param str kind: one of *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;* or *&#39;demand&#39;*.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">profile</span> <span class="o">=</span> <span class="n">profile</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Writing scaled </span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2"> profile in </span><span class="si">{</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="si">}</span><span class="s2"> on local machine&quot;</span>
+        <span class="p">)</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_</span><span class="si">%s</span><span class="s2">.csv&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="n">kind</span><span class="p">)</span>
+        <span class="n">profile</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">file_name</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">copy_to</span><span class="p">(</span>
+            <span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">.csv&quot;</span>
+        <span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,251 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>postreise.analyze.generation.summarize &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for postreise.analyze.generation.summarize</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants.plants</span> <span class="kn">import</span> <span class="n">type2label</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants.zones</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">abv2state</span><span class="p">,</span>
+    <span class="n">interconnect2abv</span><span class="p">,</span>
+    <span class="n">interconnect2loadzone</span><span class="p">,</span>
+    <span class="n">loadzone2interconnect</span><span class="p">,</span>
+    <span class="n">loadzone2state</span><span class="p">,</span>
+    <span class="n">state2loadzone</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.scenario</span> <span class="kn">import</span> <span class="n">Scenario</span>
+
+<span class="kn">from</span> <span class="nn">postreise.analyze.check</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_check_data_frame</span><span class="p">,</span>
+    <span class="n">_check_resources_and_format</span><span class="p">,</span>
+    <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="sum_generation_by_type_zone"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.summarize.sum_generation_by_type_zone">[docs]</a><span class="k">def</span> <span class="nf">sum_generation_by_type_zone</span><span class="p">(</span><span class="n">scenario</span><span class="p">:</span> <span class="n">Scenario</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Sum generation for a Scenario in Analyze state by {type, zone}.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- total generation, indexed by {type, zone}.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+
+    <span class="n">pg</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_pg</span><span class="p">()</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+
+    <span class="n">summed_gen_series</span> <span class="o">=</span> <span class="n">pg</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">plant</span><span class="o">.</span><span class="n">zone_id</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">summed_gen_dataframe</span> <span class="o">=</span> <span class="n">summed_gen_series</span><span class="o">.</span><span class="n">unstack</span><span class="p">()</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">summed_gen_dataframe</span></div>
+
+
+<div class="viewcode-block" id="sum_generation_by_state"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.summarize.sum_generation_by_state">[docs]</a><span class="k">def</span> <span class="nf">sum_generation_by_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">:</span> <span class="n">Scenario</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Get the generation of each resource from the scenario by state, including</span>
+<span class="sd">    totals for the given interconnects and for all states.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- total generation per resource, by area.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Start with energy by type &amp; zone name</span>
+    <span class="n">energy_by_type_zoneid</span> <span class="o">=</span> <span class="n">sum_generation_by_type_zone</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+    <span class="n">zoneid2zonename</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span><span class="o">.</span><span class="n">id2zone</span>
+    <span class="n">energy_by_type_zonename</span> <span class="o">=</span> <span class="n">energy_by_type_zoneid</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">zoneid2zonename</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="c1"># Build lists to use for groupbys</span>
+    <span class="n">zone_list</span> <span class="o">=</span> <span class="n">energy_by_type_zonename</span><span class="o">.</span><span class="n">columns</span>
+    <span class="n">zone_states</span> <span class="o">=</span> <span class="p">[</span><span class="n">loadzone2state</span><span class="p">[</span><span class="n">zone</span><span class="p">]</span> <span class="k">for</span> <span class="n">zone</span> <span class="ow">in</span> <span class="n">zone_list</span><span class="p">]</span>
+    <span class="n">zone_interconnects</span> <span class="o">=</span> <span class="p">[</span><span class="n">loadzone2interconnect</span><span class="p">[</span><span class="n">zone</span><span class="p">]</span> <span class="k">for</span> <span class="n">zone</span> <span class="ow">in</span> <span class="n">zone_list</span><span class="p">]</span>
+    <span class="c1"># Run groupbys to aggregate by larger regions</span>
+    <span class="n">energy_by_type_state</span> <span class="o">=</span> <span class="n">energy_by_type_zonename</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">zone_states</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">energy_by_type_interconnect</span> <span class="o">=</span> <span class="n">energy_by_type_zonename</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span>
+        <span class="n">zone_interconnects</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">duplicates</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">energy_by_type_interconnect</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">zone_states</span><span class="p">)</span>
+    <span class="n">energy_by_type_interconnect</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">duplicates</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">energy_by_type</span> <span class="o">=</span> <span class="n">energy_by_type_state</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+    <span class="c1"># Combine groupbys and format for final output (GWh, index=zone, columns=types)</span>
+    <span class="n">energy_by_type_state</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">energy_by_type_state</span><span class="p">,</span> <span class="n">energy_by_type_interconnect</span><span class="p">,</span> <span class="n">energy_by_type</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+    <span class="c1"># Units in GWh</span>
+    <span class="n">energy_by_type_state</span> <span class="o">/=</span> <span class="mi">1000</span>
+    <span class="n">energy_by_type_state</span> <span class="o">=</span> <span class="n">energy_by_type_state</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">energy_by_type_state</span></div>
+
+
+<span class="k">def</span> <span class="nf">_groupby_state</span><span class="p">(</span><span class="n">index</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Use state as a dict key if index is a smaller region (e.g. Texas East),</span>
+<span class="sd">    otherwise use the given index.</span>
+
+<span class="sd">    :param str index: either a state name or region within a state.</span>
+<span class="sd">    :return: (*str*) -- the corresponding state name.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">interconnect_spanning_states</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;New Mexico&quot;</span><span class="p">,</span> <span class="s2">&quot;Montana&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">interconnect_spanning_states</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">state2loadzone</span><span class="p">[</span><span class="n">state</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">state</span>
+    <span class="k">return</span> <span class="n">index</span>
+
+
+<div class="viewcode-block" id="summarize_hist_gen"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.summarize.summarize_hist_gen">[docs]</a><span class="k">def</span> <span class="nf">summarize_hist_gen</span><span class="p">(</span><span class="n">hist_gen_raw</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">all_resources</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Sum generation by state for the given resources from a scenario, adding</span>
+<span class="sd">    totals for interconnects and for all states.</span>
+
+<span class="sd">    :param pandas.DataFrame hist_gen_raw: historical generation data frame. Columns</span>
+<span class="sd">        are resources and indices are either state or load zone.</span>
+<span class="sd">    :param list all_resources: list of resources.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- historical generation per resource.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_data_frame</span><span class="p">(</span><span class="n">hist_gen_raw</span><span class="p">,</span> <span class="s2">&quot;PG&quot;</span><span class="p">)</span>
+    <span class="n">filtered_colnames</span> <span class="o">=</span> <span class="n">_check_resources_and_format</span><span class="p">(</span><span class="n">all_resources</span><span class="p">)</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="n">hist_gen_raw</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Interconnection</span>
+    <span class="n">eastern_areas</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="nb">set</span><span class="p">([</span><span class="n">abv2state</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">interconnect2abv</span><span class="p">[</span><span class="s2">&quot;Eastern&quot;</span><span class="p">]])</span>
+        <span class="o">|</span> <span class="n">interconnect2loadzone</span><span class="p">[</span><span class="s2">&quot;Eastern&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">eastern</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">result</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">eastern_areas</span><span class="p">)]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+    <span class="n">ercot_areas</span> <span class="o">=</span> <span class="n">interconnect2loadzone</span><span class="p">[</span><span class="s2">&quot;Texas&quot;</span><span class="p">]</span>
+    <span class="n">ercot</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">result</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">ercot_areas</span><span class="p">)]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+    <span class="n">western_areas</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="nb">set</span><span class="p">([</span><span class="n">abv2state</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">interconnect2abv</span><span class="p">[</span><span class="s2">&quot;Western&quot;</span><span class="p">]])</span>
+        <span class="o">|</span> <span class="n">interconnect2loadzone</span><span class="p">[</span><span class="s2">&quot;Western&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">western</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">result</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">western_areas</span><span class="p">)]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+    <span class="c1"># State</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="n">_groupby_state</span><span class="p">)</span><span class="o">.</span><span class="n">aggregate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">)</span>
+
+    <span class="c1"># Summary</span>
+    <span class="nb">all</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+    <span class="n">result</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;Eastern interconnection&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">eastern</span>
+    <span class="n">result</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;Western interconnection&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">western</span>
+    <span class="n">result</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;Texas interconnection&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ercot</span>
+    <span class="n">result</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s2">&quot;All&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">all</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">filtered_colnames</span><span class="p">]</span>
+    <span class="n">result</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">type2label</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">result</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

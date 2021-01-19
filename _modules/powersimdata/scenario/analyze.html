@@ -1,0 +1,424 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.scenario.analyze &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.scenario.analyze</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.input_data</span> <span class="kn">import</span> <span class="n">InputData</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.transform_profile</span> <span class="kn">import</span> <span class="n">TransformProfile</span>
+<span class="kn">from</span> <span class="nn">powersimdata.output.output_data</span> <span class="kn">import</span> <span class="n">OutputData</span><span class="p">,</span> <span class="n">construct_load_shed</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.helpers</span> <span class="kn">import</span> <span class="n">calculate_bus_demand</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.state</span> <span class="kn">import</span> <span class="n">State</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
+
+
+<div class="viewcode-block" id="Analyze"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze">[docs]</a><span class="k">class</span> <span class="nc">Analyze</span><span class="p">(</span><span class="n">State</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Scenario is in a state of being analyzed.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;analyze&quot;</span>
+    <span class="n">allowed</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">status</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="s2">&quot;disk&quot;</span> <span class="k">if</span> <span class="n">scenario</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;moved&quot;</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">&quot;SCENARIO: </span><span class="si">%s</span><span class="s2"> | </span><span class="si">%s</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;plan&quot;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">])</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; State</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_allowed_state</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_ct_and_grid</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_set_allowed_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets allowed state.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span> <span class="o">==</span> <span class="s2">&quot;extracted&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">allowed</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;delete&quot;</span><span class="p">,</span> <span class="s2">&quot;move&quot;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_set_ct_and_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets change table and grid.&quot;&quot;&quot;</span>
+        <span class="n">input_data</span> <span class="o">=</span> <span class="n">InputData</span><span class="p">(</span><span class="n">data_loc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
+        <span class="n">grid_mat_path</span> <span class="o">=</span> <span class="n">input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="s2">&quot;grid&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
+            <span class="n">interconnect</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">],</span>
+            <span class="n">source</span><span class="o">=</span><span class="n">grid_mat_path</span><span class="p">,</span>
+            <span class="n">engine</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;engine&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;change_table&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Yes&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="n">input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="s2">&quot;ct&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="Analyze.print_scenario_info"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.print_scenario_info">[docs]</a>    <span class="k">def</span> <span class="nf">print_scenario_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Prints scenario information.&quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--------------------&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SCENARIO INFORMATION&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--------------------&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">))</span></div>
+
+    <span class="k">def</span> <span class="nf">_parse_infeasibilities</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parses infeasibilities. When the optimizer cannot find a solution in</span>
+<span class="sd">            a time interval, the remedy is to decrease demand by some amount</span>
+<span class="sd">            until a solution is found. The purpose of this function is to get</span>
+<span class="sd">            the interval number(s) and the associated decrease(s).</span>
+
+<span class="sd">        :return: (*dict*) -- keys are the interval number and the values are</span>
+<span class="sd">            the decrease in percent (%) applied to the original demand profile.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">field</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;infeasibilities&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">field</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">infeasibilities</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">field</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">):</span>
+                <span class="n">item</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+                <span class="n">infeasibilities</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">return</span> <span class="n">infeasibilities</span>
+
+<div class="viewcode-block" id="Analyze.print_infeasibilities"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.print_infeasibilities">[docs]</a>    <span class="k">def</span> <span class="nf">print_infeasibilities</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Prints infeasibilities.&quot;&quot;&quot;</span>
+        <span class="n">infeasibilities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_infeasibilities</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">infeasibilities</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;There are no infeasibilities.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dates</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span>
+                <span class="n">start</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;start_date&quot;</span><span class="p">],</span>
+                <span class="n">end</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;end_date&quot;</span><span class="p">],</span>
+                <span class="n">freq</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;interval&quot;</span><span class="p">],</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">infeasibilities</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="s2">&quot;demand in </span><span class="si">%s</span><span class="s2"> - </span><span class="si">%s</span><span class="s2"> interval has been reduced by </span><span class="si">%d%%</span><span class="s2">&quot;</span>
+                    <span class="o">%</span> <span class="p">(</span>
+                        <span class="n">dates</span><span class="p">[</span><span class="n">key</span><span class="p">],</span>
+                        <span class="n">dates</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">+</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;interval&quot;</span><span class="p">]),</span>
+                        <span class="n">value</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Analyze.get_pg"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_pg">[docs]</a>    <span class="k">def</span> <span class="nf">get_pg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns PG data frame.</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of power generated.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_data</span> <span class="o">=</span> <span class="n">OutputData</span><span class="p">(</span><span class="n">data_loc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
+        <span class="n">pg</span> <span class="o">=</span> <span class="n">output_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="s2">&quot;PG&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">pg</span></div>
+
+<div class="viewcode-block" id="Analyze.get_pf"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_pf">[docs]</a>    <span class="k">def</span> <span class="nf">get_pf</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns PF data frame.</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of power flow.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_data</span> <span class="o">=</span> <span class="n">OutputData</span><span class="p">(</span><span class="n">data_loc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
+        <span class="n">pf</span> <span class="o">=</span> <span class="n">output_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="s2">&quot;PF&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">pf</span></div>
+
+<div class="viewcode-block" id="Analyze.get_dcline_pf"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_dcline_pf">[docs]</a>    <span class="k">def</span> <span class="nf">get_dcline_pf</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns PF_DCLINE data frame.</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of power flow on DC line(s).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_data</span> <span class="o">=</span> <span class="n">OutputData</span><span class="p">(</span><span class="n">data_loc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
+        <span class="n">dcline_pf</span> <span class="o">=</span> <span class="n">output_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="s2">&quot;PF_DCLINE&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">dcline_pf</span></div>
+
+<div class="viewcode-block" id="Analyze.get_lmp"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_lmp">[docs]</a>    <span class="k">def</span> <span class="nf">get_lmp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns LMP data frame. LMP = locational marginal price</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of nodal prices.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_data</span> <span class="o">=</span> <span class="n">OutputData</span><span class="p">(</span><span class="n">data_loc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
+        <span class="n">lmp</span> <span class="o">=</span> <span class="n">output_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="s2">&quot;LMP&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">lmp</span></div>
+
+<div class="viewcode-block" id="Analyze.get_congu"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_congu">[docs]</a>    <span class="k">def</span> <span class="nf">get_congu</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns CONGU data frame. CONGU = Congestion, Upper flow limit</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of branch flow mu (upper).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_data</span> <span class="o">=</span> <span class="n">OutputData</span><span class="p">(</span><span class="n">data_loc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
+        <span class="n">congu</span> <span class="o">=</span> <span class="n">output_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="s2">&quot;CONGU&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">congu</span></div>
+
+<div class="viewcode-block" id="Analyze.get_congl"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_congl">[docs]</a>    <span class="k">def</span> <span class="nf">get_congl</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns CONGL data frame. CONGL = Congestion, Lower flow limit</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of branch flow mu (lower).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_data</span> <span class="o">=</span> <span class="n">OutputData</span><span class="p">(</span><span class="n">data_loc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
+        <span class="n">congl</span> <span class="o">=</span> <span class="n">output_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="s2">&quot;CONGL&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">congl</span></div>
+
+<div class="viewcode-block" id="Analyze.get_averaged_cong"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_averaged_cong">[docs]</a>    <span class="k">def</span> <span class="nf">get_averaged_cong</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns averaged CONGL and CONGU.</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of averaged congestion with</span>
+<span class="sd">            the branch id as indices an the averaged CONGL and CONGU as columns.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_data</span> <span class="o">=</span> <span class="n">OutputData</span><span class="p">(</span><span class="n">data_loc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
+        <span class="n">mean_cong</span> <span class="o">=</span> <span class="n">output_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="s2">&quot;AVERAGED_CONG&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">mean_cong</span></div>
+
+<div class="viewcode-block" id="Analyze.get_storage_pg"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_storage_pg">[docs]</a>    <span class="k">def</span> <span class="nf">get_storage_pg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns STORAGE_PG data frame.</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of power generated by</span>
+<span class="sd">            storage units.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_data</span> <span class="o">=</span> <span class="n">OutputData</span><span class="p">(</span><span class="n">data_loc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
+        <span class="n">storage_pg</span> <span class="o">=</span> <span class="n">output_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="s2">&quot;STORAGE_PG&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">storage_pg</span></div>
+
+<div class="viewcode-block" id="Analyze.get_storage_e"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_storage_e">[docs]</a>    <span class="k">def</span> <span class="nf">get_storage_e</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns STORAGE_E data frame. Energy state of charge.</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of energy state of charge.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_data</span> <span class="o">=</span> <span class="n">OutputData</span><span class="p">(</span><span class="n">data_loc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
+        <span class="n">storage_e</span> <span class="o">=</span> <span class="n">output_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="s2">&quot;STORAGE_E&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">storage_e</span></div>
+
+<div class="viewcode-block" id="Analyze.get_load_shed"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_load_shed">[docs]</a>    <span class="k">def</span> <span class="nf">get_load_shed</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns LOAD_SHED data frame, either via loading or calculating.</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of load shed (hour x bus).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">scenario_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># It&#39;s either on the server or in our local ScenarioData folder</span>
+            <span class="n">output_data</span> <span class="o">=</span> <span class="n">OutputData</span><span class="p">(</span><span class="n">data_loc</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
+            <span class="n">load_shed</span> <span class="o">=</span> <span class="n">output_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">,</span> <span class="s2">&quot;LOAD_SHED&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="c1"># The scenario was run without load_shed, and we must construct it</span>
+            <span class="n">grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+            <span class="n">infeasibilities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_infeasibilities</span><span class="p">()</span>
+            <span class="n">load_shed</span> <span class="o">=</span> <span class="n">construct_load_shed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">infeasibilities</span><span class="p">)</span>
+
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">scenario_id</span> <span class="o">+</span> <span class="s2">&quot;_LOAD_SHED.pkl&quot;</span>
+            <span class="n">filepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">load_shed</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">load_shed</span></div>
+
+<div class="viewcode-block" id="Analyze.get_ct"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_ct">[docs]</a>    <span class="k">def</span> <span class="nf">get_ct</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns change table.</span>
+
+<span class="sd">        :return: (*dict*) -- change table.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Analyze.get_grid"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_grid">[docs]</a>    <span class="k">def</span> <span class="nf">get_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns Grid.</span>
+
+<span class="sd">        :return: (*powersimdata.input.grid.Grid*) -- a Grid object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Analyze.get_demand"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_demand">[docs]</a>    <span class="k">def</span> <span class="nf">get_demand</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">original</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns demand profiles.</span>
+
+<span class="sd">        :param bool original: should the original demand profile or the</span>
+<span class="sd">            potentially modified one be returned.</span>
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of demand (hour, zone).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">profile</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_grid</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ct</span><span class="p">())</span>
+        <span class="n">demand</span> <span class="o">=</span> <span class="n">profile</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;demand&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">original</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">demand</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dates</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span>
+                <span class="n">start</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;start_date&quot;</span><span class="p">],</span>
+                <span class="n">end</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;end_date&quot;</span><span class="p">],</span>
+                <span class="n">freq</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;interval&quot;</span><span class="p">],</span>
+            <span class="p">)</span>
+            <span class="n">infeasibilities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_infeasibilities</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">infeasibilities</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No infeasibilities. Return original profile.&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">demand</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">infeasibilities</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="n">start</span> <span class="o">=</span> <span class="n">dates</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                    <span class="n">end</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">dates</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                        <span class="o">+</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;interval&quot;</span><span class="p">])</span>
+                        <span class="o">-</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="s2">&quot;1H&quot;</span><span class="p">)</span>
+                    <span class="p">)</span>
+                    <span class="n">demand</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">*=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">value</span> <span class="o">/</span> <span class="mf">100.0</span>
+                <span class="k">return</span> <span class="n">demand</span></div>
+
+<div class="viewcode-block" id="Analyze.get_bus_demand"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_bus_demand">[docs]</a>    <span class="k">def</span> <span class="nf">get_bus_demand</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns demand profiles, by bus.</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of demand (hour, bus).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">profile</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_grid</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ct</span><span class="p">())</span>
+        <span class="n">demand</span> <span class="o">=</span> <span class="n">profile</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;demand&quot;</span><span class="p">)</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">calculate_bus_demand</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">,</span> <span class="n">demand</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Analyze.get_hydro"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_hydro">[docs]</a>    <span class="k">def</span> <span class="nf">get_hydro</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns hydro profile</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of hydro energy output.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">profile</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_grid</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ct</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">profile</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Analyze.get_solar"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_solar">[docs]</a>    <span class="k">def</span> <span class="nf">get_solar</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns solar profile</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of solar energy output.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">profile</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_grid</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ct</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">profile</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Analyze.get_wind"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.get_wind">[docs]</a>    <span class="k">def</span> <span class="nf">get_wind</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns wind profile</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of wind energy output.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">profile</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_grid</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ct</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">profile</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

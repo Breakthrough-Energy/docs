@@ -1,0 +1,226 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.demanddata.nrel_efs.map_states &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.demanddata.nrel_efs.map_states</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants.zones</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">abv2state</span><span class="p">,</span>
+    <span class="n">id2abv</span><span class="p">,</span>
+    <span class="n">id2timezone</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="decompose_demand_profile_by_state_to_loadzone"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.nrel_efs.html#prereise.gather.demanddata.nrel_efs.map_states.decompose_demand_profile_by_state_to_loadzone">[docs]</a><span class="k">def</span> <span class="nf">decompose_demand_profile_by_state_to_loadzone</span><span class="p">(</span><span class="n">agg_dem</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Transforms the aggregated sectoral demand data so that it is separated by load</span>
+<span class="sd">    zone rather than by state.</span>
+
+<span class="sd">    :param pandas.DataFrame agg_dem: DataFrame of the aggregated sectoral demand data,</span>
+<span class="sd">        where the rows are time steps (in local time) and the columns are the states.</span>
+<span class="sd">        This input is intended to be the output of :py:func:`combine_efs_demand`.</span>
+<span class="sd">    :param str save: Saves a .csv if a str representing a valid file path and file</span>
+<span class="sd">        name is provided. Defaults to None, indicating that a .csv file should not be</span>
+<span class="sd">        saved.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- Aggregate sectoral demand, split by load zone ID.</span>
+<span class="sd">    :raises TypeError: if agg_dem is not a pandas.DataFrame or if save is not input as</span>
+<span class="sd">        a str.</span>
+<span class="sd">    :raises ValueError: if agg_dem does not have the proper time stamps or the correct</span>
+<span class="sd">        number of states.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Check that a DataFrame is input</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">agg_dem</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;agg_dem must be input as a pandas.DataFrame.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check the aggregate demand DataFrame time stamps and column headers</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">agg_dem</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2017-01-01&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">closed</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This data does not have the proper time stamps.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">agg_dem</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">abv2state</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;AK&quot;</span><span class="p">,</span> <span class="s2">&quot;HI&quot;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This data does not include all 48 states.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Grab the grid information</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">([</span><span class="s2">&quot;USA&quot;</span><span class="p">])</span>
+
+    <span class="c1"># Find Pd for each load zone and determine the fraction of Pd per load zone by state</span>
+    <span class="n">pd_by_lz</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;zone_id&quot;</span><span class="p">)[</span><span class="s2">&quot;Pd&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">pd_state_total</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">id2abv</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">pd_state_total</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">+=</span> <span class="n">pd_by_lz</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+    <span class="n">pd_frac</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="n">pd_by_lz</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">/</span> <span class="n">pd_state_total</span><span class="p">[</span><span class="n">id2abv</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">id2abv</span><span class="p">}</span>
+
+    <span class="c1"># Split states into load zones</span>
+    <span class="n">agg_dem_lz</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">agg_dem</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">id2abv</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">agg_dem_lz</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">agg_dem_lz</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">agg_dem</span><span class="p">[</span><span class="n">id2abv</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">*</span> <span class="n">pd_frac</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+    <span class="c1"># Convert from local hours to UTC time</span>
+    <span class="n">agg_dem_lz</span> <span class="o">=</span> <span class="n">shift_local_time_by_loadzone_to_utc</span><span class="p">(</span><span class="n">agg_dem_lz</span><span class="p">)</span>
+
+    <span class="c1"># Save the aggregated demand data, if desired</span>
+    <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">save</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;The file path and file name must be input as a str.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">agg_dem_lz</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">save</span><span class="p">)</span>
+
+    <span class="c1"># Return the aggregate sectoral demand that is separated by load zone ID</span>
+    <span class="k">return</span> <span class="n">agg_dem_lz</span></div>
+
+
+<div class="viewcode-block" id="shift_local_time_by_loadzone_to_utc"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.nrel_efs.html#prereise.gather.demanddata.nrel_efs.map_states.shift_local_time_by_loadzone_to_utc">[docs]</a><span class="k">def</span> <span class="nf">shift_local_time_by_loadzone_to_utc</span><span class="p">(</span><span class="n">agg_dem</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Maps the local time for each load zone to the corresponding UTC time.</span>
+
+<span class="sd">    :param pandas.DataFrame agg_dem: DataFrame of the aggregated demand data, where the</span>
+<span class="sd">        rows are time steps (in local time) and the columns are load zone IDs.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- Aggregate demand, shifted to account for UTC time.</span>
+<span class="sd">    :raises TypeError: if agg_dem is not a pandas.DataFrame.</span>
+<span class="sd">    :raises ValueError: if agg_dem does not have the proper time stamps or the correct</span>
+<span class="sd">        number of states.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Check that a DataFrame is input</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">agg_dem</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;agg_dem must be input as a pandas.DataFrame.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check the aggregate demand DataFrame dimensions and headers</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">agg_dem</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2017-01-01&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">closed</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This data does not have the proper time stamps.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">agg_dem</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">id2abv</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This data does not include all load zones.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Shift values according to UTC time correction</span>
+    <span class="n">agg_dem_tz</span> <span class="o">=</span> <span class="n">agg_dem</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">agg_dem_tz</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">tz_val</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">id2timezone</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">agg_dem_tz</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">agg_dem_tz</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="n">tz_val</span><span class="p">)</span>
+
+        <span class="c1"># Populate with data from December 30 (same day of week) that is the same time</span>
+        <span class="n">agg_dem_tz</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">:</span><span class="n">tz_val</span><span class="p">]</span> <span class="o">=</span> <span class="n">agg_dem</span><span class="o">.</span><span class="n">iloc</span><span class="p">[(</span><span class="mi">8736</span> <span class="o">-</span> <span class="n">tz_val</span><span class="p">)</span> <span class="p">:</span> <span class="mi">8736</span><span class="p">][</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+    <span class="c1"># Rename index</span>
+    <span class="n">agg_dem_tz</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;UTC Time&quot;</span>
+
+    <span class="c1"># Return the aggregate demand that has been shifted to meet UTC time</span>
+    <span class="k">return</span> <span class="n">agg_dem_tz</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

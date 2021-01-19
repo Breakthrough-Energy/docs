@@ -1,0 +1,655 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.design.transmission.tests.test_upgrade &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.design.transmission.tests.test_upgrade</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">unittest</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.design.transmission.upgrade</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_construct_composite_allow_list</span><span class="p">,</span>
+    <span class="n">_find_branches_connected_to_bus</span><span class="p">,</span>
+    <span class="n">_find_capacity_at_bus</span><span class="p">,</span>
+    <span class="n">_find_first_degree_branches</span><span class="p">,</span>
+    <span class="n">_find_stub_degree</span><span class="p">,</span>
+    <span class="n">_identify_mesh_branch_upgrades</span><span class="p">,</span>
+    <span class="n">_increment_branch_scaling</span><span class="p">,</span>
+    <span class="n">get_branches_by_area</span><span class="p">,</span>
+    <span class="n">scale_renewable_stubs</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_change_table</span> <span class="kn">import</span> <span class="n">MockChangeTable</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_grid</span> <span class="kn">import</span> <span class="n">MockGrid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_scenario</span> <span class="kn">import</span> <span class="n">MockScenario</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This test network is a ring, with several spurs coming off of it. The central</span>
+<span class="sd">ring is buses {1, 2, 3, 4}, and has three spurs coming off of it:</span>
+<span class="sd">    bus 2 ----- bus 5 (with a wind generator).</span>
+<span class="sd">    bus 4 ----- bus 6 ----- bus 7 (with two solar generators and one ng)</span>
+<span class="sd">    bus 3 ----- bus 8 (with a wind generator)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="n">mock_branch</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">101</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">,</span> <span class="mi">104</span><span class="p">,</span> <span class="mi">105</span><span class="p">,</span> <span class="mi">106</span><span class="p">,</span> <span class="mi">107</span><span class="p">,</span> <span class="mi">108</span><span class="p">],</span>
+    <span class="s2">&quot;from_bus_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
+    <span class="s2">&quot;to_bus_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span>
+    <span class="s2">&quot;rateA&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.25</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">25</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">25</span><span class="p">],</span>
+    <span class="s2">&quot;from_lat&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">47</span><span class="p">,</span> <span class="mi">47</span><span class="p">,</span> <span class="mi">47</span><span class="p">,</span> <span class="mi">46</span><span class="p">,</span> <span class="mi">46</span><span class="p">,</span> <span class="mi">46</span><span class="p">,</span> <span class="mi">46</span><span class="p">,</span> <span class="mi">46</span><span class="p">],</span>
+    <span class="s2">&quot;from_lon&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">122</span><span class="p">,</span> <span class="mi">122</span><span class="p">,</span> <span class="mi">122</span><span class="p">,</span> <span class="mi">122</span><span class="p">,</span> <span class="mi">122</span><span class="p">,</span> <span class="mi">123</span><span class="p">,</span> <span class="mi">123</span><span class="p">,</span> <span class="mi">124</span><span class="p">],</span>
+    <span class="s2">&quot;to_lat&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">47</span><span class="p">,</span> <span class="mi">46</span><span class="p">,</span> <span class="mi">47</span><span class="p">,</span> <span class="mi">46</span><span class="p">,</span> <span class="mi">46</span><span class="p">,</span> <span class="mi">47</span><span class="p">,</span> <span class="mi">46</span><span class="p">,</span> <span class="mi">46</span><span class="p">],</span>
+    <span class="s2">&quot;to_lon&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">122</span><span class="p">,</span> <span class="mi">122</span><span class="p">,</span> <span class="mi">112</span><span class="p">,</span> <span class="mi">121</span><span class="p">,</span> <span class="mi">123</span><span class="p">,</span> <span class="mi">122</span><span class="p">,</span> <span class="mi">124</span><span class="p">,</span> <span class="mi">125</span><span class="p">],</span>
+<span class="p">}</span>
+
+<span class="n">mock_bus</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span>
+    <span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;W&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">],</span>
+<span class="p">}</span>
+
+<span class="n">mock_plant</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="s2">&quot;G&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span>
+    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;coal&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;ng&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">15</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">15</span><span class="p">],</span>
+<span class="p">}</span>
+
+<span class="n">mock_grid</span> <span class="o">=</span> <span class="n">MockGrid</span><span class="p">(</span>
+    <span class="n">grid_attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="n">mock_branch</span><span class="p">,</span> <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="n">mock_bus</span><span class="p">,</span> <span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">}</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="TestStubTopologyHelpers"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers">[docs]</a><span class="k">class</span> <span class="nc">TestStubTopologyHelpers</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestStubTopologyHelpers.setUp"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers.setUp">[docs]</a>    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">mock_grid</span><span class="o">.</span><span class="n">branch</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">mock_grid</span><span class="o">.</span><span class="n">plant</span></div>
+
+<div class="viewcode-block" id="TestStubTopologyHelpers.test_find_branches_connected_to_bus_1"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers.test_find_branches_connected_to_bus_1">[docs]</a>    <span class="k">def</span> <span class="nf">test_find_branches_connected_to_bus_1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branches_connected</span> <span class="o">=</span> <span class="n">_find_branches_connected_to_bus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches_connected</span><span class="p">,</span> <span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">106</span><span class="p">})</span></div>
+
+<div class="viewcode-block" id="TestStubTopologyHelpers.test_find_branches_connected_to_bus_4"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers.test_find_branches_connected_to_bus_4">[docs]</a>    <span class="k">def</span> <span class="nf">test_find_branches_connected_to_bus_4</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branches_connected</span> <span class="o">=</span> <span class="n">_find_branches_connected_to_bus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches_connected</span><span class="p">,</span> <span class="p">{</span><span class="mi">105</span><span class="p">,</span> <span class="mi">106</span><span class="p">,</span> <span class="mi">107</span><span class="p">})</span></div>
+
+<div class="viewcode-block" id="TestStubTopologyHelpers.test_find_branches_connected_to_bus_5"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers.test_find_branches_connected_to_bus_5">[docs]</a>    <span class="k">def</span> <span class="nf">test_find_branches_connected_to_bus_5</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branches_connected</span> <span class="o">=</span> <span class="n">_find_branches_connected_to_bus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches_connected</span><span class="p">,</span> <span class="p">{</span><span class="mi">103</span><span class="p">})</span></div>
+
+<div class="viewcode-block" id="TestStubTopologyHelpers.test_find_first_degree_branches_101"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers.test_find_first_degree_branches_101">[docs]</a>    <span class="k">def</span> <span class="nf">test_find_first_degree_branches_101</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branches_connected</span> <span class="o">=</span> <span class="n">_find_first_degree_branches</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="mi">101</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches_connected</span><span class="p">,</span> <span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">,</span> <span class="mi">106</span><span class="p">})</span></div>
+
+<div class="viewcode-block" id="TestStubTopologyHelpers.test_find_first_degree_branches_108"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers.test_find_first_degree_branches_108">[docs]</a>    <span class="k">def</span> <span class="nf">test_find_first_degree_branches_108</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branches_connected</span> <span class="o">=</span> <span class="n">_find_first_degree_branches</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="mi">108</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches_connected</span><span class="p">,</span> <span class="p">{</span><span class="mi">107</span><span class="p">,</span> <span class="mi">108</span><span class="p">})</span></div>
+
+<div class="viewcode-block" id="TestStubTopologyHelpers.test_find_stub_degree_1"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers.test_find_stub_degree_1">[docs]</a>    <span class="k">def</span> <span class="nf">test_find_stub_degree_1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">stub_degree</span><span class="p">,</span> <span class="n">stubs</span> <span class="o">=</span> <span class="n">_find_stub_degree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">stub_degree</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">stubs</span><span class="p">,</span> <span class="nb">set</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="TestStubTopologyHelpers.test_find_stub_degree_5"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers.test_find_stub_degree_5">[docs]</a>    <span class="k">def</span> <span class="nf">test_find_stub_degree_5</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">stub_degree</span><span class="p">,</span> <span class="n">stubs</span> <span class="o">=</span> <span class="n">_find_stub_degree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">stub_degree</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">stubs</span><span class="p">,</span> <span class="p">{</span><span class="mi">103</span><span class="p">})</span></div>
+
+<div class="viewcode-block" id="TestStubTopologyHelpers.test_find_stub_degree_7"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers.test_find_stub_degree_7">[docs]</a>    <span class="k">def</span> <span class="nf">test_find_stub_degree_7</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">stub_degree</span><span class="p">,</span> <span class="n">stubs</span> <span class="o">=</span> <span class="n">_find_stub_degree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">stub_degree</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">stubs</span><span class="p">,</span> <span class="p">{</span><span class="mi">107</span><span class="p">,</span> <span class="mi">108</span><span class="p">})</span></div>
+
+<div class="viewcode-block" id="TestStubTopologyHelpers.test_find_capacity_at_bus_1_solar_tuple"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers.test_find_capacity_at_bus_1_solar_tuple">[docs]</a>    <span class="k">def</span> <span class="nf">test_find_capacity_at_bus_1_solar_tuple</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">gen_capacity</span> <span class="o">=</span> <span class="n">_find_capacity_at_bus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plant</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;solar&quot;</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">gen_capacity</span><span class="p">,</span> <span class="mi">15</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestStubTopologyHelpers.test_find_capacity_at_bus_1_solar_str"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers.test_find_capacity_at_bus_1_solar_str">[docs]</a>    <span class="k">def</span> <span class="nf">test_find_capacity_at_bus_1_solar_str</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">gen_capacity</span> <span class="o">=</span> <span class="n">_find_capacity_at_bus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plant</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">gen_capacity</span><span class="p">,</span> <span class="mi">15</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestStubTopologyHelpers.test_find_capacity_at_bus_2_wind"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers.test_find_capacity_at_bus_2_wind">[docs]</a>    <span class="k">def</span> <span class="nf">test_find_capacity_at_bus_2_wind</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">gen_capacity</span> <span class="o">=</span> <span class="n">_find_capacity_at_bus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plant</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">gen_capacity</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestStubTopologyHelpers.test_find_capacity_at_bus_7_solar"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers.test_find_capacity_at_bus_7_solar">[docs]</a>    <span class="k">def</span> <span class="nf">test_find_capacity_at_bus_7_solar</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">gen_capacity</span> <span class="o">=</span> <span class="n">_find_capacity_at_bus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plant</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;solar&quot;</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">gen_capacity</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestStubTopologyHelpers.test_find_capacity_at_bus_7_solar_ng"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestStubTopologyHelpers.test_find_capacity_at_bus_7_solar_ng">[docs]</a>    <span class="k">def</span> <span class="nf">test_find_capacity_at_bus_7_solar_ng</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">gen_capacity</span> <span class="o">=</span> <span class="n">_find_capacity_at_bus</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plant</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;ng&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">gen_capacity</span><span class="p">,</span> <span class="mi">40</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestGetBranchesByArea"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea">[docs]</a><span class="k">class</span> <span class="nc">TestGetBranchesByArea</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestGetBranchesByArea.setUp"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.setUp">[docs]</a>    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">mock_grid</span>
+        <span class="n">from_zone_name</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="s2">&quot;zone_id&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">from_bus_id</span>
+        <span class="p">]</span>
+        <span class="n">to_zone_name</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="s2">&quot;zone_id&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">to_bus_id</span>
+        <span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="p">[</span><span class="s2">&quot;from_zone_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">from_zone_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="p">[</span><span class="s2">&quot;to_zone_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">to_zone_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="s2">&quot;W&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="s2">&quot;E&quot;</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;W&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="TestGetBranchesByArea.test_internal_W"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.test_internal_W">[docs]</a>    <span class="k">def</span> <span class="nf">test_internal_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branch_idxs</span> <span class="o">=</span> <span class="n">get_branches_by_area</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;W&quot;</span><span class="p">},</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;internal&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">branch_idxs</span> <span class="o">==</span> <span class="p">{</span><span class="mi">106</span><span class="p">,</span> <span class="mi">107</span><span class="p">,</span> <span class="mi">108</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="TestGetBranchesByArea.test_internal_E"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.test_internal_E">[docs]</a>    <span class="k">def</span> <span class="nf">test_internal_E</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branch_idxs</span> <span class="o">=</span> <span class="n">get_branches_by_area</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;E&quot;</span><span class="p">],</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;internal&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">branch_idxs</span> <span class="o">==</span> <span class="p">{</span><span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">,</span> <span class="mi">104</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="TestGetBranchesByArea.test_internal_EW"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.test_internal_EW">[docs]</a>    <span class="k">def</span> <span class="nf">test_internal_EW</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branch_idxs</span> <span class="o">=</span> <span class="n">get_branches_by_area</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;W&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">),</span> <span class="s2">&quot;internal&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">branch_idxs</span> <span class="o">==</span> <span class="p">{</span><span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">,</span> <span class="mi">104</span><span class="p">,</span> <span class="mi">106</span><span class="p">,</span> <span class="mi">107</span><span class="p">,</span> <span class="mi">108</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="TestGetBranchesByArea.test_bridging_W"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.test_bridging_W">[docs]</a>    <span class="k">def</span> <span class="nf">test_bridging_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branch_idxs</span> <span class="o">=</span> <span class="n">get_branches_by_area</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;W&quot;</span><span class="p">],</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;bridging&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">branch_idxs</span> <span class="o">==</span> <span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">105</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="TestGetBranchesByArea.test_bridging_E"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.test_bridging_E">[docs]</a>    <span class="k">def</span> <span class="nf">test_bridging_E</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branch_idxs</span> <span class="o">=</span> <span class="n">get_branches_by_area</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;E&quot;</span><span class="p">},</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;bridging&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">branch_idxs</span> <span class="o">==</span> <span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">105</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="TestGetBranchesByArea.test_bridging_EW"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.test_bridging_EW">[docs]</a>    <span class="k">def</span> <span class="nf">test_bridging_EW</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branch_idxs</span> <span class="o">=</span> <span class="n">get_branches_by_area</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;W&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">),</span> <span class="s2">&quot;bridging&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">branch_idxs</span> <span class="o">==</span> <span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">105</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="TestGetBranchesByArea.test_either_W"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.test_either_W">[docs]</a>    <span class="k">def</span> <span class="nf">test_either_W</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branch_idxs</span> <span class="o">=</span> <span class="n">get_branches_by_area</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;W&quot;</span><span class="p">,),</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;either&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">branch_idxs</span> <span class="o">==</span> <span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">105</span><span class="p">,</span> <span class="mi">106</span><span class="p">,</span> <span class="mi">107</span><span class="p">,</span> <span class="mi">108</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="TestGetBranchesByArea.test_either_E"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.test_either_E">[docs]</a>    <span class="k">def</span> <span class="nf">test_either_E</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branch_idxs</span> <span class="o">=</span> <span class="n">get_branches_by_area</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;E&quot;</span><span class="p">,),</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;either&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">branch_idxs</span> <span class="o">==</span> <span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">,</span> <span class="mi">104</span><span class="p">,</span> <span class="mi">105</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="TestGetBranchesByArea.test_either_EW"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.test_either_EW">[docs]</a>    <span class="k">def</span> <span class="nf">test_either_EW</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branch_idxs</span> <span class="o">=</span> <span class="n">get_branches_by_area</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">),</span> <span class="s2">&quot;either&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">branch_idxs</span> <span class="o">==</span> <span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">,</span> <span class="mi">104</span><span class="p">,</span> <span class="mi">105</span><span class="p">,</span> <span class="mi">106</span><span class="p">,</span> <span class="mi">107</span><span class="p">,</span> <span class="mi">108</span><span class="p">}</span></div>
+
+<div class="viewcode-block" id="TestGetBranchesByArea.test_bad_grid_type"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.test_bad_grid_type">[docs]</a>    <span class="k">def</span> <span class="nf">test_bad_grid_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">get_branches_by_area</span><span class="p">(</span><span class="s2">&quot;grid&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;E&quot;</span><span class="p">],</span> <span class="s2">&quot;either&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestGetBranchesByArea.test_bad_area_type"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.test_bad_area_type">[docs]</a>    <span class="k">def</span> <span class="nf">test_bad_area_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">get_branches_by_area</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="s2">&quot;either&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestGetBranchesByArea.test_bad_area_name"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.test_bad_area_name">[docs]</a>    <span class="k">def</span> <span class="nf">test_bad_area_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">get_branches_by_area</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;S&quot;</span><span class="p">],</span> <span class="s2">&quot;internal&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestGetBranchesByArea.test_bad_method_type"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.test_bad_method_type">[docs]</a>    <span class="k">def</span> <span class="nf">test_bad_method_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">get_branches_by_area</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;E&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;bridging&quot;</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="TestGetBranchesByArea.test_bad_method_name"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestGetBranchesByArea.test_bad_method_name">[docs]</a>    <span class="k">def</span> <span class="nf">test_bad_method_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">get_branches_by_area</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;E&quot;</span><span class="p">],</span> <span class="s2">&quot;purple&quot;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestIdentifyMesh"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh">[docs]</a><span class="k">class</span> <span class="nc">TestIdentifyMesh</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestIdentifyMesh.setUp"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.setUp">[docs]</a>    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Build dummy congu and congl dataframes, containing barrier cruft</span>
+        <span class="n">num_hours</span> <span class="o">=</span> <span class="mi">100</span>
+        <span class="n">branch_indices</span> <span class="o">=</span> <span class="n">mock_branch</span><span class="p">[</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span>
+        <span class="n">num_branches</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">branch_indices</span><span class="p">)</span>
+        <span class="n">congu_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">num_hours</span><span class="p">,</span> <span class="n">num_branches</span><span class="p">))</span> <span class="o">*</span> <span class="mf">1e-9</span>
+        <span class="n">congl_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">num_hours</span><span class="p">,</span> <span class="n">num_branches</span><span class="p">))</span> <span class="o">*</span> <span class="mf">1e-10</span>
+        <span class="n">columns</span> <span class="o">=</span> <span class="n">mock_branch</span><span class="p">[</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span>
+        <span class="n">congu</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">congu_data</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="n">num_hours</span><span class="p">),</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">)</span>
+        <span class="n">congl</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">congl_data</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="n">num_hours</span><span class="p">),</span> <span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">)</span>
+        <span class="c1"># Populate with dummy data</span>
+        <span class="c1"># Branch 101 will have frequent, low congestion</span>
+        <span class="n">congu</span><span class="p">[</span><span class="mi">101</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">15</span><span class="p">:]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="c1"># Branch 102 will have less frequent, but greater congestion</span>
+        <span class="n">congu</span><span class="p">[</span><span class="mi">102</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span> <span class="o">=</span> <span class="mi">6</span>
+        <span class="c1"># Branch 103 will have only occassional congestion, but very high</span>
+        <span class="n">congu</span><span class="p">[</span><span class="mi">103</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">10</span><span class="p">:</span><span class="mi">13</span><span class="p">]</span> <span class="o">=</span> <span class="mi">20</span>
+        <span class="n">congl</span><span class="p">[</span><span class="mi">103</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">20</span><span class="p">:</span><span class="mi">23</span><span class="p">]</span> <span class="o">=</span> <span class="mi">30</span>
+        <span class="c1"># Build dummy change table</span>
+        <span class="n">ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="n">b</span><span class="p">:</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">branch_indices</span><span class="p">}}}</span>
+
+        <span class="c1"># Finally, combine all of this into a MockScenario</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span> <span class="o">=</span> <span class="n">MockScenario</span><span class="p">(</span>
+            <span class="n">grid_attrs</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="n">mock_branch</span><span class="p">,</span>
+                <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="n">mock_bus</span><span class="p">,</span>
+                <span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="n">congu</span><span class="o">=</span><span class="n">congu</span><span class="p">,</span>
+            <span class="n">congl</span><span class="o">=</span><span class="n">congl</span><span class="p">,</span>
+            <span class="n">ct</span><span class="o">=</span><span class="n">ct</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+    <span class="c1"># These tests use the default &#39;branch&#39; ranking: [103, 102, 101]</span>
+<div class="viewcode-block" id="TestIdentifyMesh.test_identify_mesh_branch_upgrades_default"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.test_identify_mesh_branch_upgrades_default">[docs]</a>    <span class="k">def</span> <span class="nf">test_identify_mesh_branch_upgrades_default</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Not enough branches</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestIdentifyMesh.test_identify_mesh_branch_upgrades_n_4"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.test_identify_mesh_branch_upgrades_n_4">[docs]</a>    <span class="k">def</span> <span class="nf">test_identify_mesh_branch_upgrades_n_4</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Not enough congest branches (barrier cruft values don&#39;t count)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestIdentifyMesh.test_identify_mesh_branch_upgrades_n_3"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.test_identify_mesh_branch_upgrades_n_3">[docs]</a>    <span class="k">def</span> <span class="nf">test_identify_mesh_branch_upgrades_n_3</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected_return</span> <span class="o">=</span> <span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">}</span>
+        <span class="n">branches</span> <span class="o">=</span> <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestIdentifyMesh.test_identify_mesh_branch_upgrades_n_2"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.test_identify_mesh_branch_upgrades_n_2">[docs]</a>    <span class="k">def</span> <span class="nf">test_identify_mesh_branch_upgrades_n_2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected_return</span> <span class="o">=</span> <span class="p">{</span><span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">}</span>
+        <span class="n">branches</span> <span class="o">=</span> <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestIdentifyMesh.test_identify_mesh_branch_upgrades_quantile90"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.test_identify_mesh_branch_upgrades_quantile90">[docs]</a>    <span class="k">def</span> <span class="nf">test_identify_mesh_branch_upgrades_quantile90</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Fewer branches are congested for &gt;= 10% of the time</span>
+        <span class="n">expected_return</span> <span class="o">=</span> <span class="p">{</span><span class="mi">101</span><span class="p">}</span>
+        <span class="n">branches</span> <span class="o">=</span> <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">quantile</span><span class="o">=</span><span class="mf">0.9</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">)</span></div>
+
+    <span class="c1"># These tests use the &#39;MW&#39; ranking: [102, 101, 103]</span>
+    <span class="c1"># This happens because 101 is very small, 102 is small (compared to 103)</span>
+<div class="viewcode-block" id="TestIdentifyMesh.test_identify_mesh_MW_n_3"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.test_identify_mesh_MW_n_3">[docs]</a>    <span class="k">def</span> <span class="nf">test_identify_mesh_MW_n_3</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected_return</span> <span class="o">=</span> <span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">}</span>
+        <span class="n">branches</span> <span class="o">=</span> <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;MW&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestIdentifyMesh.test_identify_mesh_MW_n_2"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.test_identify_mesh_MW_n_2">[docs]</a>    <span class="k">def</span> <span class="nf">test_identify_mesh_MW_n_2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected_return</span> <span class="o">=</span> <span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">102</span><span class="p">}</span>
+        <span class="n">branches</span> <span class="o">=</span> <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;MW&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestIdentifyMesh.test_identify_mesh_MW_n_2_allow_list"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.test_identify_mesh_MW_n_2_allow_list">[docs]</a>    <span class="k">def</span> <span class="nf">test_identify_mesh_MW_n_2_allow_list</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected_return</span> <span class="o">=</span> <span class="p">{</span><span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">}</span>
+        <span class="n">allow_list</span> <span class="o">=</span> <span class="p">{</span><span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">,</span> <span class="mi">104</span><span class="p">}</span>
+        <span class="n">branches</span> <span class="o">=</span> <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;MW&quot;</span><span class="p">,</span> <span class="n">allow_list</span><span class="o">=</span><span class="n">allow_list</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestIdentifyMesh.test_identify_mesh_MW_n_2_deny_list"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.test_identify_mesh_MW_n_2_deny_list">[docs]</a>    <span class="k">def</span> <span class="nf">test_identify_mesh_MW_n_2_deny_list</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected_return</span> <span class="o">=</span> <span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">103</span><span class="p">}</span>
+        <span class="n">deny_list</span> <span class="o">=</span> <span class="p">[</span><span class="mi">102</span><span class="p">,</span> <span class="mi">105</span><span class="p">]</span>
+        <span class="n">branches</span> <span class="o">=</span> <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;MW&quot;</span><span class="p">,</span> <span class="n">deny_list</span><span class="o">=</span><span class="n">deny_list</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestIdentifyMesh.test_identify_mesh_MW_n_1"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.test_identify_mesh_MW_n_1">[docs]</a>    <span class="k">def</span> <span class="nf">test_identify_mesh_MW_n_1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected_return</span> <span class="o">=</span> <span class="p">{</span><span class="mi">102</span><span class="p">}</span>
+        <span class="n">branches</span> <span class="o">=</span> <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;MW&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">)</span></div>
+
+    <span class="c1"># These tests use the &#39;MWmiles&#39; ranking: [101, 102, 103]</span>
+    <span class="c1"># This happens because 101 is zero-distance, 102 is short (compared to 103)</span>
+<div class="viewcode-block" id="TestIdentifyMesh.test_identify_mesh_MWmiles_n_3"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.test_identify_mesh_MWmiles_n_3">[docs]</a>    <span class="k">def</span> <span class="nf">test_identify_mesh_MWmiles_n_3</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected_return</span> <span class="o">=</span> <span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">}</span>
+        <span class="n">branches</span> <span class="o">=</span> <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;MWmiles&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestIdentifyMesh.test_identify_mesh_MWmiles_n_2"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.test_identify_mesh_MWmiles_n_2">[docs]</a>    <span class="k">def</span> <span class="nf">test_identify_mesh_MWmiles_n_2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected_return</span> <span class="o">=</span> <span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">102</span><span class="p">}</span>
+        <span class="n">branches</span> <span class="o">=</span> <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;MWmiles&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestIdentifyMesh.test_identify_mesh_MWmiles_n_1"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.test_identify_mesh_MWmiles_n_1">[docs]</a>    <span class="k">def</span> <span class="nf">test_identify_mesh_MWmiles_n_1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected_return</span> <span class="o">=</span> <span class="p">{</span><span class="mi">101</span><span class="p">}</span>
+        <span class="n">branches</span> <span class="o">=</span> <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;MWmiles&quot;</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">branches</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">)</span></div>
+
+    <span class="c1"># What about a made-up method?</span>
+<div class="viewcode-block" id="TestIdentifyMesh.test_identify_mesh_bad_method"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIdentifyMesh.test_identify_mesh_bad_method">[docs]</a>    <span class="k">def</span> <span class="nf">test_identify_mesh_bad_method</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">mock_scenario</span><span class="p">,</span> <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;does not exist&quot;</span>
+            <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestConstructCompositeAllowlist"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestConstructCompositeAllowlist">[docs]</a><span class="k">class</span> <span class="nc">TestConstructCompositeAllowlist</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestConstructCompositeAllowlist.test_none_none"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestConstructCompositeAllowlist.test_none_none">[docs]</a>    <span class="k">def</span> <span class="nf">test_none_none</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">branch_list</span> <span class="o">=</span> <span class="n">mock_branch</span><span class="p">[</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">composite_allow_list</span> <span class="o">=</span> <span class="n">_construct_composite_allow_list</span><span class="p">(</span>
+            <span class="n">mock_branch</span><span class="p">[</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">composite_allow_list</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">branch_list</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="TestConstructCompositeAllowlist.test_good_allow_list"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestConstructCompositeAllowlist.test_good_allow_list">[docs]</a>    <span class="k">def</span> <span class="nf">test_good_allow_list</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">allow_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">101</span><span class="p">,</span> <span class="mi">105</span><span class="p">))</span>
+        <span class="n">composite_allow_list</span> <span class="o">=</span> <span class="n">_construct_composite_allow_list</span><span class="p">(</span>
+            <span class="n">mock_branch</span><span class="p">[</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">allow_list</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">composite_allow_list</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">allow_list</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="TestConstructCompositeAllowlist.test_good_deny_list"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestConstructCompositeAllowlist.test_good_deny_list">[docs]</a>    <span class="k">def</span> <span class="nf">test_good_deny_list</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">deny_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">101</span><span class="p">,</span> <span class="mi">105</span><span class="p">))</span>
+        <span class="n">composite_allow_list</span> <span class="o">=</span> <span class="n">_construct_composite_allow_list</span><span class="p">(</span>
+            <span class="n">mock_branch</span><span class="p">[</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="kc">None</span><span class="p">,</span> <span class="n">deny_list</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">composite_allow_list</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">105</span><span class="p">,</span> <span class="mi">109</span><span class="p">)))</span></div>
+
+<div class="viewcode-block" id="TestConstructCompositeAllowlist.test_allow_list_and_deny_list_failure"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestConstructCompositeAllowlist.test_allow_list_and_deny_list_failure">[docs]</a>    <span class="k">def</span> <span class="nf">test_allow_list_and_deny_list_failure</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">allow_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">101</span><span class="p">,</span> <span class="mi">105</span><span class="p">))</span>
+        <span class="n">deny_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">105</span><span class="p">,</span> <span class="mi">109</span><span class="p">))</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">_construct_composite_allow_list</span><span class="p">(</span>
+                <span class="n">mock_branch</span><span class="p">[</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">allow_list</span><span class="p">,</span> <span class="n">deny_list</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestConstructCompositeAllowlist.test_bad_allow_list_value"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestConstructCompositeAllowlist.test_bad_allow_list_value">[docs]</a>    <span class="k">def</span> <span class="nf">test_bad_allow_list_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">allow_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">101</span><span class="p">,</span> <span class="mi">110</span><span class="p">))</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">_construct_composite_allow_list</span><span class="p">(</span>
+                <span class="n">mock_branch</span><span class="p">[</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">allow_list</span><span class="p">,</span> <span class="kc">None</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestConstructCompositeAllowlist.test_bad_allow_list_entry_type"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestConstructCompositeAllowlist.test_bad_allow_list_entry_type">[docs]</a>    <span class="k">def</span> <span class="nf">test_bad_allow_list_entry_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">allow_list</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">101</span><span class="p">,</span> <span class="mi">105</span><span class="p">)]</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">_construct_composite_allow_list</span><span class="p">(</span>
+                <span class="n">mock_branch</span><span class="p">[</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">allow_list</span><span class="p">,</span> <span class="kc">None</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestConstructCompositeAllowlist.test_bad_deny_list_value"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestConstructCompositeAllowlist.test_bad_deny_list_value">[docs]</a>    <span class="k">def</span> <span class="nf">test_bad_deny_list_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">deny_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">108</span><span class="p">,</span> <span class="mi">110</span><span class="p">))</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">_construct_composite_allow_list</span><span class="p">(</span>
+                <span class="n">mock_branch</span><span class="p">[</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="kc">None</span><span class="p">,</span> <span class="n">deny_list</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestConstructCompositeAllowlist.test_bad_deny_list_type"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestConstructCompositeAllowlist.test_bad_deny_list_type">[docs]</a>    <span class="k">def</span> <span class="nf">test_bad_deny_list_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">_construct_composite_allow_list</span><span class="p">(</span>
+                <span class="n">mock_branch</span><span class="p">[</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;108&quot;</span>
+            <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestIncrementBranch"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIncrementBranch">[docs]</a><span class="k">class</span> <span class="nc">TestIncrementBranch</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestIncrementBranch.setUp"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIncrementBranch.setUp">[docs]</a>    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="c1"># These data aren&#39;t used, but we make sure they don&#39;t get changed.</span>
+            <span class="s2">&quot;demand&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;W&quot;</span><span class="p">:</span> <span class="mf">1.1</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">:</span> <span class="mf">1.2</span><span class="p">}},</span>
+            <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;W&quot;</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">:</span> <span class="mf">1.7</span><span class="p">}},</span>
+            <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;E&quot;</span><span class="p">:</span> <span class="mf">1.3</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">:</span> <span class="mf">2.1</span><span class="p">}},</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ref_scenario</span> <span class="o">=</span> <span class="n">MockScenario</span><span class="p">(</span>
+            <span class="n">grid_attrs</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="n">mock_branch</span><span class="p">,</span>
+                <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="n">mock_bus</span><span class="p">,</span>
+                <span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="n">ct</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">101</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span> <span class="mi">102</span><span class="p">:</span> <span class="mf">2.5</span><span class="p">,</span> <span class="mi">103</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">105</span><span class="p">:</span> <span class="mi">4</span><span class="p">}},</span>
+                <span class="c1"># These shouldn&#39;t get used</span>
+                <span class="s2">&quot;coal&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;E&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}},</span>
+                <span class="s2">&quot;demand&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;W&quot;</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">}},</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+        <span class="n">orig_ct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ref_scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_ct</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">orig_branch_scaling</span> <span class="o">=</span> <span class="n">orig_ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="TestIncrementBranch.test_increment_branch_scaling_ref_only"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIncrementBranch.test_increment_branch_scaling_ref_only">[docs]</a>    <span class="k">def</span> <span class="nf">test_increment_branch_scaling_ref_only</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">change_table</span> <span class="o">=</span> <span class="n">MockChangeTable</span><span class="p">(</span><span class="n">grid</span><span class="o">=</span><span class="n">mock_grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span>
+        <span class="n">expected_ct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">expected_ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">orig_branch_scaling</span><span class="o">.</span><span class="n">copy</span><span class="p">()}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertNotEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span>
+        <span class="n">_increment_branch_scaling</span><span class="p">(</span>
+            <span class="n">change_table</span><span class="p">,</span> <span class="n">branch_ids</span><span class="o">=</span><span class="nb">set</span><span class="p">(),</span> <span class="n">ref_scenario</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ref_scenario</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestIncrementBranch.test_increment_branch_scaling_ref_and_increment"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIncrementBranch.test_increment_branch_scaling_ref_and_increment">[docs]</a>    <span class="k">def</span> <span class="nf">test_increment_branch_scaling_ref_and_increment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">change_table</span> <span class="o">=</span> <span class="n">MockChangeTable</span><span class="p">(</span><span class="n">grid</span><span class="o">=</span><span class="n">mock_grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span>
+        <span class="n">expected_ct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">expected_ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">orig_branch_scaling</span><span class="o">.</span><span class="n">copy</span><span class="p">()}</span>
+        <span class="n">expected_ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">][</span><span class="mi">102</span><span class="p">]</span> <span class="o">=</span> <span class="mf">3.5</span>
+        <span class="n">expected_ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">][</span><span class="mi">103</span><span class="p">]</span> <span class="o">=</span> <span class="mi">3</span>
+        <span class="n">expected_ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">][</span><span class="mi">107</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertNotEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span>
+        <span class="n">_increment_branch_scaling</span><span class="p">(</span>
+            <span class="n">change_table</span><span class="p">,</span> <span class="n">branch_ids</span><span class="o">=</span><span class="p">{</span><span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">,</span> <span class="mi">107</span><span class="p">},</span> <span class="n">ref_scenario</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ref_scenario</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestIncrementBranch.test_increment_branch_scaling_ref_and_custom_increment"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIncrementBranch.test_increment_branch_scaling_ref_and_custom_increment">[docs]</a>    <span class="k">def</span> <span class="nf">test_increment_branch_scaling_ref_and_custom_increment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">change_table</span> <span class="o">=</span> <span class="n">MockChangeTable</span><span class="p">(</span><span class="n">grid</span><span class="o">=</span><span class="n">mock_grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span>
+        <span class="n">expected_ct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">expected_ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">orig_branch_scaling</span><span class="o">.</span><span class="n">copy</span><span class="p">()}</span>
+        <span class="n">expected_ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">][</span><span class="mi">101</span><span class="p">]</span> <span class="o">=</span> <span class="mf">2.0</span>
+        <span class="n">expected_ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">][</span><span class="mi">105</span><span class="p">]</span> <span class="o">=</span> <span class="mf">4.5</span>
+        <span class="n">expected_ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">][</span><span class="mi">106</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.5</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertNotEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span>
+        <span class="n">_increment_branch_scaling</span><span class="p">(</span>
+            <span class="n">change_table</span><span class="p">,</span>
+            <span class="n">branch_ids</span><span class="o">=</span><span class="p">{</span><span class="mi">101</span><span class="p">,</span> <span class="mi">105</span><span class="p">,</span> <span class="mi">106</span><span class="p">},</span>
+            <span class="n">ref_scenario</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ref_scenario</span><span class="p">,</span>
+            <span class="n">value</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestIncrementBranch.test_increment_branch_scaling_ref_and_ct_and_increment1"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIncrementBranch.test_increment_branch_scaling_ref_and_ct_and_increment1">[docs]</a>    <span class="k">def</span> <span class="nf">test_increment_branch_scaling_ref_and_ct_and_increment1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Our change_table branch should get over-written by increment</span>
+        <span class="n">change_table</span> <span class="o">=</span> <span class="n">MockChangeTable</span><span class="p">(</span><span class="n">grid</span><span class="o">=</span><span class="n">mock_grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span>
+        <span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">101</span><span class="p">:</span> <span class="mi">2</span><span class="p">}}</span>
+        <span class="n">expected_ct</span> <span class="o">=</span> <span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">expected_ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">orig_branch_scaling</span><span class="o">.</span><span class="n">copy</span><span class="p">()}</span>
+        <span class="n">expected_ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">][</span><span class="mi">101</span><span class="p">]</span> <span class="o">=</span> <span class="mf">2.5</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertNotEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span>
+        <span class="n">_increment_branch_scaling</span><span class="p">(</span>
+            <span class="n">change_table</span><span class="p">,</span> <span class="n">branch_ids</span><span class="o">=</span><span class="p">{</span><span class="mi">101</span><span class="p">},</span> <span class="n">ref_scenario</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ref_scenario</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestIncrementBranch.test_increment_branch_scaling_ref_and_ct_and_increment2"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestIncrementBranch.test_increment_branch_scaling_ref_and_ct_and_increment2">[docs]</a>    <span class="k">def</span> <span class="nf">test_increment_branch_scaling_ref_and_ct_and_increment2</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Our change_table branch should NOT get over-written by increment</span>
+        <span class="n">change_table</span> <span class="o">=</span> <span class="n">MockChangeTable</span><span class="p">(</span><span class="n">grid</span><span class="o">=</span><span class="n">mock_grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span>
+        <span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">101</span><span class="p">:</span> <span class="mi">3</span><span class="p">}}</span>
+        <span class="n">expected_ct</span> <span class="o">=</span> <span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">expected_ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">orig_branch_scaling</span><span class="o">.</span><span class="n">copy</span><span class="p">()}</span>
+        <span class="n">expected_ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">][</span><span class="mi">101</span><span class="p">]</span> <span class="o">=</span> <span class="mi">3</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertNotEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span>
+        <span class="n">_increment_branch_scaling</span><span class="p">(</span>
+            <span class="n">change_table</span><span class="p">,</span> <span class="n">branch_ids</span><span class="o">=</span><span class="p">{</span><span class="mi">101</span><span class="p">},</span> <span class="n">ref_scenario</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ref_scenario</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestScaleRenewableStubs"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestScaleRenewableStubs">[docs]</a><span class="k">class</span> <span class="nc">TestScaleRenewableStubs</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestScaleRenewableStubs.test_empty_ct_inplace_default"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestScaleRenewableStubs.test_empty_ct_inplace_default">[docs]</a>    <span class="k">def</span> <span class="nf">test_empty_ct_inplace_default</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected_ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">103</span><span class="p">:</span> <span class="p">(</span><span class="mi">11</span> <span class="o">/</span> <span class="mi">8</span><span class="p">),</span> <span class="mi">107</span><span class="p">:</span> <span class="p">(</span><span class="mi">21</span> <span class="o">/</span> <span class="mi">15</span><span class="p">)}}}</span>
+        <span class="n">change_table</span> <span class="o">=</span> <span class="n">MockChangeTable</span><span class="p">(</span><span class="n">mock_grid</span><span class="p">)</span>
+        <span class="n">returned</span> <span class="o">=</span> <span class="n">scale_renewable_stubs</span><span class="p">(</span><span class="n">change_table</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">returned</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestScaleRenewableStubs.test_empty_ct_inplace_true"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestScaleRenewableStubs.test_empty_ct_inplace_true">[docs]</a>    <span class="k">def</span> <span class="nf">test_empty_ct_inplace_true</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected_ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">103</span><span class="p">:</span> <span class="p">(</span><span class="mi">11</span> <span class="o">/</span> <span class="mi">8</span><span class="p">),</span> <span class="mi">107</span><span class="p">:</span> <span class="p">(</span><span class="mi">21</span> <span class="o">/</span> <span class="mi">15</span><span class="p">)}}}</span>
+        <span class="n">change_table</span> <span class="o">=</span> <span class="n">MockChangeTable</span><span class="p">(</span><span class="n">mock_grid</span><span class="p">)</span>
+        <span class="n">returned</span> <span class="o">=</span> <span class="n">scale_renewable_stubs</span><span class="p">(</span><span class="n">change_table</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">returned</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestScaleRenewableStubs.test_empty_ct_inplace_false"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestScaleRenewableStubs.test_empty_ct_inplace_false">[docs]</a>    <span class="k">def</span> <span class="nf">test_empty_ct_inplace_false</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected_ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">103</span><span class="p">:</span> <span class="p">(</span><span class="mi">11</span> <span class="o">/</span> <span class="mi">8</span><span class="p">),</span> <span class="mi">107</span><span class="p">:</span> <span class="p">(</span><span class="mi">21</span> <span class="o">/</span> <span class="mi">15</span><span class="p">)}}}</span>
+        <span class="n">change_table</span> <span class="o">=</span> <span class="n">MockChangeTable</span><span class="p">(</span><span class="n">mock_grid</span><span class="p">)</span>
+        <span class="n">returned</span> <span class="o">=</span> <span class="n">scale_renewable_stubs</span><span class="p">(</span><span class="n">change_table</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">returned</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestScaleRenewableStubs.test_empty_ct_no_fuzz"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestScaleRenewableStubs.test_empty_ct_no_fuzz">[docs]</a>    <span class="k">def</span> <span class="nf">test_empty_ct_no_fuzz</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected_ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">103</span><span class="p">:</span> <span class="p">(</span><span class="mi">10</span> <span class="o">/</span> <span class="mi">8</span><span class="p">),</span> <span class="mi">107</span><span class="p">:</span> <span class="p">(</span><span class="mi">20</span> <span class="o">/</span> <span class="mi">15</span><span class="p">)}}}</span>
+        <span class="n">change_table</span> <span class="o">=</span> <span class="n">MockChangeTable</span><span class="p">(</span><span class="n">mock_grid</span><span class="p">)</span>
+        <span class="n">returned</span> <span class="o">=</span> <span class="n">scale_renewable_stubs</span><span class="p">(</span><span class="n">change_table</span><span class="p">,</span> <span class="n">fuzz</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsNone</span><span class="p">(</span><span class="n">returned</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestScaleRenewableStubs.test_existing_ct_unrelated_branch_id"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestScaleRenewableStubs.test_existing_ct_unrelated_branch_id">[docs]</a>    <span class="k">def</span> <span class="nf">test_existing_ct_unrelated_branch_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">105</span><span class="p">:</span> <span class="mi">2</span><span class="p">}}}</span>
+        <span class="n">change_table</span> <span class="o">=</span> <span class="n">MockChangeTable</span><span class="p">(</span><span class="n">mock_grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">=</span><span class="n">ct</span><span class="p">)</span>
+        <span class="n">expected_ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">103</span><span class="p">:</span> <span class="p">(</span><span class="mi">11</span> <span class="o">/</span> <span class="mi">8</span><span class="p">),</span> <span class="mi">105</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">107</span><span class="p">:</span> <span class="p">(</span><span class="mi">21</span> <span class="o">/</span> <span class="mi">15</span><span class="p">)}}}</span>
+        <span class="n">scale_renewable_stubs</span><span class="p">(</span><span class="n">change_table</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestScaleRenewableStubs.test_existing_ct_zone_id_wind"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestScaleRenewableStubs.test_existing_ct_zone_id_wind">[docs]</a>    <span class="k">def</span> <span class="nf">test_existing_ct_zone_id_wind</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;E&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}}}</span>
+        <span class="n">change_table</span> <span class="o">=</span> <span class="n">MockChangeTable</span><span class="p">(</span><span class="n">mock_grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">=</span><span class="n">ct</span><span class="p">)</span>
+        <span class="n">expected_ct</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;E&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}},</span>
+            <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">103</span><span class="p">:</span> <span class="p">(</span><span class="mi">21</span> <span class="o">/</span> <span class="mi">8</span><span class="p">),</span> <span class="mi">104</span><span class="p">:</span> <span class="p">(</span><span class="mi">31</span> <span class="o">/</span> <span class="mi">25</span><span class="p">),</span> <span class="mi">107</span><span class="p">:</span> <span class="p">(</span><span class="mi">21</span> <span class="o">/</span> <span class="mi">15</span><span class="p">)}},</span>
+        <span class="p">}</span>
+        <span class="n">scale_renewable_stubs</span><span class="p">(</span><span class="n">change_table</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestScaleRenewableStubs.test_existing_ct_zone_id_solar_wind"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_upgrade.TestScaleRenewableStubs.test_existing_ct_zone_id_solar_wind">[docs]</a>    <span class="k">def</span> <span class="nf">test_existing_ct_zone_id_solar_wind</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">ct</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;E&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}},</span>
+            <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;W&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}},</span>
+        <span class="p">}</span>
+        <span class="n">change_table</span> <span class="o">=</span> <span class="n">MockChangeTable</span><span class="p">(</span><span class="n">mock_grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">=</span><span class="n">ct</span><span class="p">)</span>
+        <span class="n">expected_ct</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;E&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}},</span>
+            <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;W&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}},</span>
+            <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="mi">103</span><span class="p">:</span> <span class="p">(</span><span class="mi">21</span> <span class="o">/</span> <span class="mi">8</span><span class="p">),</span>
+                    <span class="mi">104</span><span class="p">:</span> <span class="p">(</span><span class="mi">31</span> <span class="o">/</span> <span class="mi">25</span><span class="p">),</span>
+                    <span class="mi">107</span><span class="p">:</span> <span class="p">(</span><span class="mi">61</span> <span class="o">/</span> <span class="mi">15</span><span class="p">),</span>
+                    <span class="mi">108</span><span class="p">:</span> <span class="p">(</span><span class="mi">61</span> <span class="o">/</span> <span class="mi">25</span><span class="p">),</span>
+                <span class="p">}</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+        <span class="n">scale_renewable_stubs</span><span class="p">(</span><span class="n">change_table</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">expected_ct</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,267 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.input.grid &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.input.grid</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.input.scenario_grid</span> <span class="kn">import</span> <span class="n">FromREISE</span><span class="p">,</span> <span class="n">FromREISEjl</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.usa_tamu_model</span> <span class="kn">import</span> <span class="n">TAMU</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility.helpers</span> <span class="kn">import</span> <span class="n">MemoryCache</span><span class="p">,</span> <span class="n">cache_key</span>
+
+<span class="n">_cache</span> <span class="o">=</span> <span class="n">MemoryCache</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="Grid"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.grid.Grid">[docs]</a><span class="k">class</span> <span class="nc">Grid</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Grid</span>
+
+<span class="sd">    :param str/list interconnect: interconnect name(s).</span>
+<span class="sd">    :param str source: model used to build the network.</span>
+<span class="sd">    :param str engine: engine used to run scenario, if using ScenarioGrid.</span>
+<span class="sd">    :raises TypeError: if source and engine are not both strings.</span>
+<span class="sd">    :raises ValueError: if model or engine does not exist.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;REISE&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;source must be a string&quot;</span><span class="p">)</span>
+        <span class="n">supported_engines</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;REISE&quot;</span><span class="p">,</span> <span class="s2">&quot;REISE.jl&quot;</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">engine</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">supported_engines</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Engine must be one of </span><span class="si">{</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">supported_engines</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="n">interconnect</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;interconnect must be a str of list of str&quot;</span><span class="p">)</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">cache_key</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>
+        <span class="n">cached</span> <span class="o">=</span> <span class="n">_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">cached</span>
+        <span class="k">elif</span> <span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;usa_tamu&quot;</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">TAMU</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">source</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;.mat&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">engine</span> <span class="o">==</span> <span class="s2">&quot;REISE&quot;</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">FromREISE</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">engine</span> <span class="o">==</span> <span class="s2">&quot;REISE.jl&quot;</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">FromREISEjl</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not implemented&quot;</span> <span class="o">%</span> <span class="n">source</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">data_loc</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">interconnect</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">zone2id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">id2zone</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sub</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">sub</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">plant</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gencost</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">gencost</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">dcline</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus2sub</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">bus2sub</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">bus</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">branch</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">storage</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">storage</span>
+
+        <span class="n">_cache</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Used when &#39;self == other&#39; is evaluated.</span>
+
+<span class="sd">        :param object other: other object to be compared against.</span>
+<span class="sd">        :return: (*bool*).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">def</span> <span class="nf">_univ_eq</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">test</span><span class="p">,</span> <span class="n">failure_flag</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;Check for {boolean, dataframe, or column data} equality.</span>
+
+<span class="sd">            :param object ref: one object to be tested (order does not matter).</span>
+<span class="sd">            :param object test: another object to be tested.</span>
+<span class="sd">            :param str failure_flag: flag to add to nonmatching_entries on failure.</span>
+<span class="sd">            :raises AssertionError: if no equality can be confirmed (w/o failure_flag).</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">test_eq</span> <span class="o">=</span> <span class="n">ref</span> <span class="o">==</span> <span class="n">test</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">test_eq</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+                        <span class="k">assert</span> <span class="n">test_eq</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">assert</span> <span class="n">test_eq</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                    <span class="k">assert</span> <span class="nb">set</span><span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">==</span> <span class="nb">set</span><span class="p">(</span><span class="n">test</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">ref</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                        <span class="k">assert</span> <span class="p">(</span><span class="n">ref</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">==</span> <span class="n">test</span><span class="p">[</span><span class="n">col</span><span class="p">])</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">AssertionError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">failure_flag</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">raise</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">nonmatching_entries</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">failure_flag</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Grid</span><span class="p">):</span>
+            <span class="n">err_msg</span> <span class="o">=</span> <span class="s2">&quot;Unable to compare Grid &amp; </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
+
+        <span class="n">nonmatching_entries</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="c1"># compare gencost</span>
+        <span class="c1"># Comparing gencost[&#39;after&#39;] will fail if one Grid was linearized</span>
+        <span class="n">_univ_eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">],</span> <span class="n">other</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">],</span> <span class="s2">&quot;gencost&quot;</span><span class="p">)</span>
+
+        <span class="c1"># compare storage</span>
+        <span class="n">_univ_eq</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]),</span> <span class="s2">&quot;storage&quot;</span><span class="p">)</span>
+        <span class="n">_univ_eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">other</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="s2">&quot;storage&quot;</span><span class="p">)</span>
+        <span class="n">ignored_subkeys</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;duration&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;min_stor&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;max_stor&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;InEff&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;OutEff&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;energy_price&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;gencost&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">for</span> <span class="n">subkey</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">-</span> <span class="n">ignored_subkeys</span><span class="p">:</span>
+            <span class="c1"># REISE will modify some gen columns</span>
+            <span class="n">self_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="n">subkey</span><span class="p">]</span>
+            <span class="n">other_data</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="n">subkey</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">subkey</span> <span class="o">==</span> <span class="s2">&quot;gen&quot;</span><span class="p">:</span>
+                <span class="n">excluded_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;ramp_10&quot;</span><span class="p">,</span> <span class="s2">&quot;ramp_30&quot;</span><span class="p">]</span>
+                <span class="n">self_data</span> <span class="o">=</span> <span class="n">self_data</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">excluded_cols</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">other_data</span> <span class="o">=</span> <span class="n">other_data</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">excluded_cols</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">_univ_eq</span><span class="p">(</span><span class="n">self_data</span><span class="p">,</span> <span class="n">other_data</span><span class="p">,</span> <span class="s2">&quot;storage&quot;</span><span class="p">)</span>
+
+        <span class="c1"># compare bus</span>
+        <span class="c1"># MOST changes BUS_TYPE for buses with DC Lines attached</span>
+        <span class="n">_univ_eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">other</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;bus&quot;</span><span class="p">)</span>
+        <span class="c1"># compare plant</span>
+        <span class="c1"># REISE does some modifications to Plant data</span>
+        <span class="n">excluded_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmin&quot;</span><span class="p">,</span> <span class="s2">&quot;ramp_10&quot;</span><span class="p">,</span> <span class="s2">&quot;ramp_30&quot;</span><span class="p">]</span>
+        <span class="n">self_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">excluded_cols</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">other_df</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">excluded_cols</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">_univ_eq</span><span class="p">(</span><span class="n">self_df</span><span class="p">,</span> <span class="n">other_df</span><span class="p">,</span> <span class="s2">&quot;plant&quot;</span><span class="p">)</span>
+        <span class="c1"># compare branch</span>
+        <span class="n">_univ_eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="s2">&quot;branch&quot;</span><span class="p">)</span>
+        <span class="c1"># compare dcline</span>
+        <span class="n">_univ_eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dcline</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">dcline</span><span class="p">,</span> <span class="s2">&quot;dcline&quot;</span><span class="p">)</span>
+        <span class="c1"># compare sub</span>
+        <span class="n">_univ_eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sub</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">sub</span><span class="p">,</span> <span class="s2">&quot;sub&quot;</span><span class="p">)</span>
+        <span class="c1"># check grid helper attribute equalities</span>
+        <span class="n">_univ_eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">zone2id</span><span class="p">,</span> <span class="s2">&quot;zone2id&quot;</span><span class="p">)</span>
+        <span class="n">_univ_eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">id2zone</span><span class="p">,</span> <span class="s2">&quot;id2zone&quot;</span><span class="p">)</span>
+        <span class="n">_univ_eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bus2sub</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">bus2sub</span><span class="p">,</span> <span class="s2">&quot;bus2sub&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nonmatching_entries</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;non-matching entries: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">nonmatching_entries</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

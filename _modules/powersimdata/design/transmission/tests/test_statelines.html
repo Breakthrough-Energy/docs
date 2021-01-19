@@ -1,0 +1,208 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.design.transmission.tests.test_statelines &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.design.transmission.tests.test_statelines</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">unittest</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.design.transmission.statelines</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_classify_interstate_intrastate</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_grid</span> <span class="kn">import</span> <span class="n">MockGrid</span>
+
+<span class="c1"># branch_id is the index</span>
+<span class="n">mock_branch</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">],</span>
+    <span class="s2">&quot;from_zone_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">52</span><span class="p">,</span> <span class="mi">216</span><span class="p">,</span> <span class="mi">216</span><span class="p">,</span> <span class="mi">216</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span>
+    <span class="s2">&quot;to_zone_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">215</span><span class="p">,</span> <span class="mi">301</span><span class="p">,</span> <span class="mi">216</span><span class="p">,</span> <span class="mi">301</span><span class="p">,</span> <span class="mi">204</span><span class="p">],</span>
+<span class="p">}</span>
+
+<span class="n">expected_keys</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;interstate&quot;</span><span class="p">,</span> <span class="s2">&quot;intrastate&quot;</span><span class="p">}</span>
+
+
+<div class="viewcode-block" id="TestClassifyInterstateIntrastate"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_statelines.TestClassifyInterstateIntrastate">[docs]</a><span class="k">class</span> <span class="nc">TestClassifyInterstateIntrastate</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestClassifyInterstateIntrastate.setUp"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_statelines.TestClassifyInterstateIntrastate.setUp">[docs]</a>    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">check_expected</span><span class="p">(</span><span class="n">upgrades</span><span class="p">,</span> <span class="n">expected_interstate</span><span class="p">,</span> <span class="n">expected_intrastate</span><span class="p">):</span>
+            <span class="n">err_msg</span> <span class="o">=</span> <span class="s2">&quot;classify_interstate_intrastate should return a dict&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">upgrades</span><span class="p">,</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">err_msg</span><span class="p">)</span>
+            <span class="n">err_msg</span> <span class="o">=</span> <span class="s2">&quot;dict keys should be &#39;interstate&#39; and &#39;intrastate&#39;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">upgrades</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">expected_keys</span><span class="p">,</span> <span class="n">err_msg</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">upgrades</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="s2">&quot;dict values should be lists&quot;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">v</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="s2">&quot;branch_ids should be ints&quot;</span><span class="p">)</span>
+            <span class="n">err_msg</span> <span class="o">=</span> <span class="s2">&quot;interstate values not as expected&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">upgrades</span><span class="p">[</span><span class="s2">&quot;interstate&quot;</span><span class="p">]),</span> <span class="n">expected_interstate</span><span class="p">,</span> <span class="n">err_msg</span><span class="p">)</span>
+            <span class="n">err_msg</span> <span class="o">=</span> <span class="s2">&quot;intrastate values not as expected&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">upgrades</span><span class="p">[</span><span class="s2">&quot;intrastate&quot;</span><span class="p">]),</span> <span class="n">expected_intrastate</span><span class="p">,</span> <span class="n">err_msg</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_expected</span> <span class="o">=</span> <span class="n">check_expected</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mock_grid</span> <span class="o">=</span> <span class="n">MockGrid</span><span class="p">(</span><span class="n">grid_attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="n">mock_branch</span><span class="p">})</span></div>
+
+<div class="viewcode-block" id="TestClassifyInterstateIntrastate.test_classify_interstate_intrastate_empty_ct"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_statelines.TestClassifyInterstateIntrastate.test_classify_interstate_intrastate_empty_ct">[docs]</a>    <span class="k">def</span> <span class="nf">test_classify_interstate_intrastate_empty_ct</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_ct</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">expected_interstate</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">expected_intrastate</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+        <span class="n">upgrades</span> <span class="o">=</span> <span class="n">_classify_interstate_intrastate</span><span class="p">(</span><span class="n">mock_ct</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mock_grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_expected</span><span class="p">(</span><span class="n">upgrades</span><span class="p">,</span> <span class="n">expected_interstate</span><span class="p">,</span> <span class="n">expected_intrastate</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestClassifyInterstateIntrastate.test_classify_interstate_intrastate_bad_ct"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_statelines.TestClassifyInterstateIntrastate.test_classify_interstate_intrastate_bad_ct">[docs]</a>    <span class="k">def</span> <span class="nf">test_classify_interstate_intrastate_bad_ct</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">9</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">}}}</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">_classify_interstate_intrastate</span><span class="p">(</span><span class="n">mock_ct</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mock_grid</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestClassifyInterstateIntrastate.test_classify_interstate_intrastate_none"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_statelines.TestClassifyInterstateIntrastate.test_classify_interstate_intrastate_none">[docs]</a>    <span class="k">def</span> <span class="nf">test_classify_interstate_intrastate_none</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{}}}</span>
+        <span class="n">expected_interstate</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">expected_intrastate</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+        <span class="n">upgrades</span> <span class="o">=</span> <span class="n">_classify_interstate_intrastate</span><span class="p">(</span><span class="n">mock_ct</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mock_grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_expected</span><span class="p">(</span><span class="n">upgrades</span><span class="p">,</span> <span class="n">expected_interstate</span><span class="p">,</span> <span class="n">expected_intrastate</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestClassifyInterstateIntrastate.test_classify_interstate_intrastate_two"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_statelines.TestClassifyInterstateIntrastate.test_classify_interstate_intrastate_two">[docs]</a>    <span class="k">def</span> <span class="nf">test_classify_interstate_intrastate_two</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_ct</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">:</span> <span class="mi">10</span><span class="p">}}}</span>
+        <span class="n">expected_interstate</span> <span class="o">=</span> <span class="p">{</span><span class="mi">8</span><span class="p">}</span>
+        <span class="n">expected_intrastate</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">}</span>
+
+        <span class="n">upgrades</span> <span class="o">=</span> <span class="n">_classify_interstate_intrastate</span><span class="p">(</span><span class="n">mock_ct</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mock_grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_expected</span><span class="p">(</span><span class="n">upgrades</span><span class="p">,</span> <span class="n">expected_interstate</span><span class="p">,</span> <span class="n">expected_intrastate</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestClassifyInterstateIntrastate.test_classify_interstate_intrastate_several"><a class="viewcode-back" href="../../../../../powersimdata.design.transmission.tests.html#powersimdata.design.transmission.tests.test_statelines.TestClassifyInterstateIntrastate.test_classify_interstate_intrastate_several">[docs]</a>    <span class="k">def</span> <span class="nf">test_classify_interstate_intrastate_several</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mock_ct</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;branch_id&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="mi">1</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+                    <span class="mi">2</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+                    <span class="mi">3</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span>
+                    <span class="mi">4</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+                    <span class="mi">5</span><span class="p">:</span> <span class="mf">1.1</span><span class="p">,</span>
+                    <span class="mi">8</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+        <span class="n">expected_interstate</span> <span class="o">=</span> <span class="p">{</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">}</span>
+        <span class="n">expected_intrastate</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">}</span>
+
+        <span class="n">upgrades</span> <span class="o">=</span> <span class="n">_classify_interstate_intrastate</span><span class="p">(</span><span class="n">mock_ct</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mock_grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_expected</span><span class="p">(</span><span class="n">upgrades</span><span class="p">,</span> <span class="n">expected_interstate</span><span class="p">,</span> <span class="n">expected_intrastate</span><span class="p">)</span></div></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">unittest</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

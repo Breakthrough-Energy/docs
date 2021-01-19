@@ -1,0 +1,664 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.scenario.create &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.scenario.create</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">posixpath</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.scenario_list</span> <span class="kn">import</span> <span class="n">ScenarioListManager</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.change_table</span> <span class="kn">import</span> <span class="n">ChangeTable</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.transform_profile</span> <span class="kn">import</span> <span class="n">TransformProfile</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.execute</span> <span class="kn">import</span> <span class="n">Execute</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">calculate_bus_demand</span><span class="p">,</span>
+    <span class="n">check_interconnect</span><span class="p">,</span>
+    <span class="n">interconnect2name</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.state</span> <span class="kn">import</span> <span class="n">State</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
+
+
+<div class="viewcode-block" id="Create"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create">[docs]</a><span class="k">class</span> <span class="nc">Create</span><span class="p">(</span><span class="n">State</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Scenario is in a state of being created.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;create&quot;</span>
+    <span class="n">allowed</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">builder</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="p">(</span><span class="s2">&quot;plan&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">,</span> <span class="s2">&quot;create&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;base_demand&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;base_hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;base_solar&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;base_wind&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;change_table&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;start_date&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;end_date&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;interval&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="s2">&quot;engine&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_update_scenario_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Updates scenario information.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;plan&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">plan_name</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">scenario_name</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;start_date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">start_date</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;end_date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">end_date</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;interval&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">interval</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;base_demand&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">demand</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;base_hydro&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">hydro</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;base_solar&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">solar</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;base_wind&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">wind</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;engine&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">engine</span>
+            <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;change_table&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Yes&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;change_table&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;No&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_generate_and_set_scenario_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generates scenario id.&quot;&quot;&quot;</span>
+        <span class="n">scenario_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_list_manager</span><span class="o">.</span><span class="n">generate_scenario_id</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">scenario_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_add_entry_in_execute_list</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Adds scenario to the execute list file on server and update status</span>
+<span class="sd">        information.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_execute_list_manager</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span> <span class="o">=</span> <span class="s2">&quot;created&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">allowed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;execute&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_upload_change_table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Uploads change table to server.&quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Writing change table on local machine&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">change_table</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">])</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;_ct.pkl&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">copy_to</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">INPUT_DIR</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Create.get_ct"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create.get_ct">[docs]</a>    <span class="k">def</span> <span class="nf">get_ct</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns change table.</span>
+
+<span class="sd">        :return: (*dict*) -- change table.</span>
+<span class="sd">        :raises Exception: if :attr:`builder` has not been assigned yet through</span>
+<span class="sd">            meth:`set_builder`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Change table does not exist yet&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Create.get_grid"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create.get_grid">[docs]</a>    <span class="k">def</span> <span class="nf">get_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the Grid object.</span>
+
+<span class="sd">        :return: (*powersimdata.input.grid.Grid*) -- a Grid object.</span>
+<span class="sd">        :raises Exception: if :attr:`builder` has not been assigned yet through</span>
+<span class="sd">            meth:`set_builder`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Grid object does not exist yet&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Create.get_profile"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create.get_profile">[docs]</a>    <span class="k">def</span> <span class="nf">get_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns demand, hydro, solar or wind  profile.</span>
+
+<span class="sd">        :param str name: either *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*.</span>
+<span class="sd">        :return: (*pandas.DataFrame*) -- profile.</span>
+<span class="sd">        :raises Exception: if :meth:`_Builder.set_base_profile` has not been called yet.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+            <span class="n">profile</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;interconnect&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="s2">&quot;base_</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">name</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
+                <span class="p">},</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">get_grid</span><span class="p">(),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">get_ct</span><span class="p">(),</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">profile</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Set base </span><span class="si">%s</span><span class="s2"> profile version first&quot;</span> <span class="o">%</span> <span class="n">name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Create.get_demand"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create.get_demand">[docs]</a>    <span class="k">def</span> <span class="nf">get_demand</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns demand profile.</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- load with zone id as columns and UTC timestamp</span>
+<span class="sd">            as index.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;demand&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Create.get_bus_demand"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create.get_bus_demand">[docs]</a>    <span class="k">def</span> <span class="nf">get_bus_demand</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns demand profiles, by bus.</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of demand (hour, bus).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">demand</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;demand&quot;</span><span class="p">)</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">calculate_bus_demand</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">,</span> <span class="n">demand</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Create.get_hydro"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create.get_hydro">[docs]</a>    <span class="k">def</span> <span class="nf">get_hydro</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns hydro profile.</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- hydro energy output with plant id as columns</span>
+<span class="sd">            and UTC timestamp as index.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Create.get_solar"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create.get_solar">[docs]</a>    <span class="k">def</span> <span class="nf">get_solar</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns solar profile.</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- solar energy output with plant id as columns</span>
+<span class="sd">            and UTC timestamp as index.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Create.get_wind"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create.get_wind">[docs]</a>    <span class="k">def</span> <span class="nf">get_wind</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns wind profile.</span>
+
+<span class="sd">        :return: (*pandas.DataFrame*) -- power output with plant identification number</span>
+<span class="sd">            as columns and UTC timestamp as index.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Create.create_scenario"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create.create_scenario">[docs]</a>    <span class="k">def</span> <span class="nf">create_scenario</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates scenario.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_scenario_info</span><span class="p">()</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">val</span><span class="p">:</span>
+                <span class="n">missing</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-------------------&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;MISSING INFORMATION&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-------------------&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">missing</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">field</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">&quot;CREATING SCENARIO: </span><span class="si">%s</span><span class="s2"> | </span><span class="si">%s</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;plan&quot;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">])</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Generate scenario id</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_generate_and_set_scenario_id</span><span class="p">()</span>
+            <span class="c1"># Add missing information</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;execute&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;runtime&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;infeasibilities&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span>
+            <span class="c1"># Add scenario to scenario list file on server</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_list_manager</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">)</span>
+            <span class="c1"># Upload change table to server</span>
+            <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_upload_change_table</span><span class="p">()</span>
+            <span class="c1"># Add scenario to execute list file on server</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_add_entry_in_execute_list</span><span class="p">()</span>
+
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">&quot;SCENARIO SUCCESSFULLY CREATED WITH ID #</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="n">Execute</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Create.print_scenario_info"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create.print_scenario_info">[docs]</a>    <span class="k">def</span> <span class="nf">print_scenario_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Prints scenario information.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_scenario_info</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--------------------&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SCENARIO INFORMATION&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--------------------&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Create.set_builder"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create.set_builder">[docs]</a>    <span class="k">def</span> <span class="nf">set_builder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets builder.</span>
+
+<span class="sd">        :param list interconnect: name of interconnect(s).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">check_interconnect</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;Eastern&quot;</span> <span class="ow">in</span> <span class="n">interconnect</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">builder</span> <span class="o">=</span> <span class="n">Eastern</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="s2">&quot;Texas&quot;</span> <span class="ow">in</span> <span class="n">interconnect</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">builder</span> <span class="o">=</span> <span class="n">Texas</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="s2">&quot;Western&quot;</span> <span class="ow">in</span> <span class="n">interconnect</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">builder</span> <span class="o">=</span> <span class="n">Western</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="s2">&quot;USA&quot;</span> <span class="ow">in</span> <span class="n">interconnect</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">builder</span> <span class="o">=</span> <span class="n">USA</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;Western&quot;</span> <span class="ow">in</span> <span class="n">interconnect</span> <span class="ow">and</span> <span class="s2">&quot;Texas&quot;</span> <span class="ow">in</span> <span class="n">interconnect</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">builder</span> <span class="o">=</span> <span class="n">TexasWestern</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="s2">&quot;Eastern&quot;</span> <span class="ow">in</span> <span class="n">interconnect</span> <span class="ow">and</span> <span class="s2">&quot;Texas&quot;</span> <span class="ow">in</span> <span class="n">interconnect</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Not implemented yet&quot;</span><span class="p">)</span>
+                <span class="k">return</span>
+            <span class="k">elif</span> <span class="s2">&quot;Eastern&quot;</span> <span class="ow">in</span> <span class="n">interconnect</span> <span class="ow">and</span> <span class="s2">&quot;Western&quot;</span> <span class="ow">in</span> <span class="n">interconnect</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Not implemented yet&quot;</span><span class="p">)</span>
+                <span class="k">return</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Summary&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;# Existing study&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">existing</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Nothing yet&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">plan</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">existing</span><span class="o">.</span><span class="n">plan</span><span class="o">.</span><span class="n">unique</span><span class="p">()]</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">plan</span><span class="p">))</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;# Available profiles&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">]:</span>
+            <span class="n">possible</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">get_base_profile</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">possible</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">)))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">name</span></div></div>
+
+
+<span class="k">class</span> <span class="nc">_Builder</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Scenario Builder.</span>
+
+<span class="sd">    :param list interconnect: list of interconnect(s) to build.</span>
+<span class="sd">    :param powersimdata.utility.transfer_data.DataAccess data_access:</span>
+<span class="sd">        data access object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">interconnect</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">base_grid</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">change_table</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">profile</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">existing</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">plan_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">scenario_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">start_date</span> <span class="o">=</span> <span class="s2">&quot;2016-01-01 00:00:00&quot;</span>
+    <span class="n">end_date</span> <span class="o">=</span> <span class="s2">&quot;2016-12-31 23:00:00&quot;</span>
+    <span class="n">interval</span> <span class="o">=</span> <span class="s2">&quot;144H&quot;</span>
+    <span class="n">demand</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">hydro</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">solar</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">wind</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">engine</span> <span class="o">=</span> <span class="s2">&quot;REISE.jl&quot;</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;builder&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">data_access</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">profile</span> <span class="o">=</span> <span class="n">CSV</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">data_access</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">change_table</span> <span class="o">=</span> <span class="n">ChangeTable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_grid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_list_manager</span> <span class="o">=</span> <span class="n">ScenarioListManager</span><span class="p">(</span><span class="n">data_access</span><span class="p">)</span>
+
+        <span class="n">table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_list_manager</span><span class="o">.</span><span class="n">get_scenario_table</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">existing</span> <span class="o">=</span> <span class="n">table</span><span class="p">[</span><span class="n">table</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">set_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plan_name</span><span class="p">,</span> <span class="n">scenario_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets scenario name.</span>
+
+<span class="sd">        :param str plan_name: plan name</span>
+<span class="sd">        :param str scenario_name: scenario name.</span>
+<span class="sd">        :raises Exception: if combination plan - scenario already exists</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">plan_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">existing</span><span class="o">.</span><span class="n">plan</span><span class="o">.</span><span class="n">tolist</span><span class="p">():</span>
+            <span class="n">scenario</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">existing</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">existing</span><span class="o">.</span><span class="n">plan</span> <span class="o">==</span> <span class="n">plan_name</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">scenario_name</span> <span class="ow">in</span> <span class="n">scenario</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">tolist</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                    <span class="s2">&quot;Combination </span><span class="si">%s</span><span class="s2"> - </span><span class="si">%s</span><span class="s2"> already exists&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">plan_name</span><span class="p">,</span> <span class="n">scenario_name</span><span class="p">)</span>
+                <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plan_name</span> <span class="o">=</span> <span class="n">plan_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scenario_name</span> <span class="o">=</span> <span class="n">scenario_name</span>
+
+    <span class="k">def</span> <span class="nf">set_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">,</span> <span class="n">interval</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets scenario start and end dates as well as the interval that will</span>
+<span class="sd">            be used to split the date range.</span>
+
+<span class="sd">        :param str start_date: start date.</span>
+<span class="sd">        :param str end_date: start date.</span>
+<span class="sd">        :param str interval: interval.</span>
+<span class="sd">        :raises Exception: if start date, end date or interval are not properly defined.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">min_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-01 00:00:00&quot;</span><span class="p">)</span>
+        <span class="n">max_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-12-31 23:00:00&quot;</span><span class="p">)</span>
+
+        <span class="n">start_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">start_date</span><span class="p">)</span>
+        <span class="n">end_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">end_date</span><span class="p">)</span>
+        <span class="n">hours</span> <span class="o">=</span> <span class="p">(</span><span class="n">end_ts</span> <span class="o">-</span> <span class="n">start_ts</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">start_ts</span> <span class="o">&gt;</span> <span class="n">end_ts</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;start_date &gt; end_date&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">start_ts</span> <span class="o">&lt;</span> <span class="n">min_ts</span> <span class="ow">or</span> <span class="n">start_ts</span> <span class="o">&gt;=</span> <span class="n">max_ts</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;start_date not in [</span><span class="si">%s</span><span class="s2">,</span><span class="si">%s</span><span class="s2">[&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">min_ts</span><span class="p">,</span> <span class="n">max_ts</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">end_ts</span> <span class="o">&lt;=</span> <span class="n">min_ts</span> <span class="ow">or</span> <span class="n">end_ts</span> <span class="o">&gt;</span> <span class="n">max_ts</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;end_date not in ]</span><span class="si">%s</span><span class="s2">,</span><span class="si">%s</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">min_ts</span><span class="p">,</span> <span class="n">max_ts</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">hours</span> <span class="o">%</span> <span class="nb">int</span><span class="p">(</span><span class="n">interval</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Incorrect interval for start and end dates&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">start_date</span> <span class="o">=</span> <span class="n">start_date</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">end_date</span> <span class="o">=</span> <span class="n">end_date</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interval</span> <span class="o">=</span> <span class="n">interval</span>
+
+    <span class="k">def</span> <span class="nf">get_base_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns available base profiles.</span>
+
+<span class="sd">        :param str kind: one of *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*.</span>
+<span class="sd">        :return: (*list*) -- available version for selected profile kind.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">profile</span><span class="o">.</span><span class="n">get_base_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">set_base_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">version</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets demand profile.</span>
+
+<span class="sd">        :param str kind: one of *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*.</span>
+<span class="sd">        :param str version: demand profile version.</span>
+<span class="sd">        :raises Exception: if no profile or selected version.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">possible</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_base_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">possible</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                <span class="s2">&quot;No </span><span class="si">%s</span><span class="s2"> profile available in </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="s2">&quot; + &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">))</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">version</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;demand&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">demand</span> <span class="o">=</span> <span class="n">version</span>
+            <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;hydro&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">hydro</span> <span class="o">=</span> <span class="n">version</span>
+            <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;solar&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">solar</span> <span class="o">=</span> <span class="n">version</span>
+            <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;wind&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">wind</span> <span class="o">=</span> <span class="n">version</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+                <span class="s2">&quot;Available </span><span class="si">%s</span><span class="s2"> profiles for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span>
+                <span class="o">%</span> <span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="s2">&quot; + &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">),</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">))</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">set_engine</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">engine</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets simulation engine to be used for scenarion.</span>
+
+<span class="sd">        :param str engine: simulation engine</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">possible</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;REISE&quot;</span><span class="p">,</span> <span class="s2">&quot;REISE.jl&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">engine</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Available engines: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">))</span>
+            <span class="k">return</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">engine</span> <span class="o">=</span> <span class="n">engine</span>
+
+    <span class="k">def</span> <span class="nf">load_change_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Uploads change table.</span>
+
+<span class="sd">        :param str filename: full path to change table pickle file.</span>
+<span class="sd">        :raises FileNotFoundError: if file not found.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">ct</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="n">ct</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not found. &quot;</span> <span class="o">%</span> <span class="n">filename</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a transformed grid.</span>
+
+<span class="sd">        :return: (*powersimdata.input.grid.Grid*) -- a Grid object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+
+
+<div class="viewcode-block" id="Eastern"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Eastern">[docs]</a><span class="k">class</span> <span class="nc">Eastern</span><span class="p">(</span><span class="n">_Builder</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Builder for Eastern interconnect.&quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Eastern&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_access</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Eastern&quot;</span><span class="p">]</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">data_access</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Texas"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Texas">[docs]</a><span class="k">class</span> <span class="nc">Texas</span><span class="p">(</span><span class="n">_Builder</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Builder for Texas interconnect.&quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Texas&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_access</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Texas&quot;</span><span class="p">]</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">data_access</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Western"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Western">[docs]</a><span class="k">class</span> <span class="nc">Western</span><span class="p">(</span><span class="n">_Builder</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Builder for Western interconnect.</span>
+
+<span class="sd">    :param paramiko.client.SSHClient ssh_client: session with an SSH server.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Western&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_access</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Western&quot;</span><span class="p">]</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">data_access</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TexasWestern"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.TexasWestern">[docs]</a><span class="k">class</span> <span class="nc">TexasWestern</span><span class="p">(</span><span class="n">_Builder</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Builder for Texas + Western interconnect.</span>
+
+<span class="sd">    :param paramiko.client.SSHClient ssh_client: session with an SSH server.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Texas_Western&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_access</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">]</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">data_access</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TexasEastern"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.TexasEastern">[docs]</a><span class="k">class</span> <span class="nc">TexasEastern</span><span class="p">(</span><span class="n">_Builder</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Builder for Texas + Eastern interconnect.&quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Texas_Eastern&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_access</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">]</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">data_access</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EasternWestern"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.EasternWestern">[docs]</a><span class="k">class</span> <span class="nc">EasternWestern</span><span class="p">(</span><span class="n">_Builder</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Builder for Eastern + Western interconnect.&quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Eastern_Western&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_access</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Eastern&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">]</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">data_access</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="USA"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.USA">[docs]</a><span class="k">class</span> <span class="nc">USA</span><span class="p">(</span><span class="n">_Builder</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Builder for USA interconnect.&quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;USA&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_access</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;USA&quot;</span><span class="p">]</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">data_access</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CSV"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.CSV">[docs]</a><span class="k">class</span> <span class="nc">CSV</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Profiles handler.</span>
+
+<span class="sd">    :param list interconnect: interconnect(s)</span>
+<span class="sd">    :param powersimdata.utility.transfer_data.DataAccess data_access:</span>
+<span class="sd">        data access object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">data_access</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span> <span class="o">=</span> <span class="n">data_access</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="n">interconnect</span>
+
+<div class="viewcode-block" id="CSV.get_base_profile"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.CSV.get_base_profile">[docs]</a>    <span class="k">def</span> <span class="nf">get_base_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns available base profiles.</span>
+
+<span class="sd">        :param str kind: one of *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*.</span>
+<span class="sd">        :return: (*list*) -- available version for selected profile kind.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">possible</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NameError</span><span class="p">(</span><span class="s2">&quot;Choose from </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">))</span>
+
+        <span class="n">available</span> <span class="o">=</span> <span class="n">interconnect2name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">kind</span> <span class="o">+</span> <span class="s2">&quot;_*&quot;</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span><span class="p">,</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">BASE_PROFILE_DIR</span><span class="p">,</span> <span class="n">available</span>
+        <span class="p">)</span>
+        <span class="n">stdin</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="s2">&quot;ls &quot;</span> <span class="o">+</span> <span class="n">query</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No </span><span class="si">%s</span><span class="s2"> profiles available.&quot;</span> <span class="o">%</span> <span class="n">kind</span><span class="p">)</span>
+            <span class="n">possible</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">())</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">stdout</span><span class="o">.</span><span class="n">readlines</span><span class="p">()]</span>
+            <span class="n">possible</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">rfind</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="o">-</span><span class="mi">4</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">filename</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">possible</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

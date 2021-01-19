@@ -1,0 +1,189 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.utility.server_setup &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.utility.server_setup</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">posixpath</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+
+<span class="n">SERVER_ADDRESS</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;BE_SERVER_ADDRESS&quot;</span><span class="p">,</span> <span class="s2">&quot;becompute01.gatesventures.com&quot;</span><span class="p">)</span>
+<span class="n">SERVER_SSH_PORT</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;BE_SERVER_SSH_PORT&quot;</span><span class="p">,</span> <span class="mi">22</span><span class="p">)</span>
+<span class="n">BACKUP_DATA_ROOT_DIR</span> <span class="o">=</span> <span class="s2">&quot;/mnt/RE-Storage/v2&quot;</span>
+<span class="n">DATA_ROOT_DIR</span> <span class="o">=</span> <span class="s2">&quot;/mnt/bes/pcm&quot;</span>
+<span class="n">EXECUTE_DIR</span> <span class="o">=</span> <span class="s2">&quot;tmp&quot;</span>
+<span class="n">BASE_PROFILE_DIR</span> <span class="o">=</span> <span class="s2">&quot;raw&quot;</span>
+<span class="n">INPUT_DIR</span> <span class="o">=</span> <span class="s2">&quot;data/input&quot;</span>
+<span class="n">OUTPUT_DIR</span> <span class="o">=</span> <span class="s2">&quot;data/output&quot;</span>
+<span class="n">LOCAL_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()),</span> <span class="s2">&quot;ScenarioData&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<span class="n">MODEL_DIR</span> <span class="o">=</span> <span class="s2">&quot;/home/bes/pcm&quot;</span>
+
+
+<div class="viewcode-block" id="DeploymentMode"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.server_setup.DeploymentMode">[docs]</a><span class="k">class</span> <span class="nc">DeploymentMode</span><span class="p">:</span>
+    <span class="n">Server</span> <span class="o">=</span> <span class="s2">&quot;SERVER&quot;</span>
+    <span class="n">Container</span> <span class="o">=</span> <span class="s2">&quot;CONTAINER&quot;</span></div>
+
+
+<div class="viewcode-block" id="get_deployment_mode"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.server_setup.get_deployment_mode">[docs]</a><span class="k">def</span> <span class="nf">get_deployment_mode</span><span class="p">():</span>
+    <span class="n">mode</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;DEPLOYMENT_MODE&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">DeploymentMode</span><span class="o">.</span><span class="n">Server</span>
+    <span class="k">return</span> <span class="n">DeploymentMode</span><span class="o">.</span><span class="n">Container</span></div>
+
+
+<div class="viewcode-block" id="PathConfig"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.server_setup.PathConfig">[docs]</a><span class="k">class</span> <span class="nc">PathConfig</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">root</span>
+
+    <span class="k">def</span> <span class="nf">_join</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rel_path</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">rel_path</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PathConfig.execute_dir"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.server_setup.PathConfig.execute_dir">[docs]</a>    <span class="k">def</span> <span class="nf">execute_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join</span><span class="p">(</span><span class="n">EXECUTE_DIR</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PathConfig.base_profile_dir"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.server_setup.PathConfig.base_profile_dir">[docs]</a>    <span class="k">def</span> <span class="nf">base_profile_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join</span><span class="p">(</span><span class="n">BASE_PROFILE_DIR</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PathConfig.input_dir"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.server_setup.PathConfig.input_dir">[docs]</a>    <span class="k">def</span> <span class="nf">input_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join</span><span class="p">(</span><span class="n">INPUT_DIR</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PathConfig.output_dir"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.server_setup.PathConfig.output_dir">[docs]</a>    <span class="k">def</span> <span class="nf">output_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_join</span><span class="p">(</span><span class="n">OUTPUT_DIR</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="get_server_user"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.server_setup.get_server_user">[docs]</a><span class="k">def</span> <span class="nf">get_server_user</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Returns the first username found using the following sources:</span>
+
+<span class="sd">    - BE_SERVER_USER environment variable</span>
+<span class="sd">    - powersimdata/utility/.server_user</span>
+<span class="sd">    - username of the active login.</span>
+
+<span class="sd">    :return: (*str*) -- user name to be used to log into server.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">server_user</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;BE_SERVER_USER&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">server_user</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">server_user</span>
+
+    <span class="n">dir_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dir_path</span><span class="p">,</span> <span class="s2">&quot;.server_user&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">server_user</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="n">server_user</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getlogin</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">server_user</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

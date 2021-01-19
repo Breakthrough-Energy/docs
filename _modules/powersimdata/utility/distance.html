@@ -1,0 +1,215 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.utility.distance &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.utility.distance</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">acos</span><span class="p">,</span> <span class="n">asin</span><span class="p">,</span> <span class="n">cos</span><span class="p">,</span> <span class="n">degrees</span><span class="p">,</span> <span class="n">radians</span><span class="p">,</span> <span class="n">sin</span><span class="p">,</span> <span class="n">sqrt</span>
+
+
+<div class="viewcode-block" id="haversine"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.distance.haversine">[docs]</a><span class="k">def</span> <span class="nf">haversine</span><span class="p">(</span><span class="n">point1</span><span class="p">,</span> <span class="n">point2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given two lat/long pairs, return distance in miles.</span>
+
+<span class="sd">    :param tuple point1: first point, (lat, long) in degrees.</span>
+<span class="sd">    :param tuple point2: second point, (lat, long) in degrees.</span>
+<span class="sd">    :return: (*float*) -- distance in miles.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_AVG_EARTH_RADIUS_MILES</span> <span class="o">=</span> <span class="mf">3958.7613</span>
+
+    <span class="c1"># unpack latitude/longitude</span>
+    <span class="n">lat1</span><span class="p">,</span> <span class="n">lng1</span> <span class="o">=</span> <span class="n">point1</span>
+    <span class="n">lat2</span><span class="p">,</span> <span class="n">lng2</span> <span class="o">=</span> <span class="n">point2</span>
+
+    <span class="c1"># convert all latitudes/longitudes from decimal degrees to radians</span>
+    <span class="n">lat1</span><span class="p">,</span> <span class="n">lng1</span><span class="p">,</span> <span class="n">lat2</span><span class="p">,</span> <span class="n">lng2</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="n">radians</span><span class="p">,</span> <span class="p">(</span><span class="n">lat1</span><span class="p">,</span> <span class="n">lng1</span><span class="p">,</span> <span class="n">lat2</span><span class="p">,</span> <span class="n">lng2</span><span class="p">))</span>
+
+    <span class="c1"># calculate haversine</span>
+    <span class="n">lat</span> <span class="o">=</span> <span class="n">lat2</span> <span class="o">-</span> <span class="n">lat1</span>
+    <span class="n">lng</span> <span class="o">=</span> <span class="n">lng2</span> <span class="o">-</span> <span class="n">lng1</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="mi">2</span>
+        <span class="o">*</span> <span class="n">_AVG_EARTH_RADIUS_MILES</span>
+        <span class="o">*</span> <span class="n">asin</span><span class="p">(</span><span class="n">sqrt</span><span class="p">(</span><span class="n">sin</span><span class="p">(</span><span class="n">lat</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">cos</span><span class="p">(</span><span class="n">lat1</span><span class="p">)</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">lat2</span><span class="p">)</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">lng</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">d</span></div>
+
+
+<div class="viewcode-block" id="great_circle_distance"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.distance.great_circle_distance">[docs]</a><span class="k">def</span> <span class="nf">great_circle_distance</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculates distance between two sites.</span>
+
+<span class="sd">    :param pandas.dataFrame x: start and end point coordinates of branches.</span>
+<span class="sd">    :return: (*float*) -- length of branch (in km.).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mi_to_km</span> <span class="o">=</span> <span class="mf">1.60934</span>
+    <span class="k">return</span> <span class="n">haversine</span><span class="p">((</span><span class="n">x</span><span class="o">.</span><span class="n">from_lat</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">from_lon</span><span class="p">),</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_lat</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">to_lon</span><span class="p">))</span> <span class="o">*</span> <span class="n">mi_to_km</span></div>
+
+
+<div class="viewcode-block" id="ll2uv"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.distance.ll2uv">[docs]</a><span class="k">def</span> <span class="nf">ll2uv</span><span class="p">(</span><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Convert (longitude, latitude) to unit vector.</span>
+
+<span class="sd">    :param float lon: longitude of the site (in deg.) measured eastward from</span>
+<span class="sd">        Greenwich, UK.</span>
+<span class="sd">    :param float lat: latitude of the site (in deg.). Equator is the zero point.</span>
+<span class="sd">    :return: (*list*) -- 3-components (x,y,z) unit vector.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cos_lat</span> <span class="o">=</span> <span class="n">cos</span><span class="p">(</span><span class="n">radians</span><span class="p">(</span><span class="n">lat</span><span class="p">))</span>
+    <span class="n">sin_lat</span> <span class="o">=</span> <span class="n">sin</span><span class="p">(</span><span class="n">radians</span><span class="p">(</span><span class="n">lat</span><span class="p">))</span>
+    <span class="n">cos_lon</span> <span class="o">=</span> <span class="n">cos</span><span class="p">(</span><span class="n">radians</span><span class="p">(</span><span class="n">lon</span><span class="p">))</span>
+    <span class="n">sin_lon</span> <span class="o">=</span> <span class="n">sin</span><span class="p">(</span><span class="n">radians</span><span class="p">(</span><span class="n">lon</span><span class="p">))</span>
+
+    <span class="n">uv</span> <span class="o">=</span> <span class="p">[</span><span class="n">cos_lat</span> <span class="o">*</span> <span class="n">cos_lon</span><span class="p">,</span> <span class="n">cos_lat</span> <span class="o">*</span> <span class="n">sin_lon</span><span class="p">,</span> <span class="n">sin_lat</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">uv</span></div>
+
+
+<div class="viewcode-block" id="angular_distance"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.distance.angular_distance">[docs]</a><span class="k">def</span> <span class="nf">angular_distance</span><span class="p">(</span><span class="n">uv1</span><span class="p">,</span> <span class="n">uv2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate the angular distance between two vectors.</span>
+
+<span class="sd">    :param list uv1: 3-components vector as returned by :func:`ll2uv`.</span>
+<span class="sd">    :param list uv2: 3-components vector as returned by :func:`ll2uv`.</span>
+<span class="sd">    :return: (*float*) -- angle (in degrees).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cos_angle</span> <span class="o">=</span> <span class="n">uv1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">uv2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">uv1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">uv2</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">uv1</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">uv2</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">cos_angle</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">cos_angle</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">cos_angle</span> <span class="o">&lt;=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+        <span class="n">cos_angle</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">angle</span> <span class="o">=</span> <span class="n">degrees</span><span class="p">(</span><span class="n">acos</span><span class="p">(</span><span class="n">cos_angle</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">angle</span></div>
+
+
+<div class="viewcode-block" id="find_closest_neighbor"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.distance.find_closest_neighbor">[docs]</a><span class="k">def</span> <span class="nf">find_closest_neighbor</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">neighbors</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Locates the closest neighbor.</span>
+
+<span class="sd">    :param tuple point: (lon, lat) in degrees.</span>
+<span class="sd">    :param list neighbors: each element of the list are the (lon, lat)</span>
+<span class="sd">        of potential neighbor.</span>
+<span class="sd">    :return: (*int*) -- id of the closest neighbor</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">uv_point</span> <span class="o">=</span> <span class="n">ll2uv</span><span class="p">(</span><span class="n">point</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">point</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">id_neighbor</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">angle_min</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">neighbors</span><span class="p">):</span>
+        <span class="n">angle</span> <span class="o">=</span> <span class="n">angular_distance</span><span class="p">(</span><span class="n">uv_point</span><span class="p">,</span> <span class="n">ll2uv</span><span class="p">(</span><span class="n">n</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">n</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">if</span> <span class="n">angle</span> <span class="o">&lt;</span> <span class="n">angle_min</span><span class="p">:</span>
+            <span class="n">id_neighbor</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="n">angle_min</span> <span class="o">=</span> <span class="n">angle</span>
+
+    <span class="k">return</span> <span class="n">id_neighbor</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

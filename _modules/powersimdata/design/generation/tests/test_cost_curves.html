@@ -1,0 +1,418 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.design.generation.tests.test_cost_curves &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.design.generation.tests.test_cost_curves</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">pandas.testing</span> <span class="kn">import</span> <span class="n">assert_series_equal</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.design.generation.cost_curves</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">build_supply_curve</span><span class="p">,</span>
+    <span class="n">get_supply_data</span><span class="p">,</span>
+    <span class="n">ks_test</span><span class="p">,</span>
+    <span class="n">lower_bound_index</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_grid</span> <span class="kn">import</span> <span class="n">MockGrid</span>
+
+<span class="n">mock_plant</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="mi">19</span><span class="p">],</span>
+    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;coal&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;coal&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;coal&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ng&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;coal&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ng&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ng&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ng&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ng&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ng&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;coal&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;coal&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;coal&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;coal&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;coal&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;coal&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;coal&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ng&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ng&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ng&quot;</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;Pmin&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="mi">50</span><span class="p">,</span>
+        <span class="mi">20</span><span class="p">,</span>
+        <span class="mi">100</span><span class="p">,</span>
+        <span class="mi">10</span><span class="p">,</span>
+        <span class="mi">10</span><span class="p">,</span>
+        <span class="mi">10</span><span class="p">,</span>
+        <span class="mi">100</span><span class="p">,</span>
+        <span class="mi">20</span><span class="p">,</span>
+        <span class="mi">20</span><span class="p">,</span>
+        <span class="mi">50</span><span class="p">,</span>
+        <span class="mi">100</span><span class="p">,</span>
+        <span class="mi">10</span><span class="p">,</span>
+        <span class="mi">10</span><span class="p">,</span>
+        <span class="mi">10</span><span class="p">,</span>
+        <span class="mi">20</span><span class="p">,</span>
+        <span class="mi">50</span><span class="p">,</span>
+        <span class="mi">50</span><span class="p">,</span>
+        <span class="mi">20</span><span class="p">,</span>
+        <span class="mi">20</span><span class="p">,</span>
+        <span class="mi">100</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;interconnect&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;zone_name&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;A&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;A&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;A&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;A&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;B&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;B&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;B&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;B&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;B&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;B&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">}</span>
+
+<span class="n">mock_gencost</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="mi">19</span><span class="p">],</span>
+    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+    <span class="s2">&quot;startup&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="s2">&quot;shutdown&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+    <span class="s2">&quot;c2&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="mf">0.025</span><span class="p">,</span>
+        <span class="mf">0.010</span><span class="p">,</span>
+        <span class="mf">0.050</span><span class="p">,</span>
+        <span class="mf">0.010</span><span class="p">,</span>
+        <span class="mf">0.020</span><span class="p">,</span>
+        <span class="mf">0.010</span><span class="p">,</span>
+        <span class="mf">0.050</span><span class="p">,</span>
+        <span class="mf">0.020</span><span class="p">,</span>
+        <span class="mf">0.020</span><span class="p">,</span>
+        <span class="mf">0.025</span><span class="p">,</span>
+        <span class="mf">0.025</span><span class="p">,</span>
+        <span class="mf">0.020</span><span class="p">,</span>
+        <span class="mf">0.010</span><span class="p">,</span>
+        <span class="mf">0.010</span><span class="p">,</span>
+        <span class="mf">0.020</span><span class="p">,</span>
+        <span class="mf">0.020</span><span class="p">,</span>
+        <span class="mf">0.025</span><span class="p">,</span>
+        <span class="mf">0.020</span><span class="p">,</span>
+        <span class="mf">0.010</span><span class="p">,</span>
+        <span class="mf">0.050</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;c1&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="mi">30</span><span class="p">,</span>
+        <span class="mi">30</span><span class="p">,</span>
+        <span class="mi">35</span><span class="p">,</span>
+        <span class="mi">30</span><span class="p">,</span>
+        <span class="mi">25</span><span class="p">,</span>
+        <span class="mi">25</span><span class="p">,</span>
+        <span class="mi">35</span><span class="p">,</span>
+        <span class="mi">30</span><span class="p">,</span>
+        <span class="mi">30</span><span class="p">,</span>
+        <span class="mi">30</span><span class="p">,</span>
+        <span class="mi">35</span><span class="p">,</span>
+        <span class="mi">25</span><span class="p">,</span>
+        <span class="mi">25</span><span class="p">,</span>
+        <span class="mi">30</span><span class="p">,</span>
+        <span class="mi">30</span><span class="p">,</span>
+        <span class="mi">30</span><span class="p">,</span>
+        <span class="mi">30</span><span class="p">,</span>
+        <span class="mi">25</span><span class="p">,</span>
+        <span class="mi">25</span><span class="p">,</span>
+        <span class="mi">35</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;c0&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="mi">1300</span><span class="p">,</span>
+        <span class="mi">1100</span><span class="p">,</span>
+        <span class="mi">1700</span><span class="p">,</span>
+        <span class="mi">1100</span><span class="p">,</span>
+        <span class="mi">1000</span><span class="p">,</span>
+        <span class="mi">1200</span><span class="p">,</span>
+        <span class="mi">1900</span><span class="p">,</span>
+        <span class="mi">1200</span><span class="p">,</span>
+        <span class="mi">1100</span><span class="p">,</span>
+        <span class="mi">1400</span><span class="p">,</span>
+        <span class="mi">1800</span><span class="p">,</span>
+        <span class="mi">1100</span><span class="p">,</span>
+        <span class="mi">1100</span><span class="p">,</span>
+        <span class="mi">1200</span><span class="p">,</span>
+        <span class="mi">1400</span><span class="p">,</span>
+        <span class="mi">1500</span><span class="p">,</span>
+        <span class="mi">1300</span><span class="p">,</span>
+        <span class="mi">1100</span><span class="p">,</span>
+        <span class="mi">1200</span><span class="p">,</span>
+        <span class="mi">1900</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;interconnect&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">}</span>
+
+<span class="n">grid_attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">,</span> <span class="s2">&quot;gencost_before&quot;</span><span class="p">:</span> <span class="n">mock_gencost</span><span class="p">}</span>
+
+<span class="n">grid</span> <span class="o">=</span> <span class="n">MockGrid</span><span class="p">(</span><span class="n">grid_attrs</span><span class="p">)</span>
+<span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="s2">&quot;D&quot;</span>
+<span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+
+
+<div class="viewcode-block" id="test_get_supply_data"><a class="viewcode-back" href="../../../../../powersimdata.design.generation.tests.html#powersimdata.design.generation.tests.test_cost_curves.test_get_supply_data">[docs]</a><span class="k">def</span> <span class="nf">test_get_supply_data</span><span class="p">():</span>
+    <span class="n">supply_df</span> <span class="o">=</span> <span class="n">get_supply_data</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">test_slope</span> <span class="o">=</span> <span class="n">supply_df</span><span class="p">[</span><span class="s2">&quot;slope1&quot;</span><span class="p">]</span>
+    <span class="n">exp_slope</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="mf">31.25</span><span class="p">,</span>
+            <span class="mf">30.20</span><span class="p">,</span>
+            <span class="mf">40.00</span><span class="p">,</span>
+            <span class="mf">30.10</span><span class="p">,</span>
+            <span class="mf">25.20</span><span class="p">,</span>
+            <span class="mf">25.10</span><span class="p">,</span>
+            <span class="mf">40.00</span><span class="p">,</span>
+            <span class="mf">30.40</span><span class="p">,</span>
+            <span class="mf">30.40</span><span class="p">,</span>
+            <span class="mf">31.25</span><span class="p">,</span>
+            <span class="mf">37.50</span><span class="p">,</span>
+            <span class="mf">25.20</span><span class="p">,</span>
+            <span class="mf">25.10</span><span class="p">,</span>
+            <span class="mf">30.10</span><span class="p">,</span>
+            <span class="mf">30.40</span><span class="p">,</span>
+            <span class="mf">31.00</span><span class="p">,</span>
+            <span class="mf">31.25</span><span class="p">,</span>
+            <span class="mf">25.40</span><span class="p">,</span>
+            <span class="mf">25.20</span><span class="p">,</span>
+            <span class="mf">40.00</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">supply_df</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;slope1&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">assert_series_equal</span><span class="p">(</span><span class="n">test_slope</span><span class="p">,</span> <span class="n">exp_slope</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_build_supply_curve_1seg"><a class="viewcode-back" href="../../../../../powersimdata.design.generation.tests.html#powersimdata.design.generation.tests.test_cost_curves.test_build_supply_curve_1seg">[docs]</a><span class="k">def</span> <span class="nf">test_build_supply_curve_1seg</span><span class="p">():</span>
+    <span class="n">Ptest</span><span class="p">,</span> <span class="n">Ftest</span> <span class="o">=</span> <span class="n">build_supply_curve</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;ng&quot;</span><span class="p">,</span> <span class="s2">&quot;loadzone&quot;</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">Pexp</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">]</span>
+    <span class="n">Fexp</span> <span class="o">=</span> <span class="p">[</span><span class="mf">25.10</span><span class="p">,</span> <span class="mf">25.10</span><span class="p">,</span> <span class="mf">30.40</span><span class="p">,</span> <span class="mf">30.40</span><span class="p">,</span> <span class="mf">30.40</span><span class="p">,</span> <span class="mf">30.40</span><span class="p">,</span> <span class="mf">31.25</span><span class="p">,</span> <span class="mf">31.25</span><span class="p">,</span> <span class="mf">40.00</span><span class="p">,</span> <span class="mf">40.00</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="nb">all</span><span class="p">([</span><span class="n">Ptest</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">Pexp</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Ptest</span><span class="p">))])</span>
+    <span class="k">assert</span> <span class="nb">all</span><span class="p">([</span><span class="n">Ftest</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">Fexp</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Ptest</span><span class="p">))])</span></div>
+
+
+<div class="viewcode-block" id="test_build_supply_curve_2seg"><a class="viewcode-back" href="../../../../../powersimdata.design.generation.tests.html#powersimdata.design.generation.tests.test_cost_curves.test_build_supply_curve_2seg">[docs]</a><span class="k">def</span> <span class="nf">test_build_supply_curve_2seg</span><span class="p">():</span>
+    <span class="n">Ptest</span><span class="p">,</span> <span class="n">Ftest</span> <span class="o">=</span> <span class="n">build_supply_curve</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;coal&quot;</span><span class="p">,</span> <span class="s2">&quot;loadzone&quot;</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">Pexp</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">45</span><span class="p">,</span> <span class="mi">45</span><span class="p">,</span> <span class="mi">70</span><span class="p">,</span> <span class="mi">70</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="mi">170</span><span class="p">]</span>
+    <span class="n">Fexp</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="mf">30.100</span><span class="p">,</span>
+        <span class="mf">30.100</span><span class="p">,</span>
+        <span class="mf">30.300</span><span class="p">,</span>
+        <span class="mf">30.300</span><span class="p">,</span>
+        <span class="mf">30.625</span><span class="p">,</span>
+        <span class="mf">30.625</span><span class="p">,</span>
+        <span class="mf">31.875</span><span class="p">,</span>
+        <span class="mf">31.875</span><span class="p">,</span>
+        <span class="mf">37.500</span><span class="p">,</span>
+        <span class="mf">37.500</span><span class="p">,</span>
+        <span class="mf">42.500</span><span class="p">,</span>
+        <span class="mf">42.500</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="k">assert</span> <span class="nb">all</span><span class="p">([</span><span class="n">Ptest</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">Pexp</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Ptest</span><span class="p">))])</span>
+    <span class="k">assert</span> <span class="nb">all</span><span class="p">([</span><span class="n">Ftest</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">Fexp</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Ptest</span><span class="p">))])</span></div>
+
+
+<div class="viewcode-block" id="test_ks_test"><a class="viewcode-back" href="../../../../../powersimdata.design.generation.tests.html#powersimdata.design.generation.tests.test_cost_curves.test_ks_test">[docs]</a><span class="k">def</span> <span class="nf">test_ks_test</span><span class="p">():</span>
+    <span class="n">P1</span><span class="p">,</span> <span class="n">F1</span> <span class="o">=</span> <span class="n">build_supply_curve</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;coal&quot;</span><span class="p">,</span> <span class="s2">&quot;loadzone&quot;</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">P2</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">75</span><span class="p">,</span> <span class="mi">75</span><span class="p">,</span> <span class="mi">130</span><span class="p">,</span> <span class="mi">130</span><span class="p">,</span> <span class="mi">190</span><span class="p">,</span> <span class="mi">190</span><span class="p">,</span> <span class="mi">225</span><span class="p">,</span> <span class="mi">225</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">P1</span><span class="p">)]</span>
+    <span class="n">F2</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="mf">23.00</span><span class="p">,</span>
+        <span class="mf">23.00</span><span class="p">,</span>
+        <span class="mf">27.00</span><span class="p">,</span>
+        <span class="mf">27.00</span><span class="p">,</span>
+        <span class="mf">29.00</span><span class="p">,</span>
+        <span class="mf">29.00</span><span class="p">,</span>
+        <span class="mf">30.00</span><span class="p">,</span>
+        <span class="mf">30.00</span><span class="p">,</span>
+        <span class="mf">33.00</span><span class="p">,</span>
+        <span class="mf">33.00</span><span class="p">,</span>
+        <span class="mf">34.00</span><span class="p">,</span>
+        <span class="mf">34.00</span><span class="p">,</span>
+        <span class="mf">38.00</span><span class="p">,</span>
+        <span class="mf">38.00</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">test_diff</span> <span class="o">=</span> <span class="n">ks_test</span><span class="p">(</span><span class="n">P1</span><span class="p">,</span> <span class="n">F1</span><span class="p">,</span> <span class="n">P2</span><span class="p">,</span> <span class="n">F2</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">exp_diff</span> <span class="o">=</span> <span class="mf">4.5</span>
+    <span class="k">assert</span> <span class="n">test_diff</span> <span class="o">==</span> <span class="n">exp_diff</span></div>
+
+
+<div class="viewcode-block" id="test_lower_bound_index"><a class="viewcode-back" href="../../../../../powersimdata.design.generation.tests.html#powersimdata.design.generation.tests.test_cost_curves.test_lower_bound_index">[docs]</a><span class="k">def</span> <span class="nf">test_lower_bound_index</span><span class="p">():</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">l</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">18</span><span class="p">]</span>
+    <span class="n">ind_test</span> <span class="o">=</span> <span class="n">lower_bound_index</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">l</span><span class="p">)</span>
+    <span class="n">ind_exp</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="k">assert</span> <span class="n">ind_test</span> <span class="o">==</span> <span class="n">ind_exp</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

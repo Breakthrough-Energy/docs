@@ -1,0 +1,271 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.demanddata.nrel_efs.aggregate_demand &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.demanddata.nrel_efs.aggregate_demand</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants.zones</span> <span class="kn">import</span> <span class="n">abv2state</span>
+
+
+<div class="viewcode-block" id="combine_efs_demand"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.nrel_efs.html#prereise.gather.demanddata.nrel_efs.aggregate_demand.combine_efs_demand">[docs]</a><span class="k">def</span> <span class="nf">combine_efs_demand</span><span class="p">(</span><span class="n">efs_dem</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">non_efs_dem</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Aggregate the sectoral demand data so that a single demand point is observed for</span>
+<span class="sd">    each state and time stamp. This function can either access local copies of the</span>
+<span class="sd">    sectoral demand data or can access the demand data from online.</span>
+
+<span class="sd">    :param dict efs_dem: A dict of pandas.DataFrame objects that contain sectoral demand</span>
+<span class="sd">        data for each state and time step. This input is intended to be the output of</span>
+<span class="sd">        :py:func:`partition_by_sector`, which is associated with NREL&#39;s EFS. Defaults to</span>
+<span class="sd">        None.</span>
+<span class="sd">    :param list non_efs_dem: A list of pandas.DataFrame objects that contain sectoral</span>
+<span class="sd">        demand data for each state and time step. This input is intended to be the</span>
+<span class="sd">        output of :py:func:`access_non_efs_demand`, which is not associated with NREL&#39;s</span>
+<span class="sd">        EFS. Defaults to None.</span>
+<span class="sd">    :param str save: Saves a .csv if a str representing a valid file path and file</span>
+<span class="sd">        name is provided. Defaults to None, indicating that a .csv file should not be</span>
+<span class="sd">        saved.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- Aggregate demand data for all sectors (both EFS and</span>
+<span class="sd">        non-EFS).</span>
+<span class="sd">    :raises TypeError: if efs_dem is not input as a dict, if non_efs_dem is not input as</span>
+<span class="sd">        a list, if the components of efs_dem and non_efs_dem are not pandas.DataFrames,</span>
+<span class="sd">        or if save is not input as a str.</span>
+<span class="sd">    :raises ValueError: if both efs_dem and non_efs_dem are entered as None or if the</span>
+<span class="sd">        components of efs_dem and non_efs_dem do not have the proper time stamps or the</span>
+<span class="sd">        correct number of states.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Check that both of the inputs are not input as None</span>
+    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="p">[</span><span class="n">efs_dem</span><span class="p">,</span> <span class="n">non_efs_dem</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;No sectoral demand was provided, so there is nothing to aggregate.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Check that the inputs are of an appropriate type</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">efs_dem</span><span class="p">,</span> <span class="p">(</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">))):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;All EFS sectoral demand data must be input as a dict.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">non_efs_dem</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">))):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;All non-EFS sectoral demand data must be input as a list.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check that the components of efs_dem and non_efs_dem are DataFrames</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">efs_dem</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">efs_dem</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">efs_dem</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;EFS sectoral demand data must be input as a pandas.DataFrame.&quot;</span>
+            <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">non_efs_dem</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">non_efs_dem</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;Non-EFS sectoral demand data must be input as a pandas.DataFrame.&quot;</span>
+            <span class="p">)</span>
+
+    <span class="c1"># Initialize agg_dem</span>
+    <span class="n">agg_dem</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="mi">0</span><span class="p">,</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2017-01-01&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">closed</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">),</span>
+        <span class="n">columns</span><span class="o">=</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">abv2state</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;AK&quot;</span><span class="p">,</span> <span class="s2">&quot;HI&quot;</span><span class="p">}),</span>
+    <span class="p">)</span>
+    <span class="n">agg_dem</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Local Time&quot;</span>
+
+    <span class="c1"># Aggregate the EFS sectoral demand</span>
+    <span class="k">if</span> <span class="n">efs_dem</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">efs_dem</span><span class="p">:</span>
+            <span class="c1"># Check the DataFrame dimensions and headers</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">efs_dem</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2017-01-01&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">closed</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This data does not have the proper time stamps.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">efs_dem</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">abv2state</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;AK&quot;</span><span class="p">,</span> <span class="s2">&quot;HI&quot;</span><span class="p">}:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This data does not include all 48 states.&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Add the sectoral demand to the aggregate demand</span>
+            <span class="n">agg_dem</span> <span class="o">+=</span> <span class="n">efs_dem</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+    <span class="c1"># Aggregate the non-EFS sectoral demand</span>
+    <span class="k">if</span> <span class="n">non_efs_dem</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">non_efs_dem</span><span class="p">:</span>
+            <span class="c1"># Check the DataFrame dimensions and headers</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">x</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2017-01-01&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">closed</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This data does not have the proper time stamps.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">abv2state</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;AK&quot;</span><span class="p">,</span> <span class="s2">&quot;HI&quot;</span><span class="p">}:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This data does not include all 48 states.&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Add the sectoral demand to the aggregate demand</span>
+            <span class="n">agg_dem</span> <span class="o">+=</span> <span class="n">x</span>
+
+    <span class="c1"># Save the aggregated demand data, if desired</span>
+    <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">save</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;The file path and file name must be input as a str.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">agg_dem</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">save</span><span class="p">)</span>
+
+    <span class="c1"># Return the aggregate demand for all sectors</span>
+    <span class="k">return</span> <span class="n">agg_dem</span></div>
+
+
+<div class="viewcode-block" id="access_non_efs_demand"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.nrel_efs.html#prereise.gather.demanddata.nrel_efs.aggregate_demand.access_non_efs_demand">[docs]</a><span class="k">def</span> <span class="nf">access_non_efs_demand</span><span class="p">(</span><span class="n">dem_paths</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Access any of the sectoral demand that the user intends to use that is external</span>
+<span class="sd">    to NREL&#39;s EFS studies. This function also ensures that each data set is formatted</span>
+<span class="sd">    appropriately, so as to allow easy aggregation with the NREL EFS sectoral demand.</span>
+
+<span class="sd">    :param set/list dem_paths: The paths that point to the .csv files of sectoral demand</span>
+<span class="sd">        data that is not associated with NREL&#39;s EFS. Ordering within the set/list does</span>
+<span class="sd">        not need to match that in local_sects.</span>
+<span class="sd">    :return: (*list*) -- A list of pandas.DataFrame objects that contain sectoral demand</span>
+<span class="sd">        data for each state and time step. This sectoral demand is not a part of NREL&#39;s</span>
+<span class="sd">        EFS.</span>
+<span class="sd">    :raises TypeError: if dem_paths are not input as a set or list or if the components</span>
+<span class="sd">        of dem_paths are not input as str.</span>
+<span class="sd">    :raises ValueError: if the data located in each path in dem_path does not have the</span>
+<span class="sd">        proper time stamps or the correct number of states.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Check that dem_paths is of an appropriate type</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dem_paths</span><span class="p">,</span> <span class="p">(</span><span class="nb">set</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;File paths of sectoral data must be input as a set or list.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check that the components of dem_paths are str</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">dem_paths</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Individual file paths must be input as a str.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Obtain the sectoral demand data</span>
+    <span class="n">sect_dem</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">dem_paths</span><span class="p">:</span>
+        <span class="c1"># Try loading the locally-stored sectoral demand</span>
+        <span class="n">temp_dem</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+
+        <span class="c1"># Set the index</span>
+        <span class="k">if</span> <span class="s2">&quot;Local Time&quot;</span> <span class="ow">in</span> <span class="n">temp_dem</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">temp_dem</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;Local Time&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This data does not provide the time stamps correctly.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Check the DataFrame dimensions and headers</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">temp_dem</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2017-01-01&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">closed</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This data does not have the proper time stamps.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">temp_dem</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">abv2state</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;AK&quot;</span><span class="p">,</span> <span class="s2">&quot;HI&quot;</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This data does not include all 48 states.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Store the setoral demand data</span>
+        <span class="n">sect_dem</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">temp_dem</span><span class="p">)</span>
+
+    <span class="c1"># Return the list of non-EFS sectoral demand</span>
+    <span class="k">return</span> <span class="n">sect_dem</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

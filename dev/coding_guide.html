@@ -1,0 +1,454 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coding Standards &#8212; documentation</title>
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="coding-standards">
+<h1>Coding Standards<a class="headerlink" href="#coding-standards" title="Permalink to this headline">¶</a></h1>
+<p>This guide presents some guidelines to write well designed code.</p>
+<p>In short:</p>
+<ul class="simple">
+<li><p>Use the <strong>Single Responsibility Principle</strong> to keep functions simple</p>
+<ul>
+<li><p>Functions only have one responsibility and therefore one reason to change</p></li>
+<li><p>Responsibilities can include getting data, processing data, outputting data</p></li>
+</ul>
+</li>
+<li><p><strong>Avoid mutable global state</strong>, including mutable static properties and singletons</p>
+<ul>
+<li><p>Functions that use global state are hard to debug because global state can be changed from anywhere in the codebase</p></li>
+<li><p>Global constants are fine, though be wary as some languages do not enforce them as such</p></li>
+</ul>
+</li>
+<li><p><strong>Avoid Side effects</strong> such as:</p>
+<ul>
+<li><p>modifying a non-local variable</p></li>
+<li><p>modifying a static local variable</p></li>
+<li><p>modifying a mutable argument passed by reference</p></li>
+<li><p>performing I/O</p></li>
+<li><p>calling other side-effect functions</p></li>
+</ul>
+</li>
+<li><p>Use <strong>dependency injection</strong> and <strong>higher order functions</strong> to isolate code from non-deterministic behavior such as:</p>
+<ul>
+<li><p>Calls to the OS</p></li>
+<li><p>Calls to random number generators</p></li>
+<li><p>Solution: use dependency injection and higher order functions to isolate code</p></li>
+</ul>
+</li>
+<li><p><strong>Use pure functions</strong> whenever possible - no side effects or non-deterministic behavior</p>
+<ul>
+<li><p>Given the same inputs, the function will always have the same output</p></li>
+</ul>
+</li>
+<li><p><strong>Impurity is inevitable</strong> - we need to read files, databases, get user input, etc</p>
+<ul>
+<li><p>But you can keep impure code as far away from your functions as possible</p></li>
+<li><p>Break hard-coded dependencies so you can swap them out when testing</p></li>
+</ul>
+</li>
+</ul>
+<p>This material is a summary of the content of this <a class="reference external" href="https://www.toptal.com/qa/how-to-write-testable-code-and-why-it-matters">article</a>. For more details, go read it!</p>
+<p>Developers often think that their struggles writing unit tests are caused by a lack of some fundamental testing knowledge or secret unit testing techniques. Unit tests should be quite easy; the real problems that complicate unit testing, and introduce expensive complexity, are a result of poorly-designed, untestable code. Writing unit tests and generating testable code is not just about making testing less troublesome, but about making the code itself more robust, and easier to maintain.</p>
+<div class="section" id="what-s-a-unit-test">
+<h2>What’s a Unit Test?<a class="headerlink" href="#what-s-a-unit-test" title="Permalink to this headline">¶</a></h2>
+<p>Unit test: a method that instantiates a small portion of our application and verifies its behavior <strong>independently from other parts</strong>. It does not test how everything interacts and works together.
+A typical unit test does three things:</p>
+<ul class="simple">
+<li><p>Sets up data</p></li>
+<li><p>Calls the function you want to check using that data</p></li>
+<li><p>Checks that the function return values match what you expect, or that the function throws the exception you expect when something goes wrong</p></li>
+</ul>
+<p>Here’s a super simple example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">my_func</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">val</span> <span class="o">+</span> <span class="mi">2</span>
+
+<span class="k">def</span> <span class="nf">test_my_func</span><span class="p">():</span>
+    <span class="n">val</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">returned_val</span> <span class="o">=</span> <span class="n">my_func</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+    <span class="n">expected_result</span> <span class="o">=</span> <span class="mi">7</span>
+    <span class="k">assert</span> <span class="n">returned_val</span> <span class="o">==</span> <span class="n">expected_result</span>
+</pre></div>
+</div>
+<p>For more info on unit testing please check out our <a class="reference external" href="https://github.com/intvenlab/REISE/wiki/Testing-Guidelines-for-Python-and-Matlab">testing guidelines wiki page</a>.</p>
+</div>
+<div class="section" id="what-makes-code-hard-to-test">
+<h2>What Makes Code Hard to Test?<a class="headerlink" href="#what-makes-code-hard-to-test" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="problem-non-deterministic-factors">
+<h3>Problem: Non-deterministic Factors<a class="headerlink" href="#problem-non-deterministic-factors" title="Permalink to this headline">¶</a></h3>
+<p>Imagine that we are writing a program for a smart home microcontroller, and one of the requirements is to automatically turn on the light in the backyard if some motion is detected there during the evening or at night. We have started from the bottom up by implementing a method that returns a string representation of the approximate time of day (“Night”, “Morning”, “Afternoon” or “Evening”).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">get_time_of_day</span><span class="p">():</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">DateTime</span><span class="o">.</span><span class="n">Now</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Night&quot;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&gt;=</span> <span class="mi">6</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&lt;</span> <span class="mi">12</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Morning&quot;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&gt;=</span> <span class="mi">12</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&lt;</span> <span class="mi">18</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Afternoon&quot;</span>
+    <span class="k">return</span> <span class="s2">&quot;Evening&quot;</span>
+</pre></div>
+</div>
+<p>This method looks simple, but it is very difficult to write a proper state-based unit test for it. <code class="docutils literal notranslate"><span class="pre">DateTime.Now</span></code> is, essentially, a hidden input that we can’t control. Every time we run the test it might be a different time of day, thus subsequent calls to this will produce different results.</p>
+<p>Such non-deterministic behavior makes it impossible to test the internal logic of the <code class="docutils literal notranslate"><span class="pre">GetTimeOfDay()</span></code> method without actually changing the system date and time.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_get_time_of_day_at_6AM_returns_morning</span><span class="p">():</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Setup: change system time to 6 AM</span>
+        <span class="o">...</span>
+
+        <span class="c1"># Arrange phase is empty: testing static method, nothing to initialize</span>
+
+        <span class="c1"># Act</span>
+        <span class="n">timeOfDay</span> <span class="o">=</span> <span class="n">get_time_of_day</span><span class="p">()</span>
+
+        <span class="c1"># Assert</span>
+        <span class="k">assert</span> <span class="n">timeOfDay</span> <span class="o">==</span> <span class="s1">&#39;morning&#39;</span>
+
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="c1"># Teardown: roll system time back</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>Problems with this test:</p>
+<ul class="simple">
+<li><p>lots of work to write</p>
+<ul>
+<li><p>because of the non-trivial setup and teardown logic</p></li>
+</ul>
+</li>
+<li><p>unreliable</p>
+<ul>
+<li><p>it may fail even if there are no bugs in the system under test, due to system permission issues, for example</p></li>
+</ul>
+</li>
+<li><p>not guaranteed to run fast</p></li>
+<li><p>not actually a unit test</p>
+<ul>
+<li><p>it would be something between a unit and integration test, because it pretends to test a simple edge case but requires an environment to be set up in a particular way.</p></li>
+</ul>
+</li>
+</ul>
+<p>All these testability problems are caused by the low-quality <code class="docutils literal notranslate"><span class="pre">GetTimeOfDay()</span></code> API. In its current form, this method suffers from several issues:</p>
+<ul class="simple">
+<li><p>It is <strong>tightly coupled</strong> to the concrete data source. It is not possible to reuse this method for processing date and time retrieved from other sources, or passed as an argument; the method works only with the date and time of the particular machine that executes the code. Tight coupling is the primary root of most testability problems.</p></li>
+<li><p>It violates the <strong><a class="reference external" href="https://en.wikipedia.org/wiki/Single_responsibility_principle">Single Responsibility Principle</a></strong> (SRP). The method has multiple responsibilities; it consumes the information and also processes it. Another indicator of SRP violation is when a single class or method has more than one reason to change. From this perspective, the <code class="docutils literal notranslate"><span class="pre">GetTimeOfDay()</span></code> method could be changed either because of internal logic adjustments, or because the date and time source should be changed.</p></li>
+<li><p>It lies about the information required to get its job done. Developers must read every line of the actual source code to understand what hidden inputs are used and where they come from. <strong>The method signature alone is not enough to understand the method’s behavior.</strong></p></li>
+<li><p>It is hard to predict and maintain. The <strong>behavior of a method that depends on a mutable global state cannot be predicted</strong> by merely reading the source code; it is necessary to take into account its current value, along with the whole sequence of events that could have changed it earlier. In a real-world application, trying to unravel all that stuff becomes a real headache.</p></li>
+</ul>
+<div class="section" id="option-1-fixing-the-code-with-dependency-injection">
+<h4>Option 1: Fixing the Code with Dependency Injection<a class="headerlink" href="#option-1-fixing-the-code-with-dependency-injection" title="Permalink to this headline">¶</a></h4>
+<p>Easy solution: pass the time in with an argument</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">get_time_of_day</span><span class="p">(</span><span class="n">time</span><span class="p">):</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Night&quot;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&gt;=</span> <span class="mi">6</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&lt;</span> <span class="mi">12</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Morning&quot;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&gt;=</span> <span class="mi">12</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&lt;</span> <span class="mi">18</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Afternoon&quot;</span>
+    <span class="k">return</span> <span class="s2">&quot;Evening&quot;</span>
+</pre></div>
+</div>
+<p>From the unit testing perspective, this is great; the method is now deterministic (i.e., its return value fully depends on the input), so state-based testing is as easy as passing some DateTime value and checking the result.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test_get_time_of_day_at_6AM_returns_morning</span><span class="p">():</span>
+    <span class="n">datetime</span> <span class="o">=</span> <span class="n">DateTime</span><span class="p">(</span><span class="mi">2015</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">06</span><span class="p">,</span> <span class="mi">00</span><span class="p">,</span> <span class="mi">00</span><span class="p">)</span>
+    <span class="n">time_of_day</span> <span class="o">=</span> <span class="n">get_time_of_day</span><span class="p">(</span><span class="n">datetime</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">time_of_day</span> <span class="o">==</span> <span class="s1">&#39;morning&#39;</span>
+</pre></div>
+</div>
+<p>We have a new problem though. Now whoever calls <code class="docutils literal notranslate"><span class="pre">get_time_of_day()</span></code> needs to provide the date and time – essentially moving the problem up the chain. This can be fixed using <strong><a class="reference external" href="https://en.wikipedia.org/wiki/Dependency_injection">Dependency Injection</a></strong> and <strong><a class="reference external" href="https://en.wikipedia.org/wiki/Inversion_of_control">Inversion of Control</a></strong>.</p>
+<p>Dependency Injection: a technique whereby one object supplies the dependencies of another object.</p>
+<p>Inversion of Control: The key point of IoC is to separate decision-making code (when to do something) from action code (what to do when something happens). This technique increases flexibility, makes our code more modular, and reduces coupling between components.</p>
+<p>Here’s a quick example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">DateTimeGetter</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_time</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">DateTime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">get_time_of_day</span><span class="p">(</span><span class="n">date_time_getter</span><span class="p">):</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">time_getter</span><span class="o">.</span><span class="n">get_time</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Night&quot;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&gt;=</span> <span class="mi">6</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&lt;</span> <span class="mi">12</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Morning&quot;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&gt;=</span> <span class="mi">12</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&lt;</span> <span class="mi">18</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Afternoon&quot;</span>
+    <span class="k">return</span> <span class="s2">&quot;Evening&quot;</span>
+
+<span class="k">class</span> <span class="nc">MockDateTimeGetter</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">date_time</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">date_time</span> <span class="o">=</span> <span class="n">date_time</span>
+
+    <span class="k">def</span> <span class="nf">get_time</span><span class="p">():</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">date_time</span>
+
+<span class="k">def</span> <span class="nf">test_get_time_of_day_at_6AM_returns_morning</span><span class="p">():</span>
+    <span class="n">time_getter</span> <span class="o">=</span> <span class="n">MockDateTimeGetter</span><span class="p">(</span><span class="n">DateTime</span><span class="p">(</span><span class="mi">2015</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">06</span><span class="p">,</span> <span class="mi">00</span><span class="p">,</span> <span class="mi">00</span><span class="p">))</span>
+    <span class="n">time_of_day</span> <span class="o">=</span> <span class="n">get_time_of_day</span><span class="p">(</span><span class="n">time_getter</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">time_of_day</span> <span class="o">==</span> <span class="s1">&#39;morning&#39;</span>
+</pre></div>
+</div>
+<p>This is great because now production code and unit test code can have different ways to get the time. In the production environment, some real-life implementation will be injected (e.g., one that reads actual system time). In the unit test, however, we can inject a “fake” implementation that returns a constant or predefined DateTime value suitable for testing the particular scenario.</p>
+</div>
+<div class="section" id="option-2-fixing-the-code-with-higher-order-functions">
+<h4>Option 2: Fixing the Code with Higher Order Functions<a class="headerlink" href="#option-2-fixing-the-code-with-higher-order-functions" title="Permalink to this headline">¶</a></h4>
+<p>An alternative approach to Dependency Injection is to use <a class="reference external" href="https://en.wikipedia.org/wiki/Higher-order_function">Higher-Order Functions</a>. Higher-order functions can be thought of as another way of implementing Inversion of Control.</p>
+<p><strong>higher-order function</strong>: a function that does at least one of the following:</p>
+<ul class="simple">
+<li><p>takes one or more functions as arguments (i.e. procedural parameters)</p></li>
+<li><p>returns a function as its result</p></li>
+</ul>
+<p>It should be noted that in order to have first class functions, your programming language needs to be able to pass functions as arguments. Almost every language including Python and MATLAB can do this. Java, Lisp, and Ruby cannot.</p>
+<p>Here’s what the code looks like:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">get_time_of_day</span><span class="p">(</span><span class="n">get_date_time_method</span><span class="p">):</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">get_date_time_method</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Night&quot;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&gt;=</span> <span class="mi">6</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&lt;</span> <span class="mi">12</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Morning&quot;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&gt;=</span> <span class="mi">12</span> <span class="ow">and</span> <span class="n">time</span><span class="o">.</span><span class="n">Hour</span> <span class="o">&lt;</span> <span class="mi">18</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;Afternoon&quot;</span>
+    <span class="k">return</span> <span class="s2">&quot;Evening&quot;</span>
+
+<span class="k">def</span> <span class="nf">test_get_time_of_day_at_6AM_returns_morning</span><span class="p">():</span>
+    <span class="n">get_date_time_method</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">DateTime</span><span class="p">(</span><span class="mi">2015</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">06</span><span class="p">,</span> <span class="mi">00</span><span class="p">,</span> <span class="mi">00</span><span class="p">)</span>
+    <span class="n">time_of_day</span> <span class="o">=</span> <span class="n">get_time_of_day</span><span class="p">(</span><span class="n">get_date_time_method</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">time_of_day</span> <span class="o">==</span> <span class="s1">&#39;morning&#39;</span>
+</pre></div>
+</div>
+<p>As you can see, Higher Order Functions often let us achieve the same result with less code, and more expressiveness, than Dependency Injection. It is no longer necessary to implement a class that must have specific functions in order to supply <code class="docutils literal notranslate"><span class="pre">get_time_of_day()</span></code> with the required functionality; instead, we can just pass a function definition.</p>
+</div>
+</div>
+<div class="section" id="problem-side-effects">
+<h3>Problem: Side Effects<a class="headerlink" href="#problem-side-effects" title="Permalink to this headline">¶</a></h3>
+<p>A function with <a class="reference external" href="https://en.wikipedia.org/wiki/Side_effect_(computer_science)">Side Effects</a> triggers some state changes in the system outside of itself. Some examples are:</p>
+<ul class="simple">
+<li><p>modifying a non-local variable</p></li>
+<li><p>modifying a static local variable</p></li>
+<li><p>modifying a mutable argument passed by reference</p></li>
+<li><p>performing I/O</p></li>
+<li><p>calling other side-effect functions</p></li>
+</ul>
+<p>The only way to verify that these state changes happened correctly is to test whether the corresponding side effects actually happened or not, which could be painful. Side effects, like non-deterministic code, lead to deceptive, hard to understand and maintain, tightly coupled, non-reusable, and untestable code.</p>
+<p>Methods that are both deterministic and side-effect-free are called <a class="reference external" href="https://en.wikipedia.org/wiki/Pure_function">Pure Functions</a>. We’ll rarely have a problem unit testing a pure function; all we have to do is to pass some arguments and check the result for correctness. What really makes code untestable is hard-coded, impure factors that cannot be replaced, overridden, or abstracted away in some other way.</p>
+<p>Impurity is toxic: if method <code class="docutils literal notranslate"><span class="pre">Foo()</span></code> depends on non-deterministic or side-effecting method <code class="docutils literal notranslate"><span class="pre">Bar()</span></code>, then <code class="docutils literal notranslate"><span class="pre">Foo()</span></code> becomes non-deterministic or side-effecting as well. Eventually, we may end up poisoning the entire codebase. Multiply all these problems by the size of a complex real-life application, and we’ll find ourselves encumbered with a hard to maintain codebase full of smells, anti-patterns, secret dependencies, and all sorts of ugly and unpleasant things.</p>
+<p>However, impurity is inevitable; any real-life application must, at some point, read and manipulate state by interacting with the environment, databases, configuration files, web services, or other external systems. So instead of aiming to eliminate impurity altogether, it’s a good idea to limit these factors, avoid letting them poison your codebase, and break hard-coded dependencies as much as possible, in order to be able to analyze and unit test things independently.</p>
+</div>
+<div class="section" id="problem-global-mutable-state">
+<h3>Problem: Global Mutable State<a class="headerlink" href="#problem-global-mutable-state" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="static-properties-and-fields">
+<h4>Static Properties and Fields<a class="headerlink" href="#static-properties-and-fields" title="Permalink to this headline">¶</a></h4>
+<p>Mutable static properties and fields are global state! They can hide the information required for a method to get its job done, introduce non-determinism, or promote extensive usage of side effects. Functions that read or modify mutable global state are inherently impure.</p>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="p">(</span><span class="n">SmartHomeSettings</span><span class="o">.</span><span class="n">CostSavingEnabled</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="n">_swimmingPoolController</span><span class="o">.</span><span class="n">HeatWater</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>What if the <code class="docutils literal notranslate"><span class="pre">HeatWater()</span></code> method doesn’t get called when we are sure it should have been? Since any part of the application might have changed the <code class="docutils literal notranslate"><span class="pre">CostSavingEnabled</span></code> value, we must find and analyze all the places modifying that value in order to find out what’s wrong. Also, as we’ve already seen, it is not possible to set some static properties for testing purposes; they are read-only, but still non-deterministic.</p>
+<p>Note that global <em>constants</em> that never change do not cause non-determinism or side-effects.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">circumference</span><span class="p">(</span><span class="n">radius</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">Math</span><span class="o">.</span><span class="n">PI</span> <span class="o">*</span> <span class="n">radius</span> <span class="c1"># Because Math.PI is a global constant, this is still a pure function!</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="singletons">
+<h4>Singletons<a class="headerlink" href="#singletons" title="Permalink to this headline">¶</a></h4>
+<p>Essentially, the Singleton pattern is just another form of the global state. Singletons promote obscure APIs that lie about real dependencies and introduce unnecessarily tight coupling between components. They also violate the Single Responsibility Principle because, in addition to their primary duties, they control their own initialization and lifecycle.</p>
+<p>Singletons can easily make unit tests order-dependent because they carry state around for the lifetime of the whole application or unit test suite. Have a look at the following example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">GetUser</span><span class="p">(</span><span class="n">userId</span><span class="p">):</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">UserCache</span><span class="o">.</span><span class="n">Instance</span><span class="o">.</span><span class="n">ContainsKey</span><span class="p">(</span><span class="n">userId</span><span class="p">)):</span>
+        <span class="n">user</span> <span class="o">=</span> <span class="n">UserCache</span><span class="o">.</span><span class="n">Instance</span><span class="p">[</span><span class="n">userId</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">user</span> <span class="o">=</span> <span class="n">_userService</span><span class="o">.</span><span class="n">LoadUser</span><span class="p">(</span><span class="n">userId</span><span class="p">)</span>
+        <span class="n">UserCache</span><span class="o">.</span><span class="n">Instance</span><span class="p">[</span><span class="n">userId</span><span class="p">]</span> <span class="o">=</span> <span class="n">user</span>
+
+    <span class="k">return</span> <span class="n">user</span>
+</pre></div>
+</div>
+<p>In the example above, if a test for the cache-hit scenario runs first, it will add a new user to the cache, so a subsequent test of the cache-miss scenario may fail because it assumes that the cache is empty. To overcome this, we’ll have to write additional teardown code to clean the <code class="docutils literal notranslate"><span class="pre">UserCache</span></code> after each unit test run. Sounds like a lot of work.</p>
+</div>
+</div>
+</div>
+<div class="section" id="problem-code">
+<h2>Problem Code:<a class="headerlink" href="#problem-code" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">is_my_dog_nearby</span><span class="p">(</span><span class="n">my_id</span><span class="p">,</span> <span class="n">dog_id</span><span class="p">):</span>
+    <span class="n">dog_location</span> <span class="o">=</span> <span class="n">GPS</span><span class="o">.</span><span class="n">get_location</span><span class="p">(</span><span class="n">dog_id</span><span class="p">)</span> <span class="c1"># GPS is a hard-coded dependency</span>
+    <span class="n">my_location</span> <span class="o">=</span> <span class="n">GPS</span><span class="o">.</span><span class="n">get_location</span><span class="p">(</span><span class="n">my_id</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">distance</span><span class="p">(</span><span class="n">my_location</span><span class="p">,</span> <span class="n">dog_location</span><span class="p">,</span> <span class="s1">&#39;mi&#39;</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.2</span><span class="p">:</span>
+       <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+<span class="k">def</span> <span class="nf">test_is_my_dog_nearby_returns_true_when_nearby</span><span class="p">():</span>
+    <span class="c1"># First we have figure out how to to get GPS to return fake values</span>
+    <span class="c1"># It might not even be possible!</span>
+    <span class="o">....</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="n">is_my_dog_nearby</span><span class="p">(</span><span class="n">my_id</span> <span class="o">=</span> <span class="mi">123</span><span class="p">,</span> <span class="n">dog_id</span> <span class="o">=</span> <span class="mi">456</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">result</span> <span class="o">==</span> <span class="kc">True</span>
+</pre></div>
+</div>
+<div class="section" id="how-to-fix">
+<h3>How to Fix:<a class="headerlink" href="#how-to-fix" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p>Pass in the location value from above</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">is_my_dog_nearby(my_id,</span> <span class="pre">dog_id,</span> <span class="pre">location)</span></code></p></li>
+<li><p>This is the easiest way but it mostly just passes the problem onto the calling function</p></li>
+</ul>
+</li>
+<li><p>Pass in either a class or a function that handles the non-pure bits – <code class="docutils literal notranslate"><span class="pre">GPS</span></code>. This is called <strong>Inversion of Control</strong></p></li>
+<li><p>When you pass in a class it’s called <strong>Dependency Injection</strong></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">is_my_dog_nearby(my_id,</span> <span class="pre">dog_id,</span> <span class="pre">class_that_gets_current_location)</span></code></p></li>
+</ul>
+</li>
+<li><p>When you pass in a function, the function that takes a function as an argument is a <strong>Higher Order Function</strong></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">is_my_dog_nearby(my_id,</span> <span class="pre">dog_id,</span> <span class="pre">method_to_get_current_location)</span></code></p></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="better-code-that-uses-a-higher-order-function">
+<h3>Better Code that Uses a Higher Order Function:<a class="headerlink" href="#better-code-that-uses-a-higher-order-function" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">is_my_dog_nearby</span><span class="p">(</span><span class="n">my_id</span><span class="p">,</span> <span class="n">dog_id</span><span class="p">,</span> <span class="n">method_to_get_current_location</span><span class="p">):</span>
+    <span class="c1"># We are no longer tightly coupled with the non-deterministic GPS</span>
+    <span class="n">dog_location</span> <span class="o">=</span> <span class="n">method_to_get_current_location</span><span class="p">(</span><span class="n">dog_id</span><span class="p">)</span>
+    <span class="n">my_location</span> <span class="o">=</span> <span class="n">method_to_get_current_location</span><span class="p">(</span><span class="n">my_id</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">distance</span><span class="p">(</span><span class="n">my_location</span><span class="p">,</span> <span class="n">dog_location</span><span class="p">,</span> <span class="s1">&#39;mi&#39;</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.2</span><span class="p">:</span>
+       <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+<span class="k">def</span> <span class="nf">test_is_my_dog_nearby_returns_true_when_nearby</span><span class="p">():</span>
+    <span class="n">my_id</span> <span class="o">=</span> <span class="mi">123</span>
+    <span class="n">dog_id</span> <span class="o">=</span> <span class="mi">456</span>
+
+    <span class="c1"># Now we can simulate GPS behavior with our own method. Much easier!</span>
+    <span class="n">method_to_get_current_location</span> <span class="o">=</span> <span class="k">lambda</span> <span class="nb">id</span><span class="p">:</span> <span class="k">return</span> <span class="n">Coord</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">)</span> <span class="k">if</span> <span class="nb">id</span> <span class="o">==</span> <span class="n">dog_id</span> <span class="k">else</span> <span class="k">return</span> <span class="n">Coord</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="n">is_my_dog_nearby</span><span class="p">(</span><span class="n">my_id</span><span class="p">,</span> <span class="n">dog_id</span><span class="p">,</span> <span class="n">method_to_get_current_location</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">result</span> <span class="o">==</span> <span class="kc">True</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/dev/coding_guide.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

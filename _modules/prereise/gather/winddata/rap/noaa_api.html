@@ -1,0 +1,224 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.winddata.rap.noaa_api &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.winddata.rap.noaa_api</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
+
+<span class="kn">import</span> <span class="nn">requests</span>
+
+
+<div class="viewcode-block" id="NoaaApi"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.noaa_api.NoaaApi">[docs]</a><span class="k">class</span> <span class="nc">NoaaApi</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;API client for downloading rap-130 data from NOAA.</span>
+
+<span class="sd">    :param dict box: geographic area</span>
+<span class="sd">    :raises TypeError: if box None or not a dict</span>
+<span class="sd">    :raises ValueError: if box is missing keys or contains unknown keys</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">base_url</span> <span class="o">=</span> <span class="s2">&quot;https://www.ncdc.noaa.gov/thredds/ncss/model-rap130/&quot;</span>
+    <span class="n">fallback_url</span> <span class="o">=</span> <span class="s2">&quot;https://www.ncdc.noaa.gov/thredds/ncss/model-rap130-old/&quot;</span>
+    <span class="n">var_u</span> <span class="o">=</span> <span class="s2">&quot;u-component_of_wind_height_above_ground&quot;</span>
+    <span class="n">var_v</span> <span class="o">=</span> <span class="s2">&quot;v-component_of_wind_height_above_ground&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">box</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">box</span> <span class="o">=</span> <span class="n">box</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_box</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_params</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_check_box</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;box must be a non-empty dict&quot;</span><span class="p">)</span>
+        <span class="n">valid_keys</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;north&quot;</span><span class="p">,</span> <span class="s2">&quot;south&quot;</span><span class="p">,</span> <span class="s2">&quot;east&quot;</span><span class="p">,</span> <span class="s2">&quot;west&quot;</span><span class="p">}</span>
+        <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">!=</span> <span class="n">valid_keys</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Keys must be one of: </span><span class="si">{</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">valid_keys</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_set_params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set default query parameters that will be sent with each request&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="s2">&quot;var&quot;</span><span class="p">,</span> <span class="n">NoaaApi</span><span class="o">.</span><span class="n">var_u</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;var&quot;</span><span class="p">,</span> <span class="n">NoaaApi</span><span class="o">.</span><span class="n">var_v</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;disableProjSubset&quot;</span><span class="p">,</span> <span class="s2">&quot;on&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;horizStride&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;addLatLon&quot;</span><span class="p">,</span> <span class="s2">&quot;true&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;accept&quot;</span><span class="p">,</span> <span class="s2">&quot;netCDF&quot;</span><span class="p">),</span>
+        <span class="p">]</span> <span class="o">+</span> <span class="p">[(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span>
+
+<div class="viewcode-block" id="NoaaApi.get_path_list"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.noaa_api.NoaaApi.get_path_list">[docs]</a>    <span class="k">def</span> <span class="nf">get_path_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Enable calculating the final result size prior to download. Used for</span>
+<span class="sd">        initializing data frames to the correct size.</span>
+
+<span class="sd">        :param datetime start: the start date</span>
+<span class="sd">        :param datetime end: the end date</span>
+<span class="sd">        :return: (*list*) -- a list of url paths that span the date range</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">time_slice</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iter_hours</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time_slice</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+<div class="viewcode-block" id="NoaaApi.iter_hours"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.noaa_api.NoaaApi.iter_hours">[docs]</a>    <span class="k">def</span> <span class="nf">iter_hours</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Iterate over the hours in the given range, yielding a path segment</span>
+<span class="sd">        matching the structure of NOAA&#39;s server</span>
+
+<span class="sd">        :param datetime start: the start date</span>
+<span class="sd">        :param datetime end: the end date</span>
+<span class="sd">        :return: (*Generator[str]*) -- path part of the url pertaining to time range</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">step</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">while</span> <span class="n">start</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="p">:</span>
+            <span class="n">ts</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="n">ts</span><span class="p">[:</span><span class="mi">6</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span> <span class="o">+</span> <span class="n">ts</span> <span class="o">+</span> <span class="s2">&quot;/rap_130_&quot;</span> <span class="o">+</span> <span class="n">ts</span>
+            <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10000</span><span class="p">,</span> <span class="mi">12400</span><span class="p">,</span> <span class="mi">100</span><span class="p">):</span>
+                <span class="k">yield</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">path</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">h</span><span class="p">)[</span><span class="mi">1</span><span class="p">:],</span> <span class="s2">&quot;000.grb2&quot;</span><span class="p">])</span>
+            <span class="n">start</span> <span class="o">+=</span> <span class="n">step</span></div>
+
+<div class="viewcode-block" id="NoaaApi.build_url"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.noaa_api.NoaaApi.build_url">[docs]</a>    <span class="k">def</span> <span class="nf">build_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time_slice</span><span class="p">,</span> <span class="n">fallback</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Build the url for the given time slice</span>
+
+<span class="sd">        :param str time_slice: url path segment specifying the time range</span>
+<span class="sd">        :param bool fallback: whether to use the fallback url for older data</span>
+<span class="sd">        :return: (*str*) -- the url to download</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="n">NoaaApi</span><span class="o">.</span><span class="n">fallback_url</span> <span class="k">if</span> <span class="n">fallback</span> <span class="k">else</span> <span class="n">NoaaApi</span><span class="o">.</span><span class="n">base_url</span>
+        <span class="k">return</span> <span class="n">url</span> <span class="o">+</span> <span class="n">time_slice</span></div>
+
+<div class="viewcode-block" id="NoaaApi.get_hourly_data"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.noaa_api.NoaaApi.get_hourly_data">[docs]</a>    <span class="k">def</span> <span class="nf">get_hourly_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Iterate responses over the given time range</span>
+
+<span class="sd">        :param datetime start: the start date</span>
+<span class="sd">        :param datetime end: the end date</span>
+<span class="sd">        :return: (*Generator[requests.Response]*) -- yield the next http response</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">def</span> <span class="nf">download</span><span class="p">(</span><span class="n">time_slice</span><span class="p">,</span> <span class="n">fallback</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_url</span><span class="p">(</span><span class="n">time_slice</span><span class="p">,</span> <span class="n">fallback</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">time_slice</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iter_hours</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">download</span><span class="p">(</span><span class="n">time_slice</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Got 404 response, trying fallback url. Original=</span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">download</span><span class="p">(</span><span class="n">time_slice</span><span class="p">,</span> <span class="n">fallback</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span>
+                        <span class="s2">&quot;Content not found for the given range - it may be&quot;</span>
+                        <span class="o">+</span> <span class="s2">&quot;available via tape archive, please contact NOAA for&quot;</span>
+                        <span class="o">+</span> <span class="s2">&quot;support&quot;</span>
+                    <span class="p">)</span>
+            <span class="k">yield</span> <span class="n">response</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

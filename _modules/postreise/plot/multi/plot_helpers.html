@@ -1,0 +1,325 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>postreise.plot.multi.plot_helpers &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for postreise.plot.multi.plot_helpers</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.scenario</span> <span class="kn">import</span> <span class="n">Scenario</span>
+
+<span class="kn">from</span> <span class="nn">postreise.plot.analyze_pg</span> <span class="kn">import</span> <span class="n">AnalyzePG</span> <span class="k">as</span> <span class="n">apg</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.multi.constants</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BASELINES</span><span class="p">,</span>
+    <span class="n">CA_BASELINES</span><span class="p">,</span>
+    <span class="n">CA_TARGETS</span><span class="p">,</span>
+    <span class="n">DEMAND</span><span class="p">,</span>
+    <span class="n">SCENARIO_RESOURCE_TYPES</span><span class="p">,</span>
+    <span class="n">TARGETS</span><span class="p">,</span>
+    <span class="n">ZONES</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="handle_plot_inputs"><a class="viewcode-back" href="../../../../postreise.plot.multi.html#postreise.plot.multi.plot_helpers.handle_plot_inputs">[docs]</a><span class="k">def</span> <span class="nf">handle_plot_inputs</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">scenario_ids</span><span class="p">,</span> <span class="n">scenario_names</span><span class="p">,</span> <span class="n">custom_data</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check input validity for plotting code, fetches data if necessary.</span>
+
+<span class="sd">    :param str interconnect: either &#39;Western&#39; or &#39;Texas&#39;</span>
+<span class="sd">    :param tuple time: time related parameters.</span>
+<span class="sd">        1st element is the starting date.</span>
+<span class="sd">        2nd element is the ending date (left out).</span>
+<span class="sd">        3rd element is the timezone, only *&#39;utc&#39;*, *&#39;US/Pacific&#39;* and *&#39;local&#39;* are</span>
+<span class="sd">        possible.</span>
+<span class="sd">        4th element is the frequency, which can be *&#39;H&#39;* (hour), *&#39;D&#39;* (day), *&#39;W&#39;*</span>
+<span class="sd">        (week) or *&#39;auto&#39;*.</span>
+<span class="sd">    :param list scenario_ids: list of scenario ids.</span>
+<span class="sd">    :param list scenario_names: list of scenario names of same len as scenario ids.</span>
+<span class="sd">    :param dict custom_data: hand-generated data.</span>
+<span class="sd">    :raises ValueError: if interconnect is not Western or Texas, the number of scenario</span>
+<span class="sd">        names is not equal to number of scenario ids, the number of scenario ids and/or</span>
+<span class="sd">        custom data is less than two.</span>
+<span class="sd">    :return: (*list*) -- list of all zones in interconnect and formatted graph data</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">interconnect</span> <span class="ow">in</span> <span class="n">ZONES</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">zone_list</span> <span class="o">=</span> <span class="n">ZONES</span><span class="p">[</span><span class="n">interconnect</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;ERROR: interconnect must be one of Western or Texas&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">scenario_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">scenario_ids</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">scenario_names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">scenario_names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">scenario_ids</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;ERROR: if scenario names are provided, number of scenario names must </span><span class="se">\</span>
+<span class="s2">            match number of scenario ids&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">custom_data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">custom_data</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">scenario_ids</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">custom_data</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;ERROR: must include at least two scenario ids and/or custom data&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">scenario_data</span> <span class="o">=</span> <span class="n">_get_scenario_data</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">scenario_ids</span><span class="p">,</span> <span class="n">scenario_names</span><span class="p">,</span> <span class="n">zone_list</span><span class="p">)</span>
+    <span class="n">graph_data</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">scenario_data</span><span class="p">,</span> <span class="o">**</span><span class="n">custom_data</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">zone_list</span><span class="p">,</span> <span class="n">graph_data</span></div>
+
+
+<div class="viewcode-block" id="handle_shortfall_inputs"><a class="viewcode-back" href="../../../../postreise.plot.multi.html#postreise.plot.multi.plot_helpers.handle_shortfall_inputs">[docs]</a><span class="k">def</span> <span class="nf">handle_shortfall_inputs</span><span class="p">(</span><span class="n">is_match_CA</span><span class="p">,</span> <span class="n">baselines</span><span class="p">,</span> <span class="n">targets</span><span class="p">,</span> <span class="n">demand</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Fetche baseline, target, and demand data if necessary.</span>
+
+<span class="sd">    :param bool is_match_CA: calculate shortfall using special rules that apply when</span>
+<span class="sd">        all zones match California goals</span>
+<span class="sd">    :param dict baselines: baseline renewables generation for each zone.</span>
+<span class="sd">    :param dict targets: target renewables renewable generation for each zone.</span>
+<span class="sd">    :param dict demand: total demand for each zone.</span>
+<span class="sd">    :return: (*tuple*) -- baselines, targets, demand.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">baselines</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">baselines</span> <span class="o">=</span> <span class="n">CA_BASELINES</span> <span class="k">if</span> <span class="n">is_match_CA</span> <span class="k">else</span> <span class="n">BASELINES</span>
+    <span class="k">if</span> <span class="n">targets</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="n">CA_TARGETS</span> <span class="k">if</span> <span class="n">is_match_CA</span> <span class="k">else</span> <span class="n">TARGETS</span>
+    <span class="k">if</span> <span class="n">demand</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">demand</span> <span class="o">=</span> <span class="n">DEMAND</span>
+
+    <span class="k">return</span> <span class="n">baselines</span><span class="p">,</span> <span class="n">targets</span><span class="p">,</span> <span class="n">demand</span></div>
+
+
+<div class="viewcode-block" id="make_gen_cap_custom_data"><a class="viewcode-back" href="../../../../postreise.plot.multi.html#postreise.plot.multi.plot_helpers.make_gen_cap_custom_data">[docs]</a><span class="k">def</span> <span class="nf">make_gen_cap_custom_data</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">label</span><span class="p">,</span> <span class="n">gen_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cap_data</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Helper function to create custom data formatted for plotting funcitons. You will</span>
+<span class="sd">    still need to wrap this in a dict to use it. This lets us handle multiple custom</span>
+<span class="sd">    scenarios.</span>
+
+<span class="sd">    :param str interconnect: the interconnect - &#39;Western&#39; or &#39;Texas&#39;.</span>
+<span class="sd">    :param str label: the name of the custom scenario to be shown in the plot.</span>
+<span class="sd">    :param dict gen_data: generation data in TWh, defaults to None</span>
+<span class="sd">    :param dict cap_data: capacity data in GW, defaults to None</span>
+<span class="sd">    :raises ValueError: if interconnect is not &#39;Western&#39; or &#39;Texas&#39;.</span>
+<span class="sd">    :return: (*dict*) --  of custom data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">interconnect</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ZONES</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;ERROR: zone must be one of Western or Texas&quot;</span><span class="p">)</span>
+
+    <span class="n">gen_data</span> <span class="o">=</span> <span class="n">gen_data</span> <span class="k">if</span> <span class="n">gen_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_make_empty_data</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
+    <span class="n">cap_data</span> <span class="o">=</span> <span class="n">cap_data</span> <span class="k">if</span> <span class="n">cap_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_make_empty_data</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span>
+        <span class="s2">&quot;gen&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="s2">&quot;Generation&quot;</span><span class="p">,</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="s2">&quot;TWh&quot;</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="n">gen_data</span><span class="p">},</span>
+        <span class="s2">&quot;cap&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="s2">&quot;Capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="s2">&quot;GW&quot;</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="n">cap_data</span><span class="p">},</span>
+    <span class="p">}</span></div>
+
+
+<span class="k">def</span> <span class="nf">_make_empty_data</span><span class="p">(</span><span class="n">interconnect</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Make empty data for a custom data dict.</span>
+
+<span class="sd">    :param str interconnect: the interconnect - &#39;Western&#39; or &#39;Texas&#39;</span>
+<span class="sd">    :return: (*dict*) -- empty dictionary.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="n">zone</span><span class="p">:</span> <span class="p">{</span><span class="n">r</span><span class="p">:</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">SCENARIO_RESOURCE_TYPES</span><span class="p">}</span> <span class="k">for</span> <span class="n">zone</span> <span class="ow">in</span> <span class="n">ZONES</span><span class="p">[</span><span class="n">interconnect</span><span class="p">]</span>
+    <span class="p">}</span>
+
+
+<div class="viewcode-block" id="unit_conversion"><a class="viewcode-back" href="../../../../postreise.plot.multi.html#postreise.plot.multi.plot_helpers.unit_conversion">[docs]</a><span class="k">def</span> <span class="nf">unit_conversion</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">change</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Convert between metric units and rounds to two decimal places.</span>
+
+<span class="sd">    :param float val: the value to change.</span>
+<span class="sd">    :param int change: the distance between the starting unit and the desired unit.</span>
+<span class="sd">        e.g. 2,500,000 MWh to TWh would be unit_conversion(2500000, 2), resulting in</span>
+<span class="sd">        2.50 TWh</span>
+<span class="sd">    :return: (*float*) -- the new converted value</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">round</span><span class="p">(</span><span class="n">val</span> <span class="o">/</span> <span class="mi">1000</span> <span class="o">**</span> <span class="n">change</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_get_scenario_data</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">scenario_ids</span><span class="p">,</span> <span class="n">scenario_names</span><span class="p">,</span> <span class="n">zone_list</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Fetches data for each scenario and then formats it so it&#39;s usable by our</span>
+<span class="sd">    plotting code</span>
+
+<span class="sd">    :param tuple time: time related parameters.</span>
+<span class="sd">        1st element is the starting date.</span>
+<span class="sd">        2nd element is the ending date (left out).</span>
+<span class="sd">        3rd element is the timezone, only *&#39;utc&#39;*, *&#39;US/Pacific&#39;* and *&#39;local&#39;* are</span>
+<span class="sd">        possible.</span>
+<span class="sd">        4th element is the frequency, which can be *&#39;H&#39;* (hour), *&#39;D&#39;* (day), *&#39;W&#39;*</span>
+<span class="sd">        (week) or *&#39;auto&#39;*.</span>
+<span class="sd">    :param list scenario_ids: optional list of scenario ids.</span>
+<span class="sd">    :param list scenario_names: list of scenario names of same len as scenario ids.</span>
+<span class="sd">    :param list zone_list: list of load zones.</span>
+<span class="sd">    :return: (*dict*) -- formatted scenario data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">scenario_data</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">scenario_ids</span><span class="p">)):</span>
+        <span class="n">sid</span> <span class="o">=</span> <span class="n">scenario_ids</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">data_chart</span><span class="p">,</span> <span class="n">scenario_name</span> <span class="o">=</span> <span class="n">_get_data_chart_from_scenario</span><span class="p">(</span><span class="n">sid</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">zone_list</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">scenario_names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">scenario_name</span> <span class="o">=</span> <span class="n">scenario_names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">scenario_data</span><span class="p">[</span><span class="n">sid</span><span class="p">]</span> <span class="o">=</span> <span class="n">_format_scenario_data</span><span class="p">(</span><span class="n">data_chart</span><span class="p">,</span> <span class="n">scenario_name</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">scenario_data</span>
+
+
+<span class="k">def</span> <span class="nf">_get_data_chart_from_scenario</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">zone_list</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Use :class:`postreise.plot.analyze_pg.AnalyzePG` to fetch and format data for a</span>
+<span class="sd">    scenario</span>
+
+<span class="sd">    :param str scenario_id: the id of the scenario to fetch.</span>
+<span class="sd">    :param list zone_list: list of zone names</span>
+<span class="sd">    :return: (*tuple*) -- scenario data chart and scenario name.</span>
+
+<span class="sd">    .. todo::</span>
+<span class="sd">        do this ourselves instead of using apg as a middle man</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">)</span>
+    <span class="n">scenario_name</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+    <span class="n">data_chart</span> <span class="o">=</span> <span class="n">apg</span><span class="p">(</span>
+        <span class="n">scenario</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">zone_list</span><span class="p">,</span> <span class="n">SCENARIO_RESOURCE_TYPES</span><span class="p">,</span> <span class="s2">&quot;chart&quot;</span><span class="p">,</span> <span class="n">normalize</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">get_data</span><span class="p">()</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data_chart</span><span class="p">,</span> <span class="n">scenario_name</span>
+
+
+<span class="k">def</span> <span class="nf">_format_scenario_data</span><span class="p">(</span><span class="n">data_chart</span><span class="p">,</span> <span class="n">scenario_name</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Take a data chart from a scenario and transforms it into a format usable by our</span>
+<span class="sd">    plotting code.</span>
+
+<span class="sd">    :param dict data_chart: scenario data chart generated by</span>
+<span class="sd">        :class:`postreise.plot.analyze_pg.AnalyzePG`.</span>
+<span class="sd">    :param str scenario_name: name of the scenario.</span>
+<span class="sd">    :return: (*dict*) -- formatted scenario data</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">formatted_data</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">scenario_name</span><span class="p">,</span>
+        <span class="s2">&quot;gen&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="s2">&quot;Generation&quot;</span><span class="p">,</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="s2">&quot;TWh&quot;</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="p">{}},</span>
+        <span class="s2">&quot;cap&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="s2">&quot;Capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="s2">&quot;GW&quot;</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="p">{}},</span>
+    <span class="p">}</span>
+
+    <span class="n">gen_data</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">cap_data</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">zone</span> <span class="ow">in</span> <span class="n">data_chart</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">gen_data</span><span class="p">[</span><span class="n">zone</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">cap_data</span><span class="p">[</span><span class="n">zone</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">resource</span> <span class="ow">in</span> <span class="n">data_chart</span><span class="p">[</span><span class="n">zone</span><span class="p">][</span><span class="s2">&quot;Generation&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">gen_data</span><span class="p">[</span><span class="n">zone</span><span class="p">][</span><span class="n">resource</span><span class="p">]</span> <span class="o">=</span> <span class="n">unit_conversion</span><span class="p">(</span>
+                <span class="nb">sum</span><span class="p">(</span><span class="n">data_chart</span><span class="p">[</span><span class="n">zone</span><span class="p">][</span><span class="s2">&quot;Generation&quot;</span><span class="p">][</span><span class="n">resource</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="mi">2</span>
+            <span class="p">)</span>  <span class="c1"># MWh to TWh</span>
+            <span class="n">cap_data</span><span class="p">[</span><span class="n">zone</span><span class="p">][</span><span class="n">resource</span><span class="p">]</span> <span class="o">=</span> <span class="n">unit_conversion</span><span class="p">(</span>
+                <span class="n">data_chart</span><span class="p">[</span><span class="n">zone</span><span class="p">][</span><span class="s2">&quot;Capacity&quot;</span><span class="p">][</span><span class="n">resource</span><span class="p">],</span> <span class="mi">1</span>
+            <span class="p">)</span>  <span class="c1"># MW to GW</span>
+
+    <span class="n">formatted_data</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">][</span><span class="s2">&quot;data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gen_data</span>
+    <span class="n">formatted_data</span><span class="p">[</span><span class="s2">&quot;cap&quot;</span><span class="p">][</span><span class="s2">&quot;data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cap_data</span>
+
+    <span class="k">return</span> <span class="n">formatted_data</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

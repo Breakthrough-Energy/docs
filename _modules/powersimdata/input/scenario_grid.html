@@ -1,0 +1,631 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.input.scenario_grid &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.input.scenario_grid</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">scipy.io</span> <span class="kn">import</span> <span class="n">loadmat</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.input.abstract_grid</span> <span class="kn">import</span> <span class="n">AbstractGrid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">add_coord_to_grid_data_frames</span><span class="p">,</span>
+    <span class="n">add_interconnect_to_grid_data_frames</span><span class="p">,</span>
+    <span class="n">add_zone_to_grid_data_frames</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="ScenarioGrid"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.ScenarioGrid">[docs]</a><span class="k">class</span> <span class="nc">ScenarioGrid</span><span class="p">(</span><span class="n">AbstractGrid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;File reader for MAT files for scenarios which were run on the server.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param str filename: path to file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_data_loc</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_build_network</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_set_data_loc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets data location.</span>
+
+<span class="sd">        :param str filename: path to file</span>
+<span class="sd">        :raises FileNotFoundError: if file does not exist.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> file not found&quot;</span> <span class="o">%</span> <span class="n">filename</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="n">filename</span>
+
+    <span class="k">def</span> <span class="nf">_read_network</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">loadmat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">,</span> <span class="n">squeeze_me</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">struct_as_record</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">mpc</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;mdi&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mpc</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># The next line will fail if no iess attribute (index energy storage system)</span>
+            <span class="c1"># Since we use the &#39;squeeze_me&#39; param, 1 storage -&gt; an int, not an array</span>
+            <span class="n">n_storage</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mpc</span><span class="o">.</span><span class="n">iess</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="k">else</span> <span class="n">mpc</span><span class="o">.</span><span class="n">iess</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="n">n_storage</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">dclineid</span> <span class="o">=</span> <span class="n">mpc</span><span class="o">.</span><span class="n">dclineid</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dclineid</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="n">n_dcline</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">n_dcline</span> <span class="o">=</span> <span class="n">mpc</span><span class="o">.</span><span class="n">dclineid</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="n">n_dcline</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># bus</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">frame</span><span class="p">(</span><span class="s2">&quot;bus&quot;</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">bus</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">busid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># plant</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plant</span><span class="p">,</span> <span class="n">plant_storage</span> <span class="o">=</span> <span class="n">frame</span><span class="p">(</span>
+            <span class="s2">&quot;plant&quot;</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">gen</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">genid</span><span class="p">,</span> <span class="n">n_storage</span><span class="o">=</span><span class="n">n_storage</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mpc</span><span class="o">.</span><span class="n">genfuel</span><span class="p">[:</span> <span class="nb">len</span><span class="p">(</span><span class="n">mpc</span><span class="o">.</span><span class="n">genid</span><span class="p">)]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;GenFuelCost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mpc</span><span class="o">.</span><span class="n">genfuelcost</span>
+
+        <span class="c1"># heat rate curve</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heat_rate_curve</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">frame</span><span class="p">(</span><span class="s2">&quot;heat_rate_curve&quot;</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">heatratecurve</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">genid</span><span class="p">)</span>
+
+        <span class="c1"># gencost before</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">],</span> <span class="n">_</span> <span class="o">=</span> <span class="n">frame</span><span class="p">(</span><span class="s2">&quot;gencost_before&quot;</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">gencost_orig</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">genid</span><span class="p">)</span>
+
+        <span class="c1"># gencost after</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;after&quot;</span><span class="p">],</span> <span class="n">gencost_storage</span> <span class="o">=</span> <span class="n">frame</span><span class="p">(</span>
+            <span class="s2">&quot;gencost_after&quot;</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">gencost</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">genid</span><span class="p">,</span> <span class="n">n_storage</span><span class="o">=</span><span class="n">n_storage</span>
+        <span class="p">)</span>
+
+        <span class="c1"># branch</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">frame</span><span class="p">(</span><span class="s2">&quot;branch&quot;</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">branchid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">branch</span><span class="p">[</span><span class="s2">&quot;branch_device_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mpc</span><span class="o">.</span><span class="n">branchdevicetype</span>
+
+        <span class="c1"># DC line</span>
+        <span class="k">if</span> <span class="n">n_dcline</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dcline</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">frame</span><span class="p">(</span><span class="s2">&quot;dcline&quot;</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">dcline</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">dclineid</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">n_dcline</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># When n_dcline == 1, mpc.dclineid is an int instead of an array,</span>
+            <span class="c1">#   and mpc.dcline has been squeezed to 1D. Here we fix these.</span>
+            <span class="n">dcline_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">mpc</span><span class="o">.</span><span class="n">dclineid</span><span class="p">])</span>
+            <span class="n">dcline_table</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">mpc</span><span class="o">.</span><span class="n">dcline</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dcline</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">frame</span><span class="p">(</span><span class="s2">&quot;dcline&quot;</span><span class="p">,</span> <span class="n">dcline_table</span><span class="p">,</span> <span class="n">dcline_index</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">column_name_provider</span><span class="p">()[</span><span class="s2">&quot;dcline&quot;</span><span class="p">])</span>
+
+        <span class="c1"># substation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sub</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">frame</span><span class="p">(</span><span class="s2">&quot;sub&quot;</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">sub</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">subid</span><span class="p">)</span>
+
+        <span class="c1"># bus to sub mapping</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus2sub</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">frame</span><span class="p">(</span><span class="s2">&quot;bus2sub&quot;</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">bus2sub</span><span class="p">,</span> <span class="n">mpc</span><span class="o">.</span><span class="n">busid</span><span class="p">)</span>
+
+        <span class="c1"># zone</span>
+        <span class="n">zone</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">mpc</span><span class="o">.</span><span class="n">zone</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">,</span> <span class="s2">&quot;zone_name&quot;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="n">link</span><span class="p">(</span><span class="n">zone</span><span class="o">.</span><span class="n">zone_name</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">zone</span><span class="o">.</span><span class="n">zone_id</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="n">link</span><span class="p">(</span><span class="n">zone</span><span class="o">.</span><span class="n">zone_id</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">zone</span><span class="o">.</span><span class="n">zone_name</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+
+        <span class="c1"># storage</span>
+        <span class="k">if</span> <span class="n">n_storage</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">plant_storage</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gencost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gencost_storage</span>
+            <span class="n">col_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;StorageData&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">columns</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">col_name</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">n_storage</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;StorageData&quot;</span><span class="p">][</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;mdi&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">Storage</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;StorageData&quot;</span><span class="p">][</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">getattr</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;mdi&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">Storage</span><span class="p">,</span> <span class="n">c</span><span class="p">)]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;genfuel&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mpc</span><span class="o">.</span><span class="n">genfuel</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">mpc</span><span class="o">.</span><span class="n">genid</span><span class="p">)</span> <span class="p">:]</span>
+
+        <span class="c1"># interconnect</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub</span><span class="o">.</span><span class="n">interconnect</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_build_network</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Defines how to interpret the MAT file data to build a network.</span>
+<span class="sd">        Not implemented for ScenarioGrid, but must be defined for subclasses.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="FromREISE"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.FromREISE">[docs]</a><span class="k">class</span> <span class="nc">FromREISE</span><span class="p">(</span><span class="n">ScenarioGrid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;MATLAB file reader, for MAT files created by REISE/MATPOWER&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_build_network</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_read_network</span><span class="p">()</span>
+        <span class="n">reindex_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">add_information_to_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FromREISEjl"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.FromREISEjl">[docs]</a><span class="k">class</span> <span class="nc">FromREISEjl</span><span class="p">(</span><span class="n">ScenarioGrid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;MATLAB file reader, for MAT files created (&amp; converted) by REISE.jl&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_build_network</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_read_network</span><span class="p">()</span>
+        <span class="n">add_information_to_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="frame"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.frame">[docs]</a><span class="k">def</span> <span class="nf">frame</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">n_storage</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Builds data frame from MAT-file.</span>
+
+<span class="sd">    :param str name: structure name.</span>
+<span class="sd">    :param numpy.array table: table to be used to build data frame.</span>
+<span class="sd">    :param numpy.array index: array to be used as data frame indices.</span>
+<span class="sd">    :param int n_storage: number of storage devices.</span>
+<span class="sd">    :return: (tuple) -- first element is a data frame. Second element is None</span>
+<span class="sd">        or a data frame when energy storage system are included.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">storage</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Loading </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;gencost&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">table</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">index</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">format_gencost</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">n_storage</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">format_gencost</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">table</span><span class="p">[:</span> <span class="n">index</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">))</span>
+            <span class="n">storage</span> <span class="o">=</span> <span class="n">format_gencost</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">table</span><span class="p">[</span><span class="n">index</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">index</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">n_storage</span><span class="p">])</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">format_gencost</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">table</span><span class="p">[:</span> <span class="n">index</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">col_name</span> <span class="o">=</span> <span class="n">column_name_provider</span><span class="p">()[</span><span class="n">name</span><span class="p">]</span>
+        <span class="n">col_type</span> <span class="o">=</span> <span class="n">column_type_provider</span><span class="p">()[</span><span class="n">name</span><span class="p">]</span>
+        <span class="n">expected_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">index</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">col_name</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">table</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">expected_shape</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">col_name</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">n_storage</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">table</span><span class="p">[:</span> <span class="n">index</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">columns</span><span class="o">=</span><span class="n">col_name</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">)</span>
+            <span class="n">storage</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                <span class="n">table</span><span class="p">[</span><span class="n">index</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">index</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">n_storage</span><span class="p">],</span> <span class="n">columns</span><span class="o">=</span><span class="n">col_name</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">table</span><span class="p">[:</span> <span class="n">index</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">columns</span><span class="o">=</span><span class="n">col_name</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">link</span><span class="p">(</span><span class="n">col_name</span><span class="p">,</span> <span class="n">col_type</span><span class="p">))</span>
+
+    <span class="n">data</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">index_name_provider</span><span class="p">()[</span><span class="n">name</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="n">storage</span></div>
+
+
+<div class="viewcode-block" id="link"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.link">[docs]</a><span class="k">def</span> <span class="nf">link</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Creates hash table</span>
+
+<span class="sd">    :param numpy.array keys: key.</span>
+<span class="sd">    :param numpy.array values: value.</span>
+<span class="sd">    :return: (*dict*) -- hash table.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">values</span><span class="p">)}</span></div>
+
+
+<div class="viewcode-block" id="index_name_provider"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.index_name_provider">[docs]</a><span class="k">def</span> <span class="nf">index_name_provider</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Provides index name for data frame.</span>
+
+<span class="sd">    :return: (*dict*) -- dictionary of data frame index name.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">index_name</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;sub&quot;</span><span class="p">:</span> <span class="s2">&quot;sub_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="s2">&quot;bus_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;bus2sub&quot;</span><span class="p">:</span> <span class="s2">&quot;bus_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="s2">&quot;branch_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;dcline&quot;</span><span class="p">:</span> <span class="s2">&quot;dcline_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="s2">&quot;plant_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;gencost_before&quot;</span><span class="p">:</span> <span class="s2">&quot;plant_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;gencost_after&quot;</span><span class="p">:</span> <span class="s2">&quot;plant_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;heat_rate_curve&quot;</span><span class="p">:</span> <span class="s2">&quot;plant_id&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">index_name</span></div>
+
+
+<div class="viewcode-block" id="column_name_provider"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.column_name_provider">[docs]</a><span class="k">def</span> <span class="nf">column_name_provider</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Provides column names for data frame.</span>
+
+<span class="sd">    :return: (*dict*) -- dictionary of data frame columns name.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">col_name_sub</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect_sub_id&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
+    <span class="n">col_name_bus</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;bus_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;type&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Pd&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Qd&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Gs&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Bs&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;zone_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Vm&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Va&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;baseKV&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;loss_zone&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Vmax&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Vmin&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;lam_P&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;lam_Q&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mu_Vmax&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mu_Vmin&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">col_name_bus2sub</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sub_id&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
+    <span class="n">col_name_branch</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;from_bus_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;to_bus_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;r&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;x&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;b&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;rateA&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;rateB&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;rateC&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ratio&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;angle&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;status&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;angmin&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;angmax&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Pf&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Qf&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Pt&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Qt&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mu_Sf&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mu_St&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mu_angmin&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mu_angmax&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">col_name_dcline</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;from_bus_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;to_bus_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;status&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Pf&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Pt&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Qf&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Qt&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Vf&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Vt&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Pmin&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Pmax&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;QminF&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;QmaxF&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;QminT&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;QmaxT&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;loss0&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;loss1&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;muPmin&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;muPmax&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;muQminF&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;muQmaxF&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;muQminT&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;muQmaxT&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">col_name_plant</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;bus_id&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Pg&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Qg&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Qmax&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Qmin&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Vg&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mBase&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;status&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Pmax&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Pmin&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Pc1&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Pc2&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Qc1min&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Qc1max&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Qc2min&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Qc2max&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ramp_agc&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ramp_10&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ramp_30&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ramp_q&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;apf&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mu_Pmax&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mu_Pmin&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mu_Qmax&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mu_Qmin&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">col_name_heat_rate_curve</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;GenIOB&quot;</span><span class="p">,</span> <span class="s2">&quot;GenIOC&quot;</span><span class="p">,</span> <span class="s2">&quot;GenIOD&quot;</span><span class="p">]</span>
+    <span class="n">col_name</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;sub&quot;</span><span class="p">:</span> <span class="n">col_name_sub</span><span class="p">,</span>
+        <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="n">col_name_bus</span><span class="p">,</span>
+        <span class="s2">&quot;bus2sub&quot;</span><span class="p">:</span> <span class="n">col_name_bus2sub</span><span class="p">,</span>
+        <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="n">col_name_branch</span><span class="p">,</span>
+        <span class="s2">&quot;dcline&quot;</span><span class="p">:</span> <span class="n">col_name_dcline</span><span class="p">,</span>
+        <span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">col_name_plant</span><span class="p">,</span>
+        <span class="s2">&quot;heat_rate_curve&quot;</span><span class="p">:</span> <span class="n">col_name_heat_rate_curve</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">col_name</span></div>
+
+
+<div class="viewcode-block" id="column_type_provider"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.column_type_provider">[docs]</a><span class="k">def</span> <span class="nf">column_type_provider</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Provides column types for data frame.</span>
+
+<span class="sd">    :return: (*dict*) -- dictionary of data frame columns type.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">col_type_sub</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;str&quot;</span><span class="p">,</span> <span class="s2">&quot;int&quot;</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">,</span> <span class="s2">&quot;str&quot;</span><span class="p">]</span>
+    <span class="n">col_type_bus</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">col_type_bus2sub</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;int&quot;</span><span class="p">,</span> <span class="s2">&quot;str&quot;</span><span class="p">]</span>
+    <span class="n">col_type_branch</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">col_type_dcline</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">col_type_plant</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">col_type_heat_rate_curve</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;float&quot;</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">]</span>
+    <span class="n">col_type</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;sub&quot;</span><span class="p">:</span> <span class="n">col_type_sub</span><span class="p">,</span>
+        <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="n">col_type_bus</span><span class="p">,</span>
+        <span class="s2">&quot;bus2sub&quot;</span><span class="p">:</span> <span class="n">col_type_bus2sub</span><span class="p">,</span>
+        <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="n">col_type_branch</span><span class="p">,</span>
+        <span class="s2">&quot;dcline&quot;</span><span class="p">:</span> <span class="n">col_type_dcline</span><span class="p">,</span>
+        <span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">col_type_plant</span><span class="p">,</span>
+        <span class="s2">&quot;heat_rate_curve&quot;</span><span class="p">:</span> <span class="n">col_type_heat_rate_curve</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">col_type</span></div>
+
+
+<div class="viewcode-block" id="format_gencost"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.format_gencost">[docs]</a><span class="k">def</span> <span class="nf">format_gencost</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Modify generation cost data frame.</span>
+
+<span class="sd">    :param pandas.DataFrame data: generation cost data frame.</span>
+<span class="sd">    :return: (pandas.DataFrame) -- formatted gencost data frame.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">parse_gencost_row</span><span class="p">(</span><span class="n">row</span><span class="p">):</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;n&quot;</span><span class="p">])</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">id2row</span><span class="p">[</span><span class="n">row</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+                <span class="n">row</span><span class="p">[</span><span class="s2">&quot;c&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="n">c</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">index</span><span class="p">,</span> <span class="mi">4</span> <span class="o">+</span> <span class="n">c</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+                <span class="n">p_val</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">index</span><span class="p">,</span> <span class="mi">4</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">c</span><span class="p">]</span>
+                <span class="n">f_val</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">index</span><span class="p">,</span> <span class="mi">4</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">c</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">row</span><span class="p">[</span><span class="s2">&quot;p&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">c</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="n">p_val</span>
+                <span class="n">row</span><span class="p">[</span><span class="s2">&quot;f&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">c</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="n">f_val</span>
+        <span class="k">return</span> <span class="n">row</span>
+
+    <span class="n">gencost</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">gencost</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
+        <span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="s2">&quot;startup&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="s2">&quot;n&quot;</span><span class="p">},</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="mi">2</span> <span class="ow">in</span> <span class="n">gencost</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">unique</span><span class="p">():</span>
+        <span class="n">n_max</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">gencost</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">n</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_max</span><span class="p">):</span>
+            <span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;c&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">n_max</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">gencost</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="mi">1</span> <span class="ow">in</span> <span class="n">gencost</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">unique</span><span class="p">():</span>
+        <span class="n">n_max</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">gencost</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">n</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_max</span><span class="p">):</span>
+            <span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;p&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">gencost</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;f&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="n">gencost</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">id2row</span> <span class="o">=</span> <span class="p">{</span><span class="n">plant_id</span><span class="p">:</span> <span class="n">row</span> <span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="n">plant_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">gencost</span><span class="o">.</span><span class="n">index</span><span class="p">)}</span>
+    <span class="n">gencost</span> <span class="o">=</span> <span class="n">gencost</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">parse_gencost_row</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">gencost</span> <span class="o">=</span> <span class="n">gencost</span><span class="o">.</span><span class="n">astype</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;int&quot;</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="s2">&quot;int&quot;</span><span class="p">})</span>
+
+    <span class="k">return</span> <span class="n">gencost</span></div>
+
+
+<div class="viewcode-block" id="add_information_to_model"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.add_information_to_model">[docs]</a><span class="k">def</span> <span class="nf">add_information_to_model</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Makes a standard grid.</span>
+
+<span class="sd">    :param powersimdata.input.ScenarioGrid grid: grid with missing information.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">add_interconnect_to_grid_data_frames</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="n">add_zone_to_grid_data_frames</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="n">add_coord_to_grid_data_frames</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+
+    <span class="n">grid</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">heat_rate_curve</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="reindex_model"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.reindex_model">[docs]</a><span class="k">def</span> <span class="nf">reindex_model</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">reset_id</span><span class="p">():</span>
+        <span class="k">return</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="n">x</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">reset_id</span><span class="p">())</span>
+    <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="p">[</span><span class="s2">&quot;from_bus_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="p">[</span><span class="s2">&quot;from_bus_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">reset_id</span><span class="p">())</span>
+    <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="p">[</span><span class="s2">&quot;to_bus_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="p">[</span><span class="s2">&quot;to_bus_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">reset_id</span><span class="p">())</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="p">[</span><span class="s2">&quot;from_bus_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="p">[</span><span class="s2">&quot;from_bus_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">reset_id</span><span class="p">())</span>
+        <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="p">[</span><span class="s2">&quot;to_bus_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="p">[</span><span class="s2">&quot;to_bus_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">reset_id</span><span class="p">())</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">bus_id</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">bus_id</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">reset_id</span><span class="p">())</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

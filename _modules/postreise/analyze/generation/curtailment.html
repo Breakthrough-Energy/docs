@@ -1,0 +1,344 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>postreise.analyze.generation.curtailment &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for postreise.analyze.generation.curtailment</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants.plants</span> <span class="kn">import</span> <span class="n">renewable_resources</span>
+
+<span class="kn">from</span> <span class="nn">postreise.analyze.check</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_check_areas_are_in_grid_and_format</span><span class="p">,</span>
+    <span class="n">_check_resources_are_renewable_and_format</span><span class="p">,</span>
+    <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">decompose_plant_data_frame_into_areas</span><span class="p">,</span>
+    <span class="n">decompose_plant_data_frame_into_areas_and_resources</span><span class="p">,</span>
+    <span class="n">decompose_plant_data_frame_into_resources</span><span class="p">,</span>
+    <span class="n">decompose_plant_data_frame_into_resources_and_areas</span><span class="p">,</span>
+    <span class="n">get_plant_id_for_resources</span><span class="p">,</span>
+    <span class="n">summarize_plant_to_bus</span><span class="p">,</span>
+    <span class="n">summarize_plant_to_location</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="calculate_curtailment_time_series"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.curtailment.calculate_curtailment_time_series">[docs]</a><span class="k">def</span> <span class="nf">calculate_curtailment_time_series</span><span class="p">(</span><span class="n">scenario</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate a time series of curtailment for renewable resources.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- time series of curtailment</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">pg</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_pg</span><span class="p">()</span>
+
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="n">get_plant_id_for_resources</span><span class="p">(</span>
+        <span class="n">renewable_resources</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span><span class="p">)),</span> <span class="n">grid</span>
+    <span class="p">)</span>
+    <span class="n">profiles</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_solar</span><span class="p">(),</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_wind</span><span class="p">()],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+
+    <span class="n">curtailment</span> <span class="o">=</span> <span class="p">(</span><span class="n">profiles</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span> <span class="o">-</span> <span class="n">pg</span><span class="p">[</span><span class="n">plant_id</span><span class="p">])</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">curtailment</span></div>
+
+
+<div class="viewcode-block" id="calculate_curtailment_time_series_by_resources"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.curtailment.calculate_curtailment_time_series_by_resources">[docs]</a><span class="k">def</span> <span class="nf">calculate_curtailment_time_series_by_resources</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">resources</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate a time series of curtailment for a set of valid resources.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param str/tuple/list/set resources: names of resources to analyze. Default is</span>
+<span class="sd">        all renewable esources.</span>
+<span class="sd">    :return: (*dict*) -- keys are resources, values are data frames indexed by</span>
+<span class="sd">        (datetime, plant) where plant is only plants of matching type.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">resources</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">resources</span> <span class="o">=</span> <span class="n">renewable_resources</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">resources</span> <span class="o">=</span> <span class="n">_check_resources_are_renewable_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">)</span>
+
+    <span class="n">curtailment_by_resources</span> <span class="o">=</span> <span class="n">decompose_plant_data_frame_into_resources</span><span class="p">(</span>
+        <span class="n">curtailment</span><span class="p">,</span> <span class="n">resources</span><span class="p">,</span> <span class="n">grid</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">curtailment_by_resources</span></div>
+
+
+<div class="viewcode-block" id="calculate_curtailment_time_series_by_areas"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.curtailment.calculate_curtailment_time_series_by_areas">[docs]</a><span class="k">def</span> <span class="nf">calculate_curtailment_time_series_by_areas</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">areas</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate a time series of curtailment for a set of valid areas.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param dict areas: keys are area types (&#39;*loadzone*&#39;, &#39;*state*&#39; or</span>
+<span class="sd">        &#39;*interconnect*&#39;), values are a list of areas. Default is the interconnect of</span>
+<span class="sd">        the scenario. Default is the scenario interconnect.</span>
+<span class="sd">    :return: (*dict*) -- keys are areas, values are data frames indexed by</span>
+<span class="sd">        (datetime, plant) where plant is only renewable plants in specified area.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">areas</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">_check_areas_are_in_grid_and_format</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">areas</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="p">{</span><span class="s2">&quot;interconnecy&quot;</span><span class="p">:</span> <span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span><span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="n">curtailment_by_areas</span> <span class="o">=</span> <span class="n">decompose_plant_data_frame_into_areas</span><span class="p">(</span>
+        <span class="n">curtailment</span><span class="p">,</span> <span class="n">areas</span><span class="p">,</span> <span class="n">grid</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">curtailment_by_areas</span></div>
+
+
+<div class="viewcode-block" id="calculate_curtailment_percentage_by_resources"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.curtailment.calculate_curtailment_percentage_by_resources">[docs]</a><span class="k">def</span> <span class="nf">calculate_curtailment_percentage_by_resources</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">resources</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate scenario-long average curtailment for selected resources.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param str/tuple/list/set resources: names of resources to analyze. Default is</span>
+<span class="sd">        all renewable resources.</span>
+<span class="sd">    :return: (*float*) -- Average curtailment fraction over the scenario.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series_by_resources</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">resources</span><span class="p">)</span>
+    <span class="n">resources</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">curtailment</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">total_curtailment</span> <span class="o">=</span> <span class="p">{</span><span class="n">r</span><span class="p">:</span> <span class="n">curtailment</span><span class="p">[</span><span class="n">r</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">resources</span><span class="p">}</span>
+
+    <span class="n">profiles</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_solar</span><span class="p">(),</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_wind</span><span class="p">()],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+    <span class="n">total_potential</span> <span class="o">=</span> <span class="n">profiles</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+    <span class="n">curtailment_percentage</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="nb">sum</span><span class="p">(</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">total_curtailment</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="o">/</span> <span class="n">total_potential</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">resources</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">curtailment_percentage</span></div>
+
+
+<div class="viewcode-block" id="calculate_curtailment_time_series_by_areas_and_resources"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.curtailment.calculate_curtailment_time_series_by_areas_and_resources">[docs]</a><span class="k">def</span> <span class="nf">calculate_curtailment_time_series_by_areas_and_resources</span><span class="p">(</span>
+    <span class="n">scenario</span><span class="p">,</span> <span class="n">areas</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">resources</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate a time series of curtailment for a set of valid areas and resources.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param dict areas: keys are area types (&#39;*loadzone*&#39;, &#39;*state*&#39; or</span>
+<span class="sd">        &#39;*interconnect*&#39;), values are a list of areas. Default is the interconnect of</span>
+<span class="sd">        the scenario. Default is the scenario interconnect.</span>
+<span class="sd">    :param str/tuple/list/set resources: names of resources to analyze. Default is</span>
+<span class="sd">        all renewable resources.</span>
+<span class="sd">    :return: (*dict*) -- keys are areas, values are dictionaries whose keys are</span>
+<span class="sd">        resources and values are data frames indexed by (datetime, plant) where plant</span>
+<span class="sd">        is only plants of matching type and located in area.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">areas</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">_check_areas_are_in_grid_and_format</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">areas</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="p">{</span><span class="s2">&quot;interconnecy&quot;</span><span class="p">:</span> <span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span><span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">resources</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">resources</span> <span class="o">=</span> <span class="n">renewable_resources</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">resources</span> <span class="o">=</span> <span class="n">_check_resources_are_renewable_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">)</span>
+
+    <span class="n">curtailment_by_areas_and_resources</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">decompose_plant_data_frame_into_areas_and_resources</span><span class="p">(</span>
+            <span class="n">curtailment</span><span class="p">,</span> <span class="n">areas</span><span class="p">,</span> <span class="n">resources</span><span class="p">,</span> <span class="n">grid</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">curtailment_by_areas_and_resources</span></div>
+
+
+<div class="viewcode-block" id="calculate_curtailment_time_series_by_resources_and_areas"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.curtailment.calculate_curtailment_time_series_by_resources_and_areas">[docs]</a><span class="k">def</span> <span class="nf">calculate_curtailment_time_series_by_resources_and_areas</span><span class="p">(</span>
+    <span class="n">scenario</span><span class="p">,</span> <span class="n">areas</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">resources</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate a time series of curtailment for a set of valid resources and areas.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param str/tuple/list/set resources: names of resources to analyze. Default is</span>
+<span class="sd">        all renewable resources.    :param dict areas: keys are area types (&#39;*loadzone*&#39;, &#39;*state*&#39; or</span>
+<span class="sd">        &#39;*interconnect*&#39;), values are a list of areas. Default is the interconnect of</span>
+<span class="sd">        the scenario. Default is the scenario interconnect.</span>
+<span class="sd">    :return: (*dict*) -- keys are areas, values are dictionaries whose keys are</span>
+<span class="sd">        resources and values are data frames indexed by (datetime, plant) where plant</span>
+<span class="sd">        is only plants of matching type and located in area.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">areas</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">_check_areas_are_in_grid_and_format</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">areas</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="p">{</span><span class="s2">&quot;interconnecy&quot;</span><span class="p">:</span> <span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span><span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">resources</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">resources</span> <span class="o">=</span> <span class="n">renewable_resources</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">resources</span> <span class="o">=</span> <span class="n">_check_resources_are_renewable_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">)</span>
+
+    <span class="n">curtailment_by_resources_and_areas</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">decompose_plant_data_frame_into_resources_and_areas</span><span class="p">(</span>
+            <span class="n">curtailment</span><span class="p">,</span> <span class="n">resources</span><span class="p">,</span> <span class="n">areas</span><span class="p">,</span> <span class="n">grid</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">curtailment_by_resources_and_areas</span></div>
+
+
+<div class="viewcode-block" id="summarize_curtailment_by_bus"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.curtailment.summarize_curtailment_by_bus">[docs]</a><span class="k">def</span> <span class="nf">summarize_curtailment_by_bus</span><span class="p">(</span><span class="n">scenario</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate total curtailment for selected resources, by bus.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :return: (*dict*) -- keys are resources, values are dict of</span>
+<span class="sd">        (bus: curtailment vector).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series_by_resources</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">bus_curtailment</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">ren_type</span><span class="p">:</span> <span class="n">summarize_plant_to_bus</span><span class="p">(</span><span class="n">curtailment_df</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">ren_type</span><span class="p">,</span> <span class="n">curtailment_df</span> <span class="ow">in</span> <span class="n">curtailment</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">bus_curtailment</span></div>
+
+
+<div class="viewcode-block" id="summarize_curtailment_by_location"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.curtailment.summarize_curtailment_by_location">[docs]</a><span class="k">def</span> <span class="nf">summarize_curtailment_by_location</span><span class="p">(</span><span class="n">scenario</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate total curtailment for selected resources, by location.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :return: (*dict*) -- keys are resources, values are dict of</span>
+<span class="sd">        ((lat, lon): curtailment vector).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series_by_resources</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">location_curtailment</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">ren_type</span><span class="p">:</span> <span class="n">summarize_plant_to_location</span><span class="p">(</span><span class="n">curtailment_df</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">ren_type</span><span class="p">,</span> <span class="n">curtailment_df</span> <span class="ow">in</span> <span class="n">curtailment</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">location_curtailment</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

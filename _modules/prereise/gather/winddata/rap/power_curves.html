@@ -1,0 +1,311 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.winddata.rap.power_curves &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../../" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.winddata.rap.power_curves</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">os</span> <span class="kn">import</span> <span class="n">path</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">norm</span>
+
+<span class="n">data_dir</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s2">&quot;..&quot;</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_shift_turbine_curve</span><span class="p">(</span><span class="n">turbine_curve</span><span class="p">,</span> <span class="n">hub_height</span><span class="p">,</span> <span class="n">maxspd</span><span class="p">,</span> <span class="n">new_curve_res</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Shift a turbine curve based on a given hub height.</span>
+
+<span class="sd">    :param pandas.Series turbine_curve: power curve data, wind speed index.</span>
+<span class="sd">    :param float hub_height: height to shift power curve to.</span>
+<span class="sd">    :param float maxspd: Extent of new curve (m/s).</span>
+<span class="sd">    :param float new_curve_res: Resolution of new curve (m/s).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">wspd_height_base</span> <span class="o">=</span> <span class="mf">262.467</span>  <span class="c1"># 80m in feet</span>
+    <span class="n">wspd_exp</span> <span class="o">=</span> <span class="mf">0.15</span>  <span class="c1"># wspd(h) = wspd_0 * (h / h0)**wspd_exp</span>
+    <span class="n">curve_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">maxspd</span> <span class="o">+</span> <span class="n">new_curve_res</span><span class="p">,</span> <span class="n">new_curve_res</span><span class="p">)</span>
+    <span class="n">wspd_scale_factor</span> <span class="o">=</span> <span class="p">(</span><span class="n">wspd_height_base</span> <span class="o">/</span> <span class="n">hub_height</span><span class="p">)</span> <span class="o">**</span> <span class="n">wspd_exp</span>
+    <span class="n">shifted_x</span> <span class="o">=</span> <span class="n">turbine_curve</span><span class="o">.</span><span class="n">index</span> <span class="o">*</span> <span class="n">wspd_scale_factor</span>
+    <span class="n">shifted_curve</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">curve_x</span><span class="p">,</span> <span class="n">shifted_x</span><span class="p">,</span> <span class="n">turbine_curve</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">shifted_curve</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">shifted_curve</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">curve_x</span><span class="p">)</span>
+    <span class="n">shifted_curve</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Speed bin (m/s)&quot;</span>
+    <span class="k">return</span> <span class="n">shifted_curve</span>
+
+
+<div class="viewcode-block" id="build_state_curves"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.power_curves.build_state_curves">[docs]</a><span class="k">def</span> <span class="nf">build_state_curves</span><span class="p">(</span><span class="n">Form860</span><span class="p">,</span> <span class="n">PowerCurves</span><span class="p">,</span> <span class="n">maxspd</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;IEC class 2&quot;</span><span class="p">,</span> <span class="n">rsd</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Parse Form 860 and turbine curves to obtain average state curves.</span>
+
+<span class="sd">    :param pandas.DataFrame Form860: EIA Form 860 data.</span>
+<span class="sd">    :param pandas.DataFrame PowerCurves: turbine power curves.</span>
+<span class="sd">    :param float maxspd: maximum x value for state curves.</span>
+<span class="sd">    :param str default: turbine curve name for turbines not in PowerCurves.</span>
+<span class="sd">    :param float rsd: relative standard deviation for spatiotemporal smoothing.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) - DataFrame of state curves.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;building state_power_curves&quot;</span><span class="p">)</span>
+    <span class="n">mfg_col</span> <span class="o">=</span> <span class="s2">&quot;Predominant Turbine Manufacturer&quot;</span>
+    <span class="n">model_col</span> <span class="o">=</span> <span class="s2">&quot;Predominant Turbine Model Number&quot;</span>
+    <span class="n">capacity_col</span> <span class="o">=</span> <span class="s2">&quot;Nameplate Capacity (MW)&quot;</span>
+    <span class="n">hubheight_col</span> <span class="o">=</span> <span class="s2">&quot;Turbine Hub Height (Feet)&quot;</span>
+    <span class="n">new_curve_res</span> <span class="o">=</span> <span class="mf">0.01</span>  <span class="c1"># resolution: m/s</span>
+
+    <span class="n">states</span> <span class="o">=</span> <span class="n">Form860</span><span class="p">[</span><span class="s2">&quot;State&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+    <span class="n">curve_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">maxspd</span> <span class="o">+</span> <span class="n">new_curve_res</span><span class="p">,</span> <span class="n">new_curve_res</span><span class="p">)</span>
+    <span class="n">state_curves</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">curve_x</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Speed bin (m/s)&quot;</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">states</span><span class="p">:</span>
+        <span class="n">cumulative_curve</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">curve_x</span><span class="p">)</span>
+        <span class="n">cumulative_capacity</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">state_wind_farms</span> <span class="o">=</span> <span class="n">Form860</span><span class="p">[</span><span class="n">Form860</span><span class="p">[</span><span class="s2">&quot;State&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">state_wind_farms</span><span class="o">.</span><span class="n">index</span><span class="p">):</span>
+            <span class="c1"># Look up attributes from Form 860</span>
+            <span class="n">farm_capacity</span> <span class="o">=</span> <span class="n">state_wind_farms</span><span class="p">[</span><span class="n">capacity_col</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">hub_height</span> <span class="o">=</span> <span class="n">state_wind_farms</span><span class="p">[</span><span class="n">hubheight_col</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">turbine_mfg</span> <span class="o">=</span> <span class="n">state_wind_farms</span><span class="p">[</span><span class="n">mfg_col</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">turbine_model</span> <span class="o">=</span> <span class="n">state_wind_farms</span><span class="p">[</span><span class="n">model_col</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="c1"># Look up turbine-specific power curve (or default)</span>
+            <span class="n">turbine_name</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">turbine_mfg</span><span class="p">,</span> <span class="n">turbine_model</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">turbine_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">PowerCurves</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="n">turbine_name</span> <span class="o">=</span> <span class="n">default</span>
+            <span class="n">turbine_curve</span> <span class="o">=</span> <span class="n">PowerCurves</span><span class="p">[</span><span class="n">turbine_name</span><span class="p">]</span>
+            <span class="c1"># Shift based on farm-specific hub height</span>
+            <span class="n">shifted_curve</span> <span class="o">=</span> <span class="n">_shift_turbine_curve</span><span class="p">(</span>
+                <span class="n">turbine_curve</span><span class="p">,</span> <span class="n">hub_height</span><span class="p">,</span> <span class="n">maxspd</span><span class="p">,</span> <span class="n">new_curve_res</span>
+            <span class="p">)</span>
+            <span class="c1"># Add to cumulative totals</span>
+            <span class="n">cumulative_curve</span> <span class="o">+=</span> <span class="n">shifted_curve</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">*</span> <span class="n">farm_capacity</span>
+            <span class="n">cumulative_capacity</span> <span class="o">+=</span> <span class="n">farm_capacity</span>
+        <span class="c1"># Normalize based on cumulative capacity</span>
+        <span class="n">state_curves</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">cumulative_curve</span> <span class="o">/</span> <span class="n">cumulative_capacity</span>
+    <span class="n">state_curves</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;Speed bin (m/s)&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Add an &#39;Offshore&#39; state with a representative curve</span>
+    <span class="n">hub_height</span> <span class="o">=</span> <span class="mf">393.701</span>  <span class="c1"># 120 meters, in feet to match Form860 data</span>
+    <span class="n">turbine_curve</span> <span class="o">=</span> <span class="n">PowerCurves</span><span class="p">[</span><span class="s2">&quot;Vestas V164-8.0&quot;</span><span class="p">]</span>
+    <span class="n">shifted_curve</span> <span class="o">=</span> <span class="n">_shift_turbine_curve</span><span class="p">(</span>
+        <span class="n">turbine_curve</span><span class="p">,</span> <span class="n">hub_height</span><span class="p">,</span> <span class="n">maxspd</span><span class="p">,</span> <span class="n">new_curve_res</span>
+    <span class="p">)</span>
+    <span class="n">state_curves</span><span class="p">[</span><span class="s2">&quot;Offshore&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">shifted_curve</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">offshore_rsd</span> <span class="o">=</span> <span class="mf">0.25</span>
+
+    <span class="k">if</span> <span class="n">rsd</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">smoothed_state_curves</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">state_curves</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">state_curves</span><span class="o">.</span><span class="n">columns</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">state_curves</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">xs</span> <span class="o">=</span> <span class="n">state_curves</span><span class="o">.</span><span class="n">index</span>
+            <span class="n">ys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">xs</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">x</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="n">s</span> <span class="o">==</span> <span class="s2">&quot;Offshore&quot;</span><span class="p">:</span>
+                    <span class="n">sd</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">offshore_rsd</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">sd</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">rsd</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span>
+                <span class="n">min_point</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">sd</span>
+                <span class="n">max_point</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">sd</span>
+                <span class="n">sample_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">xs</span> <span class="o">&gt;</span> <span class="n">min_point</span><span class="p">,</span> <span class="n">xs</span> <span class="o">&lt;</span> <span class="n">max_point</span><span class="p">)</span>
+                <span class="n">cdf_points</span> <span class="o">=</span> <span class="n">norm</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">xs</span><span class="p">[</span><span class="n">sample_points</span><span class="p">],</span> <span class="n">loc</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="n">sd</span><span class="p">)</span>
+                <span class="n">pdf_points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">cdf_points</span><span class="p">)))</span>
+                <span class="n">ys</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">pdf_points</span><span class="p">,</span> <span class="n">state_curves</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="n">sample_points</span><span class="p">])</span>
+            <span class="n">smoothed_state_curves</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">ys</span>
+        <span class="n">state_curves</span> <span class="o">=</span> <span class="n">smoothed_state_curves</span>
+
+    <span class="k">return</span> <span class="n">state_curves</span></div>
+
+
+<div class="viewcode-block" id="get_form_860"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.power_curves.get_form_860">[docs]</a><span class="k">def</span> <span class="nf">get_form_860</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">year</span><span class="o">=</span><span class="mi">2016</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Read data for EIA Form 860.</span>
+
+<span class="sd">    :param str data_dir: data directory.</span>
+<span class="sd">    :param int year: EIA data year to get.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- dataframe with Form 860 data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;data_dir is not a str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">data_dir</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;data_dir is not a valid directory&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">year</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;year is not an int&quot;</span><span class="p">)</span>
+    <span class="n">regex_str</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;3_2_Wind_Y(\d</span><span class="si">{4}</span><span class="s2">).csv&quot;</span>
+    <span class="n">valid_years</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="nb">int</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">regex_str</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">data_dir</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">regex_str</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="k">if</span> <span class="n">year</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">valid_years</span><span class="p">:</span>
+        <span class="n">err_msg</span> <span class="o">=</span> <span class="s2">&quot;form data for year </span><span class="si">{year}</span><span class="s2"> not found. &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="n">year</span><span class="p">)</span>
+        <span class="n">err_msg</span> <span class="o">+=</span> <span class="s2">&quot;Years with data: &quot;</span> <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">valid_years</span><span class="p">))</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
+
+    <span class="n">form_860_filename</span> <span class="o">=</span> <span class="s2">&quot;3_2_Wind_Y</span><span class="si">{year}</span><span class="s2">.csv&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="n">year</span><span class="p">)</span>
+    <span class="n">form_860_path</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">form_860_filename</span><span class="p">)</span>
+    <span class="n">form_860</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">form_860_path</span><span class="p">,</span> <span class="n">skiprows</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">form_860</span></div>
+
+
+<div class="viewcode-block" id="get_power"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.power_curves.get_power">[docs]</a><span class="k">def</span> <span class="nf">get_power</span><span class="p">(</span><span class="n">PowerCurves</span><span class="p">,</span> <span class="n">StatePowerCurves</span><span class="p">,</span> <span class="n">wspd</span><span class="p">,</span> <span class="n">turbine</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;IEC class 2&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Convert wind speed to power using NREL turbine power curves.</span>
+
+<span class="sd">    :param pandas.DataFrame PowerCurves: turbine power curves data.</span>
+<span class="sd">    :param pandas.DataFrame StatePowerCurves: state average power curves data.</span>
+<span class="sd">    :param float wspd: wind speed (in m/s).</span>
+<span class="sd">    :param str default: default turbine name.</span>
+<span class="sd">    :param str turbine: turbine name, IEC class, or state code for average.</span>
+<span class="sd">    :return: (*float*) -- normalized power.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">turbine</span> <span class="ow">in</span> <span class="n">StatePowerCurves</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">curve</span> <span class="o">=</span> <span class="n">StatePowerCurves</span><span class="p">[</span><span class="n">turbine</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">curve</span> <span class="o">=</span> <span class="n">PowerCurves</span><span class="p">[</span><span class="n">turbine</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">turbine</span><span class="p">,</span> <span class="s2">&quot;not found, defaulting to&quot;</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
+            <span class="n">curve</span> <span class="o">=</span> <span class="n">PowerCurves</span><span class="p">[</span><span class="n">default</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">wspd</span><span class="p">,</span> <span class="n">curve</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">curve</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_turbine_power_curves"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.power_curves.get_turbine_power_curves">[docs]</a><span class="k">def</span> <span class="nf">get_turbine_power_curves</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="s2">&quot;PowerCurves.csv&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Load turbine power curves from csv.</span>
+
+<span class="sd">    :param str filename: filename (not path) of csv file to read from.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- normalized turbine power curves.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">powercurves_path</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+    <span class="n">PowerCurves</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">powercurves_path</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">PowerCurves</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;Speed bin (m/s)&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">PowerCurves</span></div>
+
+
+<div class="viewcode-block" id="get_state_power_curves"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.power_curves.get_state_power_curves">[docs]</a><span class="k">def</span> <span class="nf">get_state_power_curves</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="s2">&quot;StatePowerCurves.csv&quot;</span><span class="p">,</span> <span class="n">rsd</span><span class="o">=</span><span class="mf">0.4</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Load state power curves from csv, if the csv is present. Otherwise,</span>
+<span class="sd">    construct them from EIA form 860 data and turbine curves.</span>
+
+<span class="sd">    :param str filename: filename (not path) of csv file to read from.</span>
+<span class="sd">    :param float rsd: relative standard deviation, for wind speed distribution.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- normalized state power curves.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">PowerCurves</span> <span class="o">=</span> <span class="n">get_turbine_power_curves</span><span class="p">()</span>
+    <span class="n">Form860</span> <span class="o">=</span> <span class="n">get_form_860</span><span class="p">(</span><span class="n">data_dir</span><span class="p">)</span>
+    <span class="n">statepowercurves_path</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">StatePowerCurves</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">statepowercurves_path</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="n">StatePowerCurves</span> <span class="o">=</span> <span class="n">build_state_curves</span><span class="p">(</span><span class="n">Form860</span><span class="p">,</span> <span class="n">PowerCurves</span><span class="p">,</span> <span class="n">rsd</span><span class="o">=</span><span class="n">rsd</span><span class="p">)</span>
+        <span class="n">StatePowerCurves</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">statepowercurves_path</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">StatePowerCurves</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

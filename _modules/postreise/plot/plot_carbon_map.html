@@ -1,0 +1,653 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>postreise.plot.plot_carbon_map &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for postreise.plot.plot_carbon_map</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">bokeh.layouts</span> <span class="kn">import</span> <span class="n">row</span>
+<span class="kn">from</span> <span class="nn">bokeh.models</span> <span class="kn">import</span> <span class="n">ColumnDataSource</span><span class="p">,</span> <span class="n">HoverTool</span><span class="p">,</span> <span class="n">Label</span><span class="p">,</span> <span class="n">LabelSet</span>
+<span class="kn">from</span> <span class="nn">bokeh.plotting</span> <span class="kn">import</span> <span class="n">figure</span>
+<span class="kn">from</span> <span class="nn">bokeh.tile_providers</span> <span class="kn">import</span> <span class="n">Vendors</span><span class="p">,</span> <span class="n">get_provider</span>
+
+<span class="kn">from</span> <span class="nn">postreise.plot.colors</span> <span class="kn">import</span> <span class="n">be_green</span><span class="p">,</span> <span class="n">be_purple</span><span class="p">,</span> <span class="n">be_red</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">get_state_borders</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.projection_helpers</span> <span class="kn">import</span> <span class="n">project_borders</span><span class="p">,</span> <span class="n">project_bus</span>
+
+
+<div class="viewcode-block" id="group_lat_lon"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_carbon_map.group_lat_lon">[docs]</a><span class="k">def</span> <span class="nf">group_lat_lon</span><span class="p">(</span><span class="n">bus_map</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Groups data and sums values, based on coordinates.</span>
+<span class="sd">        Rounds to the nearest lat lon degrees</span>
+
+<span class="sd">    :param pandas.DataFrame bus_map: data frame with coal, ng, and lat lon</span>
+<span class="sd">        coordinates per bus</span>
+<span class="sd">    :param boolean agg: aggregate by rounded lat/lon if true</span>
+<span class="sd">    :return: (pandas.DataFrame) -- data frame, aggregated by rounded lat lon</span>
+<span class="sd">        coordinates</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bus_map1</span> <span class="o">=</span> <span class="n">bus_map</span>
+    <span class="k">if</span> <span class="n">agg</span><span class="p">:</span>
+        <span class="n">bus_map1</span><span class="o">.</span><span class="n">lat</span> <span class="o">=</span> <span class="n">bus_map1</span><span class="o">.</span><span class="n">lat</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">bus_map1</span><span class="o">.</span><span class="n">lon</span> <span class="o">=</span> <span class="n">bus_map1</span><span class="o">.</span><span class="n">lon</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">bus_map1</span> <span class="o">=</span> <span class="n">bus_map1</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span>
+        <span class="p">{</span><span class="s2">&quot;coal&quot;</span><span class="p">:</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="s2">&quot;ng&quot;</span><span class="p">:</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">bus_map1</span> <span class="o">=</span> <span class="n">bus_map1</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">bus_map1</span></div>
+
+
+<div class="viewcode-block" id="group_zone"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_carbon_map.group_zone">[docs]</a><span class="k">def</span> <span class="nf">group_zone</span><span class="p">(</span><span class="n">bus_map</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Groups data and sums values, based on zone,</span>
+<span class="sd">    with zones in the same state aggregated. To get the &#39;center&#39;</span>
+<span class="sd">    of each state, the midway point between the max and min</span>
+<span class="sd">    for lat and lon are calculated.</span>
+
+<span class="sd">    :param pandas.DataFrame bus_map: data frame with coal, ng, and zone id per bus.</span>
+<span class="sd">    :return: (pandas.DataFrame) -- data frame, aggregated by us state</span>
+<span class="sd">        coordinates</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bus_map1</span> <span class="o">=</span> <span class="n">bus_map</span>
+    <span class="c1"># for states with multiple zones, consolidate</span>
+    <span class="n">bus_map1</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_map1</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">([</span><span class="mi">203</span><span class="p">,</span> <span class="mi">204</span><span class="p">,</span> <span class="mi">205</span><span class="p">,</span> <span class="mi">206</span><span class="p">],</span> <span class="mi">207</span><span class="p">)</span>
+
+    <span class="c1"># bus_map1 = bus_map1.groupby([&quot;zone_id&quot;]).agg(</span>
+    <span class="c1"># {&#39;coal&#39;: &#39;sum&#39;, &#39;ng&#39;: &#39;sum&#39;, &#39;x&#39;: &#39;mean&#39;,</span>
+    <span class="c1">#  &#39;y&#39;: &#39;mean&#39;})</span>
+    <span class="n">bus_map1</span> <span class="o">=</span> <span class="n">bus_map1</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;zone_id&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span>
+        <span class="n">coal</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">NamedAgg</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">&quot;coal&quot;</span><span class="p">,</span> <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">),</span>
+        <span class="n">ng</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">NamedAgg</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">&quot;ng&quot;</span><span class="p">,</span> <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">),</span>
+        <span class="n">max_x</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">NamedAgg</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;max&quot;</span><span class="p">),</span>
+        <span class="n">min_x</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">NamedAgg</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;min&quot;</span><span class="p">),</span>
+        <span class="n">max_y</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">NamedAgg</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;max&quot;</span><span class="p">),</span>
+        <span class="n">min_y</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">NamedAgg</span><span class="p">(</span><span class="n">column</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;min&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="c1"># average of x coordinates, towards the bottom of y coordinates by state</span>
+    <span class="n">bus_map1</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">bus_map1</span><span class="p">[</span><span class="s2">&quot;max_x&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">bus_map1</span><span class="p">[</span><span class="s2">&quot;min_x&quot;</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">bus_map1</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">bus_map1</span><span class="p">[</span><span class="s2">&quot;max_y&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">bus_map1</span><span class="p">[</span><span class="s2">&quot;min_y&quot;</span><span class="p">])</span> <span class="o">/</span> <span class="mi">4</span> <span class="o">+</span> <span class="n">bus_map1</span><span class="p">[</span><span class="s2">&quot;min_y&quot;</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">bus_map1</span></div>
+
+
+<div class="viewcode-block" id="map_carbon_emission_bar"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_carbon_map.map_carbon_emission_bar">[docs]</a><span class="k">def</span> <span class="nf">map_carbon_emission_bar</span><span class="p">(</span>
+    <span class="n">bus_info_and_emission</span><span class="p">,</span>
+    <span class="n">scenario_name</span><span class="p">,</span>
+    <span class="n">color_coal</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span>
+    <span class="n">color_ng</span><span class="o">=</span><span class="s2">&quot;purple&quot;</span><span class="p">,</span>
+    <span class="n">us_states_dat</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">size_factor</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Makes map of carbon emissions, color code by fuel type. Size/area</span>
+<span class="sd">    indicates emissions.</span>
+
+<span class="sd">    :param dict us_states_dat: dictionary of state border lats/lons. If None, get</span>
+<span class="sd">        from :func:`postreise.plot.plot_states.get_state_borders`.</span>
+<span class="sd">    :param pandas.DataFrame bus_info_and_emission: info and</span>
+<span class="sd">        emission of buses by :func:`combine_bus_info_and_emission`.</span>
+<span class="sd">    :param str scenario_name: name of scenario for labeling.</span>
+<span class="sd">    :param str color_coal: color assigned for coal</span>
+<span class="sd">    :param str color_ng: color assigned for natural gas</span>
+<span class="sd">    :param float size_factor: height scale for bars</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">us_states_dat</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">us_states_dat</span> <span class="o">=</span> <span class="n">get_state_borders</span><span class="p">()</span>
+
+    <span class="n">bus_map</span> <span class="o">=</span> <span class="n">project_bus</span><span class="p">(</span><span class="n">bus_info_and_emission</span><span class="p">)</span>
+    <span class="n">bus_map</span> <span class="o">=</span> <span class="n">group_zone</span><span class="p">(</span><span class="n">bus_map</span><span class="p">)</span>
+
+    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">project_borders</span><span class="p">(</span><span class="n">us_states_dat</span><span class="p">)</span>
+
+    <span class="c1"># plotting adjustment constants</span>
+    <span class="n">ha</span> <span class="o">=</span> <span class="mi">85000</span>
+    <span class="n">size_factor</span> <span class="o">=</span> <span class="n">size_factor</span> <span class="o">*</span> <span class="mf">0.02</span>
+
+    <span class="n">bus_source</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;x2&quot;</span><span class="p">:</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">ha</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span>
+            <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;coaly&quot;</span><span class="p">:</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;coal&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">size_factor</span><span class="p">,</span>
+            <span class="s2">&quot;ngy&quot;</span><span class="p">:</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;ng&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">size_factor</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Set up figure</span>
+    <span class="n">tools</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;pan,wheel_zoom,reset,hover,save&quot;</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
+        <span class="n">title</span><span class="o">=</span><span class="n">scenario_name</span><span class="p">,</span>
+        <span class="n">tools</span><span class="o">=</span><span class="n">tools</span><span class="p">,</span>
+        <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">plot_width</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
+        <span class="n">plot_height</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">p_legend</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
+        <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">toolbar_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">plot_width</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+        <span class="n">plot_height</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+        <span class="n">y_range</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="n">x_range</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_tile</span><span class="p">(</span><span class="n">get_provider</span><span class="p">(</span><span class="n">Vendors</span><span class="o">.</span><span class="n">CARTODBPOSITRON_RETINA</span><span class="p">))</span>
+    <span class="c1"># state borders</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">patches</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">fill_alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">line_color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="c1"># emissions bars</span>
+    <span class="n">width</span> <span class="o">=</span> <span class="mf">150000.0</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.7</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">vbar</span><span class="p">(</span>
+        <span class="n">x</span><span class="o">=</span><span class="s2">&quot;x2&quot;</span><span class="p">,</span>
+        <span class="n">bottom</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">,</span>
+        <span class="n">top</span><span class="o">=</span><span class="s2">&quot;coaly&quot;</span><span class="p">,</span>
+        <span class="n">width</span><span class="o">=</span><span class="n">width</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="n">color_coal</span><span class="p">,</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">bus_source</span><span class="p">,</span>
+        <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">vbar</span><span class="p">(</span>
+        <span class="n">x</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>
+        <span class="n">bottom</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">,</span>
+        <span class="n">top</span><span class="o">=</span><span class="s2">&quot;ngy&quot;</span><span class="p">,</span>
+        <span class="n">width</span><span class="o">=</span><span class="n">width</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="n">color_ng</span><span class="p">,</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">bus_source</span><span class="p">,</span>
+        <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">bus_map</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">bus_map</span><span class="p">)</span>
+
+    <span class="c1"># citation fields</span>
+    <span class="n">cit_x</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">cit_y</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">cit_text</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># constants for adjustments of text labels</span>
+    <span class="n">va</span> <span class="o">=</span> <span class="mi">1000</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="mi">1000000</span>
+
+    <span class="c1"># x values are offset so vbars are side by side.</span>
+    <span class="n">cit_x</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">i</span> <span class="o">-</span> <span class="n">ha</span> <span class="o">*</span> <span class="mf">1.5</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">bus_map</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()])</span>
+    <span class="n">cit_x</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">i</span> <span class="o">+</span> <span class="n">ha</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">bus_map</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()])</span>
+    <span class="n">cit_y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">va</span> <span class="o">*</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">bus_map</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()],</span>
+            <span class="p">[</span><span class="n">i</span> <span class="o">*</span> <span class="n">size_factor</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">bus_map</span><span class="o">.</span><span class="n">ng</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()],</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">cit_y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">va</span> <span class="o">*</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">bus_map</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()],</span>
+            <span class="p">[</span><span class="n">i</span> <span class="o">*</span> <span class="n">size_factor</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">bus_map</span><span class="o">.</span><span class="n">coal</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()],</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">cit_text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">num</span> <span class="ow">in</span> <span class="p">[</span><span class="n">i</span> <span class="o">/</span> <span class="n">m</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">bus_map</span><span class="o">.</span><span class="n">ng</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]]</span>
+    <span class="p">)</span>
+    <span class="n">cit_text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">num</span> <span class="ow">in</span> <span class="p">[</span><span class="n">i</span> <span class="o">/</span> <span class="n">m</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">bus_map</span><span class="o">.</span><span class="n">coal</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()]]</span>
+    <span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">cit_x</span><span class="p">)):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">cit_x</span><span class="p">[</span><span class="n">j</span><span class="p">])):</span>
+            <span class="n">citation</span> <span class="o">=</span> <span class="n">Label</span><span class="p">(</span>
+                <span class="n">x</span><span class="o">=</span><span class="n">cit_x</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">i</span><span class="p">],</span>
+                <span class="n">y</span><span class="o">=</span><span class="n">cit_y</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">i</span><span class="p">],</span>
+                <span class="n">x_units</span><span class="o">=</span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
+                <span class="n">y_units</span><span class="o">=</span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
+                <span class="n">text_font_size</span><span class="o">=</span><span class="s2">&quot;20pt&quot;</span><span class="p">,</span>
+                <span class="n">text</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">cit_text</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">i</span><span class="p">]),</span>
+                <span class="n">render_mode</span><span class="o">=</span><span class="s2">&quot;css&quot;</span><span class="p">,</span>
+                <span class="n">border_line_color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span>
+                <span class="n">border_line_alpha</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">background_fill_color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span>
+                <span class="n">background_fill_alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">citation</span><span class="p">)</span>
+
+    <span class="c1"># custom legend</span>
+    <span class="n">p_legend</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">fill_color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">600</span><span class="p">)</span>
+    <span class="n">p_legend</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">fill_color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">400</span><span class="p">)</span>
+    <span class="n">p_legend</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="n">fill_color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
+    <span class="n">p_legend</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="n">fill_color</span><span class="o">=</span><span class="s2">&quot;purple&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;purple&quot;</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
+        <span class="n">data</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="p">[</span><span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">],</span>
+            <span class="n">y</span><span class="o">=</span><span class="p">[</span><span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">],</span>
+            <span class="n">text</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Coal&quot;</span><span class="p">,</span> <span class="s2">&quot;Natural Gas&quot;</span><span class="p">,</span> <span class="s2">&quot;Emissions (Million Tons)&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">LabelSet</span><span class="p">(</span>
+        <span class="n">x</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>
+        <span class="n">y</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">,</span>
+        <span class="n">text</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">,</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span>
+        <span class="n">level</span><span class="o">=</span><span class="s2">&quot;glyph&quot;</span><span class="p">,</span>
+        <span class="n">x_offset</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="n">y_offset</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="n">render_mode</span><span class="o">=</span><span class="s2">&quot;css&quot;</span><span class="p">,</span>
+        <span class="n">text_font_size</span><span class="o">=</span><span class="s2">&quot;20pt&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">p_legend</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">row</span><span class="p">(</span><span class="n">p_legend</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_prepare_busmap</span><span class="p">(</span>
+    <span class="n">bus_info_and_emission</span><span class="p">,</span> <span class="n">color_ng</span><span class="p">,</span> <span class="n">color_coal</span><span class="p">,</span> <span class="n">agg</span><span class="p">,</span> <span class="n">type1</span><span class="o">=</span><span class="s2">&quot;natural gas&quot;</span><span class="p">,</span> <span class="n">type2</span><span class="o">=</span><span class="s2">&quot;coal&quot;</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Prepare data with amount of emissions and type for hover tips</span>
+
+<span class="sd">    :param pandas.DataFrame bus_info_and_emission: info and emission of buses</span>
+<span class="sd">        as returned by :func:`combine_bus_info_and_emission`.</span>
+<span class="sd">    :param str color_ng: color assigned for ng, default to BE purple</span>
+<span class="sd">    :param str color_coal: color associated with coal, default to black/gray</span>
+<span class="sd">        :param boolean agg: if true, aggregates points by lat lon within a given radius</span>
+<span class="sd">    :param str type1: label for hover over tool tips, first color/type</span>
+<span class="sd">        (usual choices: natural gas or increase if making a diff map)</span>
+<span class="sd">    :param str type2: label for hover over tool tips, second color/type</span>
+<span class="sd">        (usual choices: coal or decrease if making diff map)</span>
+<span class="sd">    :return: (pandas.DataFrame) -- data frame with amount and tye fields</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bus_map</span> <span class="o">=</span> <span class="n">bus_info_and_emission</span>
+    <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">bus_map</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;ng&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">color_ng</span>
+    <span class="n">bus_map</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;coal&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">color_coal</span>
+    <span class="n">bus_map</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;ng&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">type1</span>
+    <span class="n">bus_map</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;coal&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">type2</span>
+
+    <span class="n">bus_map</span> <span class="o">=</span> <span class="n">project_bus</span><span class="p">(</span><span class="n">bus_map</span><span class="p">)</span>
+    <span class="n">bus_map1</span> <span class="o">=</span> <span class="n">group_lat_lon</span><span class="p">(</span><span class="n">bus_map</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="n">agg</span><span class="p">)</span>
+    <span class="n">bus_map1</span><span class="p">[</span><span class="s2">&quot;amount&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_map1</span><span class="p">[</span><span class="s2">&quot;ng&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">bus_map1</span><span class="p">[</span><span class="s2">&quot;coal&quot;</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">bus_map1</span>
+
+
+<div class="viewcode-block" id="map_carbon_emission"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_carbon_map.map_carbon_emission">[docs]</a><span class="k">def</span> <span class="nf">map_carbon_emission</span><span class="p">(</span>
+    <span class="n">bus_info_and_emission</span><span class="p">,</span>
+    <span class="n">color_coal</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span>
+    <span class="n">color_ng</span><span class="o">=</span><span class="n">be_purple</span><span class="p">,</span>
+    <span class="n">label_coal</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Coal: CO</span><span class="se">\u2082</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="n">label_ng</span><span class="o">=</span><span class="sa">u</span><span class="s2">&quot;Natural gas: CO</span><span class="se">\u2082</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="n">us_states_dat</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">size_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">web</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">agg</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">type1</span><span class="o">=</span><span class="s2">&quot;natural gas&quot;</span><span class="p">,</span>
+    <span class="n">type2</span><span class="o">=</span><span class="s2">&quot;coal&quot;</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Makes map of carbon emissions, color code by fuel type. Size/area</span>
+<span class="sd">        indicates emissions.</span>
+
+<span class="sd">    :param pandas.DataFrame bus_info_and_emission: info and emission of buses</span>
+<span class="sd">        as returned by :func:`combine_bus_info_and_emission`.</span>
+<span class="sd">    :param str color_ng: color assigned for ng, default to BE purple</span>
+<span class="sd">    :param str color_coal: color associated with coal, default to black/gray</span>
+<span class="sd">    :param str label_coal: label for legend associated with coal.</span>
+<span class="sd">    :param str label_ng: label for legend associated with ng.</span>
+<span class="sd">    :param dict us_states_dat: dictionary of state border lats/lons. If None, get</span>
+<span class="sd">        from :func:`postreise.plot.plot_states.get_state_borders`.</span>
+<span class="sd">    :param float size_factor: scaling factor for size of emissions circles glyphs</span>
+<span class="sd">    :param boolean web: if true, optimizes figure for web-based presentation</span>
+<span class="sd">    :param boolean agg: if true, aggregates points by lat lon within a given radius</span>
+<span class="sd">    :param str type1: label for hover over tool tips, first color/type</span>
+<span class="sd">        (usual choices: natural gas or increase if making a diff map)</span>
+<span class="sd">    :param str type2: label for hover over tool tips, second color/type</span>
+<span class="sd">        (usual choices: coal or decrease if making diff map)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># us states borders, prepare data</span>
+    <span class="k">if</span> <span class="n">us_states_dat</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">us_states_dat</span> <span class="o">=</span> <span class="n">get_state_borders</span><span class="p">()</span>
+    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">project_borders</span><span class="p">(</span><span class="n">us_states_dat</span><span class="p">)</span>
+
+    <span class="c1"># prepare data frame for emissions data</span>
+    <span class="n">bus_map</span> <span class="o">=</span> <span class="n">_prepare_busmap</span><span class="p">(</span>
+        <span class="n">bus_info_and_emission</span><span class="p">,</span> <span class="n">color_ng</span><span class="p">,</span> <span class="n">color_coal</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="n">agg</span><span class="p">,</span> <span class="n">type1</span><span class="o">=</span><span class="n">type1</span><span class="p">,</span> <span class="n">type2</span><span class="o">=</span><span class="n">type2</span>
+    <span class="p">)</span>
+    <span class="n">bus_map</span> <span class="o">=</span> <span class="n">bus_map</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;color&quot;</span><span class="p">])</span>
+
+    <span class="n">bus_source</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;amount&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="mi">10000</span> <span class="o">*</span> <span class="n">size_factor</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span>
+            <span class="s2">&quot;radius&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;amount&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">1000</span> <span class="o">*</span> <span class="n">size_factor</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="mi">10</span><span class="p">,</span>
+            <span class="s2">&quot;tons&quot;</span><span class="p">:</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;amount&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;color&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">],</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Set up figure</span>
+    <span class="n">tools</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;pan,wheel_zoom,reset,save&quot;</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
+        <span class="n">tools</span><span class="o">=</span><span class="n">tools</span><span class="p">,</span>
+        <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">plot_width</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
+        <span class="n">plot_height</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
+        <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
+        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;stretch_both&quot;</span><span class="p">,</span>
+        <span class="n">match_aspect</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">p_legend</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
+        <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">toolbar_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">plot_width</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
+        <span class="n">plot_height</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
+        <span class="n">y_range</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+        <span class="n">x_range</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+        <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># circle glyphs that exist only for the web legend,</span>
+    <span class="c1"># these are plotted behind the tiles, not visible</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span>
+        <span class="o">-</span><span class="mf">8.1e6</span><span class="p">,</span>
+        <span class="mf">5.2e6</span><span class="p">,</span>
+        <span class="n">fill_color</span><span class="o">=</span><span class="n">color_coal</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="n">color_coal</span><span class="p">,</span>
+        <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+        <span class="n">size</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+        <span class="n">legend_label</span><span class="o">=</span><span class="n">label_coal</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span>
+        <span class="o">-</span><span class="mf">8.1e6</span><span class="p">,</span>
+        <span class="mf">5.2e6</span><span class="p">,</span>
+        <span class="n">fill_color</span><span class="o">=</span><span class="n">color_ng</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="n">color_ng</span><span class="p">,</span>
+        <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+        <span class="n">size</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+        <span class="n">legend_label</span><span class="o">=</span><span class="n">label_ng</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">p</span><span class="o">.</span><span class="n">add_tile</span><span class="p">(</span><span class="n">get_provider</span><span class="p">(</span><span class="n">Vendors</span><span class="o">.</span><span class="n">CARTODBPOSITRON_RETINA</span><span class="p">))</span>
+    <span class="c1"># state borders</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">patches</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">fill_alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">line_color</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="c1"># emissions circles, web version</span>
+    <span class="k">if</span> <span class="n">web</span><span class="p">:</span>
+
+        <span class="n">circle</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span>
+            <span class="s2">&quot;x&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;y&quot;</span><span class="p">,</span>
+            <span class="n">fill_color</span><span class="o">=</span><span class="s2">&quot;color&quot;</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="s2">&quot;color&quot;</span><span class="p">,</span>
+            <span class="n">alpha</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
+            <span class="n">radius</span><span class="o">=</span><span class="s2">&quot;radius&quot;</span><span class="p">,</span>
+            <span class="n">source</span><span class="o">=</span><span class="n">bus_source</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span>
+            <span class="s2">&quot;x&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;y&quot;</span><span class="p">,</span>
+            <span class="n">fill_color</span><span class="o">=</span><span class="s2">&quot;color&quot;</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="s2">&quot;color&quot;</span><span class="p">,</span>
+            <span class="n">alpha</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
+            <span class="n">size</span><span class="o">=</span><span class="s2">&quot;size&quot;</span><span class="p">,</span>
+            <span class="n">source</span><span class="o">=</span><span class="n">bus_source</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="c1"># legend: white square background and bars per color code</span>
+    <span class="n">p_legend</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">fill_color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+    <span class="n">p_legend</span><span class="o">.</span><span class="n">square</span><span class="p">(</span>
+        <span class="mi">1</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">fill_color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">2000000</span> <span class="o">/</span> <span class="mi">100</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span>
+    <span class="p">)</span>
+    <span class="n">p_legend</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span>
+        <span class="mi">1</span><span class="p">,</span>
+        <span class="n">y</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="n">fill_color</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">([</span><span class="n">color_coal</span><span class="p">,</span> <span class="n">color_ng</span><span class="p">],</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="n">color</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">([</span><span class="n">color_coal</span><span class="p">,</span> <span class="n">color_ng</span><span class="p">],</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="n">alpha</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
+        <span class="n">size</span><span class="o">=</span><span class="p">[</span>
+            <span class="p">(</span><span class="mi">10000000</span> <span class="o">/</span> <span class="mi">10000</span> <span class="o">*</span> <span class="n">size_factor</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span>
+            <span class="p">(</span><span class="mi">5000000</span> <span class="o">/</span> <span class="mi">10000</span> <span class="o">*</span> <span class="n">size_factor</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span>
+            <span class="p">(</span><span class="mi">1000000</span> <span class="o">/</span> <span class="mi">10000</span> <span class="o">*</span> <span class="n">size_factor</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="o">*</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
+        <span class="n">data</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">],</span>
+            <span class="n">y</span><span class="o">=</span><span class="p">[</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">1.1</span><span class="p">,</span> <span class="mf">1.3</span><span class="p">,</span> <span class="mf">1.55</span><span class="p">,</span> <span class="mf">2.9</span><span class="p">,</span> <span class="mf">3.1</span><span class="p">,</span> <span class="mf">3.3</span><span class="p">,</span> <span class="mf">3.55</span><span class="p">],</span>
+            <span class="n">text</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;1M&quot;</span><span class="p">,</span> <span class="s2">&quot;5M&quot;</span><span class="p">,</span> <span class="s2">&quot;10M&quot;</span><span class="p">,</span> <span class="n">label_coal</span><span class="p">,</span> <span class="s2">&quot;1M&quot;</span><span class="p">,</span> <span class="s2">&quot;5M&quot;</span><span class="p">,</span> <span class="s2">&quot;10M&quot;</span><span class="p">,</span> <span class="n">label_ng</span><span class="p">],</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">LabelSet</span><span class="p">(</span>
+        <span class="n">x</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>
+        <span class="n">y</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">,</span>
+        <span class="n">text</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">,</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span>
+        <span class="n">level</span><span class="o">=</span><span class="s2">&quot;glyph&quot;</span><span class="p">,</span>
+        <span class="n">x_offset</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="n">y_offset</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="n">render_mode</span><span class="o">=</span><span class="s2">&quot;css&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">p_legend</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">web</span><span class="p">:</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="s2">&quot;bottom_right&quot;</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">label_text_font_size</span> <span class="o">=</span> <span class="s2">&quot;12pt&quot;</span>
+
+        <span class="n">hover</span> <span class="o">=</span> <span class="n">HoverTool</span><span class="p">(</span>
+            <span class="n">tooltips</span><span class="o">=</span><span class="p">[</span>
+                <span class="p">(</span><span class="s2">&quot;Type&quot;</span><span class="p">,</span> <span class="s2">&quot;@type&quot;</span><span class="p">),</span>
+                <span class="p">(</span><span class="sa">u</span><span class="s2">&quot;Tons CO</span><span class="se">\u2082</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;@tons&quot;</span><span class="p">),</span>
+            <span class="p">],</span>
+            <span class="n">renderers</span><span class="o">=</span><span class="p">[</span><span class="n">circle</span><span class="p">],</span>
+        <span class="p">)</span>
+
+        <span class="n">p</span><span class="o">.</span><span class="n">add_tools</span><span class="p">(</span><span class="n">hover</span><span class="p">)</span>
+        <span class="n">return_p</span> <span class="o">=</span> <span class="n">p</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">visible</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">return_p</span> <span class="o">=</span> <span class="n">row</span><span class="p">(</span><span class="n">p_legend</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">return_p</span></div>
+
+
+<div class="viewcode-block" id="map_carbon_emission_comparison"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_carbon_map.map_carbon_emission_comparison">[docs]</a><span class="k">def</span> <span class="nf">map_carbon_emission_comparison</span><span class="p">(</span>
+    <span class="n">bus_info_and_emission_1</span><span class="p">,</span> <span class="n">bus_info_and_emission_2</span><span class="p">,</span> <span class="n">web</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Makes map of carbon emissions, color code by fuel type, size/area</span>
+<span class="sd">        indicates emissions Also, returns data frame enclosing emission</span>
+<span class="sd">        released by thermal generators.</span>
+
+<span class="sd">    :param pandas.DataFrame bus_info_and_emission_1: info and emission</span>
+<span class="sd">        of buses for 1st scenario</span>
+<span class="sd">        returned by :func:`combine_bus_info_and_emission`.</span>
+<span class="sd">    :param pandas.DataFrame bus_info_and_emission_2: info and emission</span>
+<span class="sd">        of buses for 2nd scenario</span>
+<span class="sd">        as returned by :func:`combine_bus_info_and_emission`.</span>
+<span class="sd">    :param boolean web: if true, optimizes figure for web-based presentation</span>
+<span class="sd">    :return: (pandas.DataFrame) -- comparison map indicating increase or</span>
+<span class="sd">        decrease in emission</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># merge</span>
+    <span class="n">bus_info_and_emission_1</span> <span class="o">=</span> <span class="n">bus_info_and_emission_1</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">bus_info_and_emission_2</span> <span class="o">=</span> <span class="n">bus_info_and_emission_2</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">bus_info_and_emission_1</span><span class="p">[</span><span class="s2">&quot;amt&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">bus_info_and_emission_1</span><span class="p">[</span><span class="s2">&quot;ng&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">bus_info_and_emission_1</span><span class="p">[</span><span class="s2">&quot;coal&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">bus_info_and_emission_2</span><span class="p">[</span><span class="s2">&quot;amt&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">bus_info_and_emission_2</span><span class="p">[</span><span class="s2">&quot;ng&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">bus_info_and_emission_2</span><span class="p">[</span><span class="s2">&quot;coal&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="n">bus_map</span> <span class="o">=</span> <span class="n">bus_info_and_emission_1</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+        <span class="n">bus_info_and_emission_2</span><span class="p">,</span>
+        <span class="n">right_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">left_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">suffixes</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;_x&quot;</span><span class="p">,</span> <span class="s2">&quot;_y&quot;</span><span class="p">),</span>
+        <span class="n">how</span><span class="o">=</span><span class="s2">&quot;outer&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># fill 0s so we can subtract</span>
+    <span class="n">bus_map</span> <span class="o">=</span> <span class="n">bus_map</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;amt_dif&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;amt_x&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;amt_y&quot;</span><span class="p">]</span>
+    <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;lon_x&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;lon_y&quot;</span><span class="p">])</span>
+    <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;lat_x&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;lat_y&quot;</span><span class="p">])</span>
+    <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;coal&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;ng&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">bus_map</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">bus_map</span><span class="o">.</span><span class="n">amt_dif</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;coal&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;amt_dif&quot;</span><span class="p">]</span>
+
+    <span class="n">bus_map</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">bus_map</span><span class="o">.</span><span class="n">amt_dif</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;ng&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">bus_map</span><span class="p">[</span><span class="s2">&quot;amt_dif&quot;</span><span class="p">])</span>
+
+    <span class="n">bus_map2</span> <span class="o">=</span> <span class="n">bus_map</span><span class="p">[</span><span class="n">bus_map</span><span class="o">.</span><span class="n">amt_dif</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="n">bus_map2</span> <span class="o">=</span> <span class="n">project_bus</span><span class="p">(</span><span class="n">bus_map2</span><span class="p">)</span>
+    <span class="n">bus_map2</span> <span class="o">=</span> <span class="n">_prepare_busmap</span><span class="p">(</span>
+        <span class="n">bus_map2</span><span class="p">,</span> <span class="n">be_green</span><span class="p">,</span> <span class="n">be_red</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">type1</span><span class="o">=</span><span class="s2">&quot;increase&quot;</span><span class="p">,</span> <span class="n">type2</span><span class="o">=</span><span class="s2">&quot;decrease&quot;</span>
+    <span class="p">)</span>
+
+    <span class="n">p</span> <span class="o">=</span> <span class="n">map_carbon_emission</span><span class="p">(</span>
+        <span class="n">bus_map2</span><span class="p">,</span>
+        <span class="n">be_green</span><span class="p">,</span>
+        <span class="n">be_red</span><span class="p">,</span>
+        <span class="sa">u</span><span class="s2">&quot;Less tons CO</span><span class="se">\u2082</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="sa">u</span><span class="s2">&quot;More tons CO</span><span class="se">\u2082</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="n">web</span><span class="o">=</span><span class="n">web</span><span class="p">,</span>
+        <span class="n">type1</span><span class="o">=</span><span class="s2">&quot;increase&quot;</span><span class="p">,</span>
+        <span class="n">type2</span><span class="o">=</span><span class="s2">&quot;decrease&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">p</span></div>
+
+
+<div class="viewcode-block" id="combine_bus_info_and_emission"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_carbon_map.combine_bus_info_and_emission">[docs]</a><span class="k">def</span> <span class="nf">combine_bus_info_and_emission</span><span class="p">(</span><span class="n">bus_info</span><span class="p">,</span> <span class="n">carbon_by_bus</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Builds data frame needed for plotting carbon emitted by thermal</span>
+<span class="sd">        generators.</span>
+
+<span class="sd">    :param pandas.DataFrame bus_info: bus data frame.</span>
+<span class="sd">    :param dict carbon_by_bus: keys are fuel type and values is a dictionary</span>
+<span class="sd">        where keys and values are the bus id and emission, respectively.</span>
+<span class="sd">        This is returned by</span>
+<span class="sd">        :func:`postreise.analyze.generation.carbon.summarize_carbon_by_bus`.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- combined data frame.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">bus_of_interest</span> <span class="o">=</span> <span class="n">bus_info</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">carbon_by_bus</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+    <span class="n">bus_info_and_emission</span> <span class="o">=</span> <span class="n">bus_of_interest</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">carbon_by_bus</span><span class="p">),</span> <span class="n">right_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">left_index</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">bus_info_and_emission</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

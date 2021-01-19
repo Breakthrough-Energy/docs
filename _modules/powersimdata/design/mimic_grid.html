@@ -1,0 +1,196 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.design.mimic_grid &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.design.mimic_grid</h1><div class="highlight"><pre>
+<span></span><span class="k">def</span> <span class="nf">_calculate_common_zone_factors</span><span class="p">(</span><span class="n">base_plant</span><span class="p">,</span> <span class="n">ref_plant</span><span class="p">,</span> <span class="n">plant_scaling</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given a base plant dataframe, a reference plant dataframe, and a scaling</span>
+<span class="sd">    vector: calculate common zone scaling factors, and produce a change-table</span>
+<span class="sd">    with an equivalent combination of zone and plant scaling factors.</span>
+
+<span class="sd">    :param pandas.DataFrame base_plant: plant dataframe for base grid.</span>
+<span class="sd">    :param pandas.DataFrame ref_plant: plant dataframe for reference grid.</span>
+<span class="sd">    :param pandas.Series plant_scaling: scaling factors by plant to get from</span>
+<span class="sd">        base_plant Pmax values to ref_plant Pmax values.</span>
+<span class="sd">    :return: (*dict*) -- dictionary of plant/zone scaling factors in a format</span>
+<span class="sd">        matching powersimdata.input.change_table.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">change_table</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">new_plant_scaling</span> <span class="o">=</span> <span class="n">plant_scaling</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Detect if any zones have all-zero plant scaling (e.g. wind_offshore)</span>
+    <span class="n">grouping</span> <span class="o">=</span> <span class="n">new_plant_scaling</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="n">base_plant</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">base_plant</span><span class="o">.</span><span class="n">zone_id</span><span class="p">])</span>
+    <span class="n">total_scale</span> <span class="o">=</span> <span class="n">grouping</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">fuel</span><span class="p">,</span> <span class="n">zone_id</span><span class="p">)</span> <span class="ow">in</span> <span class="n">total_scale</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">total_scale</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">fuel</span><span class="p">,</span> <span class="n">zone_id</span><span class="p">)]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">fuel</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">change_table</span><span class="p">:</span>
+                <span class="n">change_table</span><span class="p">[</span><span class="n">fuel</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">{}}</span>
+            <span class="n">change_table</span><span class="p">[</span><span class="n">fuel</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">][</span><span class="n">zone_id</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="c1"># Since we have zone scaling of 0, we don&#39;t need plant scaling</span>
+            <span class="n">matching_indices</span> <span class="o">=</span> <span class="n">grouping</span><span class="o">.</span><span class="n">get_group</span><span class="p">((</span><span class="n">fuel</span><span class="p">,</span> <span class="n">zone_id</span><span class="p">))</span><span class="o">.</span><span class="n">index</span>
+            <span class="n">matching_boolean</span> <span class="o">=</span> <span class="n">new_plant_scaling</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">matching_indices</span><span class="p">)</span>
+            <span class="n">new_plant_scaling</span> <span class="o">=</span> <span class="n">new_plant_scaling</span><span class="p">[</span><span class="o">~</span><span class="n">matching_boolean</span><span class="p">]</span>
+
+    <span class="c1"># Determine approximately most common non-zero scaling factor via median</span>
+    <span class="n">nonzero</span> <span class="o">=</span> <span class="n">plant_scaling</span> <span class="o">&gt;</span> <span class="mi">0</span>
+    <span class="n">grouping</span> <span class="o">=</span> <span class="n">plant_scaling</span><span class="p">[</span><span class="n">nonzero</span><span class="p">]</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="n">base_plant</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">base_plant</span><span class="o">.</span><span class="n">zone_id</span><span class="p">])</span>
+    <span class="n">common_factors</span> <span class="o">=</span> <span class="n">grouping</span><span class="o">.</span><span class="n">median</span><span class="p">()</span>
+    <span class="c1"># Divide plant scaling factors by zone scaling factors as appropriate</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">fuel</span><span class="p">,</span> <span class="n">zone_id</span><span class="p">),</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">common_factors</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">fuel</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">change_table</span><span class="p">:</span>
+            <span class="n">change_table</span><span class="p">[</span><span class="n">fuel</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">{}}</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">v</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">epsilon</span><span class="p">:</span>
+            <span class="c1"># Zone scaling not needed if it&#39;s close enough to 1</span>
+            <span class="k">continue</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">change_table</span><span class="p">[</span><span class="n">fuel</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">][</span><span class="n">zone_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+            <span class="c1"># Since we have meaningful zone scaling, modify plant scaling</span>
+            <span class="n">matching_indices</span> <span class="o">=</span> <span class="n">grouping</span><span class="o">.</span><span class="n">get_group</span><span class="p">((</span><span class="n">fuel</span><span class="p">,</span> <span class="n">zone_id</span><span class="p">))</span><span class="o">.</span><span class="n">index</span>
+            <span class="n">new_plant_scaling</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">matching_indices</span><span class="p">]</span> <span class="o">/=</span> <span class="n">v</span>
+
+    <span class="c1"># Drop plant scaling factors that are nearly 1</span>
+    <span class="n">approx_1_plants</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">new_plant_scaling</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">epsilon</span>
+    <span class="n">new_plant_scaling</span> <span class="o">=</span> <span class="n">new_plant_scaling</span><span class="p">[</span><span class="o">~</span><span class="n">approx_1_plants</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">new_plant_scaling</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">plantfuel</span> <span class="o">=</span> <span class="n">base_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">plantfuel</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">change_table</span><span class="p">:</span>
+            <span class="n">change_table</span><span class="p">[</span><span class="n">plantfuel</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="s2">&quot;plant_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">change_table</span><span class="p">[</span><span class="n">plantfuel</span><span class="p">]:</span>
+            <span class="n">change_table</span><span class="p">[</span><span class="n">plantfuel</span><span class="p">][</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">change_table</span><span class="p">[</span><span class="n">plantfuel</span><span class="p">][</span><span class="s2">&quot;plant_id&quot;</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+
+    <span class="k">return</span> <span class="n">change_table</span>
+
+
+<div class="viewcode-block" id="mimic_generation_capacity"><a class="viewcode-back" href="../../../powersimdata.design.html#powersimdata.design.mimic_grid.mimic_generation_capacity">[docs]</a><span class="k">def</span> <span class="nf">mimic_generation_capacity</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">ref_grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given a base grid and a reference grid, determine zone and plant scaling</span>
+<span class="sd">    factors such that the combination, when applied to the base grid, produces</span>
+<span class="sd">    the reference grid.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid base_grid: the base grid (unscaled).</span>
+<span class="sd">    :param powersimdata.input.grid.Grid ref_grid: the base grid (unscaled).</span>
+<span class="sd">    :return: (*dict*) -- dictionary of plant/zone scaling factors in a format</span>
+<span class="sd">        matching ct in powersimdata.input.change_table.ChangeTable.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">base_plant</span> <span class="o">=</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">plant</span>
+    <span class="n">ref_plant</span> <span class="o">=</span> <span class="n">ref_grid</span><span class="o">.</span><span class="n">plant</span>
+    <span class="n">plant_scaling</span> <span class="o">=</span> <span class="n">ref_plant</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">/</span> <span class="n">base_plant</span><span class="o">.</span><span class="n">Pmax</span>
+    <span class="c1"># Element-wise division will return NaN for plants not in ref_grid</span>
+    <span class="n">plant_scaling</span> <span class="o">=</span> <span class="n">plant_scaling</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">change_table</span> <span class="o">=</span> <span class="n">_calculate_common_zone_factors</span><span class="p">(</span><span class="n">base_plant</span><span class="p">,</span> <span class="n">ref_plant</span><span class="p">,</span> <span class="n">plant_scaling</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">change_table</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

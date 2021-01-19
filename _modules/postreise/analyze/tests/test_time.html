@@ -1,0 +1,792 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>postreise.analyze.tests.test_time &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for postreise.analyze.tests.test_time</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">pytest</span>
+<span class="kn">import</span> <span class="nn">pytz</span>
+
+<span class="kn">from</span> <span class="nn">postreise.analyze.time</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">change_time_zone</span><span class="p">,</span>
+    <span class="n">is_dst</span><span class="p">,</span>
+    <span class="n">resample_time_series</span><span class="p">,</span>
+    <span class="n">slice_time_series</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">nb_hours</span> <span class="o">=</span> <span class="mi">366</span> <span class="o">*</span> <span class="mi">24</span>
+<span class="n">ts_as_data_frame</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+    <span class="p">{</span><span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">nb_hours</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">nb_hours</span><span class="p">},</span>
+    <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="n">nb_hours</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="n">ts_as_series</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">nb_hours</span><span class="p">,</span>
+    <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="n">nb_hours</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="test_slicing"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_slicing">[docs]</a><span class="k">def</span> <span class="nf">test_slicing</span><span class="p">():</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">31</span><span class="p">)</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">,</span> <span class="n">ts_as_series</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arg</span><span class="p">:</span>
+        <span class="n">ts_sliced</span> <span class="o">=</span> <span class="n">slice_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">ts_sliced</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">start</span>
+        <span class="k">assert</span> <span class="n">ts_sliced</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">end</span></div>
+
+
+<div class="viewcode-block" id="test_resampling_argument_value"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_resampling_argument_value">[docs]</a><span class="k">def</span> <span class="nf">test_resampling_argument_value</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">,</span> <span class="s2">&quot;Q&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="n">ts_as_series</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">,</span> <span class="s2">&quot;median&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;US/Pacific&quot;</span><span class="p">),</span> <span class="s2">&quot;W&quot;</span><span class="p">,</span> <span class="s2">&quot;sum&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arg</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">agg</span><span class="o">=</span><span class="n">a</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="test_daily_resampling_sum"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_daily_resampling_sum">[docs]</a><span class="k">def</span> <span class="nf">test_daily_resampling_sum</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">,</span> <span class="n">ts_as_series</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="c1"># 366 days are available in 2016</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">366</span>
+        <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">31</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">a</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">a</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="test_daily_resampling_time_shift_sum"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_daily_resampling_time_shift_sum">[docs]</a><span class="k">def</span> <span class="nf">test_daily_resampling_time_shift_sum</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ts_as_data_frame</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">),</span>
+        <span class="n">ts_as_series</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># first day (2015/12/31) and last day (2016/12/31) are incomplete.</span>
+            <span class="c1"># 365 full days are available in 2016 after resampling using sum.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">365</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-12-30&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># first day (2016/01/01) and last day (2017/01/01) are incomplete.</span>
+            <span class="c1"># 365 full days are available in 2016 after resampling using sum.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">365</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-02&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-12-31&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_daily_resampling_mean"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_daily_resampling_mean">[docs]</a><span class="k">def</span> <span class="nf">test_daily_resampling_mean</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">,</span> <span class="n">ts_as_series</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="c1"># 366 days are available in 2016</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">366</span>
+        <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="test_daily_resampling_time_shift_mean"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_daily_resampling_time_shift_mean">[docs]</a><span class="k">def</span> <span class="nf">test_daily_resampling_time_shift_mean</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ts_as_data_frame</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">),</span>
+        <span class="n">ts_as_series</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">367</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># first day (2015/12/31) and last day (2016/12/31) are incomplete.</span>
+            <span class="c1"># 1 day is available in 2015 and 366 days are available in 2016</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2015-12-31&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-12-31&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># first day (2016/01/01) and last day (2017/01/01) are incomplete.</span>
+            <span class="c1"># 366 days are available in 2016 and 1 day is available in 2017</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2017-01-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="test_daily_resampling_incomplete_sum"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_daily_resampling_incomplete_sum">[docs]</a><span class="k">def</span> <span class="nf">test_daily_resampling_incomplete_sum</span><span class="p">():</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span> <span class="n">ts_as_series</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span> <span class="s2">&quot;D&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="c1"># first day (2016/01/01) and last day (2016/01/31) are incomplete.</span>
+        <span class="c1"># 29 days are available in Jamuary 2016 after resampling using sum.</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">29</span>
+        <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="mi">29</span> <span class="o">*</span> <span class="mi">24</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="mi">29</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">24</span><span class="p">)],</span> <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">])</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="mi">29</span> <span class="o">*</span> <span class="mi">24</span></div>
+
+
+<div class="viewcode-block" id="test_daily_resampling_incomplete_and_time_shift_sum"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_daily_resampling_incomplete_and_time_shift_sum">[docs]</a><span class="k">def</span> <span class="nf">test_daily_resampling_incomplete_and_time_shift_sum</span><span class="p">():</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ts_as_data_frame</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">),</span>
+        <span class="n">ts_as_series</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># first day (2016/01/01) and last day (2016/01/31) are incomplete.</span>
+            <span class="c1"># 29 full days are available in January 2016 after resampling using sum.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">29</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-02&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-30&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># first day (2016/01/02) and last day (2016/02/01) are incomplete.</span>
+            <span class="c1"># 29 full days are available in January 2016 after resampling using sum.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">29</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-03&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-31&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_daily_resampling_incomplete_mean"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_daily_resampling_incomplete_mean">[docs]</a><span class="k">def</span> <span class="nf">test_daily_resampling_incomplete_mean</span><span class="p">():</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span> <span class="n">ts_as_series</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">)</span>
+        <span class="c1"># first day (2016/01/01) and last day (2016/01/31) are incomplete.</span>
+        <span class="c1"># 31 days are available in January 2016 after resampling using mean.</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">31</span>
+        <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="test_daily_resampling_incomplete_and_time_shift_mean"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_daily_resampling_incomplete_and_time_shift_mean">[docs]</a><span class="k">def</span> <span class="nf">test_daily_resampling_incomplete_and_time_shift_mean</span><span class="p">():</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ts_as_data_frame</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">),</span>
+        <span class="n">ts_as_series</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># first day (2016/01/01) and last day (2016/01/31) are incomplete.</span>
+            <span class="c1"># 31 days are available in January 2016 when resampling using mean.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">31</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-31&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># first day (2016/01/02) and last day (2016/02/01) are incomplete.</span>
+            <span class="c1"># 30 days are available in January 2016 and 1 day available in February 2016</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">31</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-02&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-02-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_weekly_resampling_sum"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_weekly_resampling_sum">[docs]</a><span class="k">def</span> <span class="nf">test_weekly_resampling_sum</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">,</span> <span class="n">ts_as_series</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="c1"># first week (2015/12/28) is incomplete.</span>
+        <span class="c1"># 52 full weeks are available in 2016 after resampling using sum.</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">52</span>
+        <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">dayofweek</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">6</span>  <span class="c1"># week starts on Sunday</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="ow">not</span> <span class="n">a</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">a</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">!=</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="test_weekly_resampling_time_shift_sum"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_weekly_resampling_time_shift_sum">[docs]</a><span class="k">def</span> <span class="nf">test_weekly_resampling_time_shift_sum</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ts_as_data_frame</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">),</span>
+        <span class="n">ts_as_series</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># first week (2015/12/28) and last week (2016/12/25) are incomplete.</span>
+            <span class="c1"># 51 full weeks are available in 2016 after resampling using sum.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">51</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-03&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-12-18&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># first week (2015/12/28) is incomplete.</span>
+            <span class="c1"># 52 full weeks are available in 2016 after resampling using sum.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">52</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-03&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-12-25&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_weekly_resampling_mean"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_weekly_resampling_mean">[docs]</a><span class="k">def</span> <span class="nf">test_weekly_resampling_mean</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">,</span> <span class="n">ts_as_series</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="c1"># first week (2015/12/27) is incomplete.</span>
+        <span class="c1"># 1 week is available in 2015 and 52 weeks are available in 2016</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">53</span>
+        <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">dayofweek</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">6</span>  <span class="c1"># week starts on Sunday</span>
+        <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2015</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">27</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">25</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="test_weekly_resampling_time_shift_mean"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_weekly_resampling_time_shift_mean">[docs]</a><span class="k">def</span> <span class="nf">test_weekly_resampling_time_shift_mean</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ts_as_data_frame</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">),</span>
+        <span class="n">ts_as_series</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># first week (2015/12/27) and last week (2016/12/25) are incomplete.</span>
+            <span class="c1"># 1 week is available in 2015 and 52 weeks are available in 2016</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">53</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2015-12-27&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-12-25&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># first week (2015/12/27) and last week (2017/01/01) are incomplete.</span>
+            <span class="c1"># 1 week is available in 2015, 52 weeks are available in 2016 and 1 week</span>
+            <span class="c1"># is available in 2017</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">54</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2015-12-27&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2017-01-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_weekly_resampling_incomplete_sum"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_weekly_resampling_incomplete_sum">[docs]</a><span class="k">def</span> <span class="nf">test_weekly_resampling_incomplete_sum</span><span class="p">():</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span> <span class="n">ts_as_series</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span> <span class="s2">&quot;W&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="c1"># first week (2015/12/28) and last week (2016/01/31) are incomplete.</span>
+        <span class="c1"># 4 full weeks are available in 2016 after resampling using sum.</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span>
+        <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">24</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="mi">7</span> <span class="o">*</span> <span class="mi">24</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="mi">7</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">24</span><span class="p">)],</span> <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">])</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">7</span> <span class="o">*</span> <span class="mi">24</span></div>
+
+
+<div class="viewcode-block" id="test_weekly_resampling_incomplete_and_time_shift_sum"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_weekly_resampling_incomplete_and_time_shift_sum">[docs]</a><span class="k">def</span> <span class="nf">test_weekly_resampling_incomplete_and_time_shift_sum</span><span class="p">():</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ts_as_data_frame</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">),</span>
+        <span class="n">ts_as_series</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># first week (2015/12/27) and last week (2016/01/31) are incomplete.</span>
+            <span class="c1"># 4 full weeks are available in 2016 after resampling using sum.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-03&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-24&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># first week (2015/12/27) and last week (2016/01/31) are incomplete.</span>
+            <span class="c1"># 4 full weeks are available in 2016 after resampling using sum.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-03&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-24&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_weekly_resampling_incomplete_mean"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_weekly_resampling_incomplete_mean">[docs]</a><span class="k">def</span> <span class="nf">test_weekly_resampling_incomplete_mean</span><span class="p">():</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span> <span class="n">ts_as_series</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">)</span>
+        <span class="c1"># first week (2015/12/27) and last week (2016/01/31) are incomplete.</span>
+        <span class="c1"># 1 week is available in 2015 and 5 weeks are available in 2016 after</span>
+        <span class="c1"># resampling using mean.</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">6</span>
+        <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2015</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">27</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="test_weekly_resampling_incomplete_and_time_shift_mean"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_weekly_resampling_incomplete_and_time_shift_mean">[docs]</a><span class="k">def</span> <span class="nf">test_weekly_resampling_incomplete_and_time_shift_mean</span><span class="p">():</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ts_as_data_frame</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">),</span>
+        <span class="n">ts_as_series</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;W&quot;</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">6</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># first week (2015/12/27) and last week (2016/01/31) are incomplete.</span>
+            <span class="c1"># 1 week is available in 2015 and 5 weeks are available in 2016 when</span>
+            <span class="c1"># resampling using mean.</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2015-12-27&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-31&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># first week (2015/12/27) and last week (2016/01/31) are incomplete.</span>
+            <span class="c1"># 1 week is available in 2015 and 5 weeks are available in 2016 when</span>
+            <span class="c1"># resampling using mean.</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2015-12-27&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-31&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_monthly_resampling_sum"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_monthly_resampling_sum">[docs]</a><span class="k">def</span> <span class="nf">test_monthly_resampling_sum</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">,</span> <span class="n">ts_as_series</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;M&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="c1"># 12 full monts are available in 2016 when resampling using mean.</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">12</span>
+        <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">a</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">a</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="test_monthly_resampling_time_shift_sum"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_monthly_resampling_time_shift_sum">[docs]</a><span class="k">def</span> <span class="nf">test_monthly_resampling_time_shift_sum</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ts_as_data_frame</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">),</span>
+        <span class="n">ts_as_series</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;M&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># first month (2015/12) and last month (2016/12) are incomplete.</span>
+            <span class="c1"># 11 full months are available in 2016 after resampling using sum.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">11</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-11-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># first month (2016/01) and last month (2017/01) are incomplete.</span>
+            <span class="c1"># 11 full months are available in 2016 after resampling using sum.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">11</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-02-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-12-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_monthly_resampling_mean"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_monthly_resampling_mean">[docs]</a><span class="k">def</span> <span class="nf">test_monthly_resampling_mean</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">,</span> <span class="n">ts_as_series</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;M&quot;</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="c1"># 12 full months are available in 2016 when resampling using mean.</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">12</span>
+        <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="test_monthly_resampling_time_shift_mean"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_monthly_resampling_time_shift_mean">[docs]</a><span class="k">def</span> <span class="nf">test_monthly_resampling_time_shift_mean</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ts_as_data_frame</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">),</span>
+        <span class="n">ts_as_series</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;M&quot;</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># first month (2015/12) and last month (2016/12) are incomplete.</span>
+            <span class="c1"># 1 month is available in 2015 and 12 months are available in 2016 after</span>
+            <span class="c1"># resampling using mean</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">13</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2015-12-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-12-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># first month (2016/01) and last month (2017/01) are incomplete.</span>
+            <span class="c1"># 12 months are available in 2016 and 1 month available in 2017 after</span>
+            <span class="c1"># resampling using mean</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">13</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2017-01-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_monthly_resampling_incomplete_sum"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_monthly_resampling_incomplete_sum">[docs]</a><span class="k">def</span> <span class="nf">test_monthly_resampling_incomplete_sum</span><span class="p">():</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">15</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">15</span><span class="p">)</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">,</span> <span class="n">ts_as_series</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span> <span class="s2">&quot;M&quot;</span><span class="p">)</span>
+        <span class="c1"># first month (01/2016) and last month (2016/12) are incomplete.</span>
+        <span class="c1"># 10 full months are available in 2016 when resampling using sum.</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">10</span>  <span class="c1"># inncomplete months are clipped</span>
+        <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="ow">not</span> <span class="n">a</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">a</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">!=</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="test_monthly_resampling_incomplete_and_time_shift_sum"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_monthly_resampling_incomplete_and_time_shift_sum">[docs]</a><span class="k">def</span> <span class="nf">test_monthly_resampling_incomplete_and_time_shift_sum</span><span class="p">():</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ts_as_data_frame</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">),</span>
+        <span class="n">ts_as_series</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;M&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># first month (2016/01) and last month (2016/06) are incomplete.</span>
+            <span class="c1"># 4 full months are available in 2016 after resampling using sum.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-02-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-05-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># first month (2016/01) and last month (2016/07) are incomplete.</span>
+            <span class="c1"># 5 full months are available in 2016 after resampling using sum.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">5</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-02-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-06-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_monthly_resampling_incomplete_mean"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_monthly_resampling_incomplete_mean">[docs]</a><span class="k">def</span> <span class="nf">test_monthly_resampling_incomplete_mean</span><span class="p">():</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">15</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">15</span><span class="p">)</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">,</span> <span class="n">ts_as_series</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span> <span class="s2">&quot;M&quot;</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">)</span>
+        <span class="c1"># first month (01/2016) and last month (2016/12) are incomplete.</span>
+        <span class="c1"># 12 months are available in 2016 when resampling using mean.</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">12</span>
+        <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">ts_resampled</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="test_monthly_resampling_incomplete_and_time_shift_mean"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_monthly_resampling_incomplete_and_time_shift_mean">[docs]</a><span class="k">def</span> <span class="nf">test_monthly_resampling_incomplete_and_time_shift_mean</span><span class="p">():</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">18</span><span class="p">)</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ts_as_data_frame</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">),</span>
+        <span class="n">ts_as_series</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="n">ts_resampled</span> <span class="o">=</span> <span class="n">resample_time_series</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;M&quot;</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># first month (2016/01) and last month (2016/06) are incomplete.</span>
+            <span class="c1"># 6 months are available in 2016 after resampling using mean.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">6</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-06-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># first month (2016/01) and last month (2016/07) are incomplete.</span>
+            <span class="c1"># 7 months are available in 2016 after resampling using mean.</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts_resampled</span><span class="p">)</span> <span class="o">==</span> <span class="mi">7</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ts_resampled</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-07-01&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;ETC/GMT-8&quot;</span><span class="p">)</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_change_time_zone_argument_type"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_change_time_zone_argument_type">[docs]</a><span class="k">def</span> <span class="nf">test_change_time_zone_argument_type</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">(</span><span class="n">ts_as_series</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+        <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">,</span> <span class="p">{</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">}),</span>
+        <span class="p">(</span><span class="n">ts_as_series</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span> <span class="s2">&quot;US/Eastern&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arg</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">change_time_zone</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="test_change_time_zone_argument_value"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_change_time_zone_argument_value">[docs]</a><span class="k">def</span> <span class="nf">test_change_time_zone_argument_value</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">,</span> <span class="s2">&quot;US/Japan&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="n">ts_as_series</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="s2">&quot;D&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="s2">&quot;GMT+8&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arg</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+            <span class="n">change_time_zone</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="test_change_time_zone"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_change_time_zone">[docs]</a><span class="k">def</span> <span class="nf">test_change_time_zone</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span><span class="n">ts_as_data_frame</span><span class="p">,</span> <span class="n">ts_as_series</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arg</span><span class="p">:</span>
+        <span class="n">ts_idx</span> <span class="o">=</span> <span class="n">change_time_zone</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">&quot;US/Pacific&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span>
+        <span class="k">assert</span> <span class="n">ts_idx</span><span class="o">.</span><span class="n">tz</span> <span class="o">!=</span> <span class="n">pytz</span><span class="o">.</span><span class="n">timezone</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">ts_idx</span><span class="o">.</span><span class="n">tz</span> <span class="o">==</span> <span class="n">pytz</span><span class="o">.</span><span class="n">timezone</span><span class="p">(</span><span class="s2">&quot;US/Pacific&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">set</span><span class="p">(</span><span class="n">ts_idx</span><span class="o">.</span><span class="n">year</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span> <span class="o">==</span> <span class="p">{</span><span class="mi">2015</span><span class="p">,</span> <span class="mi">2016</span><span class="p">}</span>
+
+        <span class="c1"># assign time zone before calling function</span>
+        <span class="n">ts_idx</span> <span class="o">=</span> <span class="n">change_time_zone</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">),</span> <span class="s2">&quot;US/Pacific&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span>
+        <span class="k">assert</span> <span class="n">ts_idx</span><span class="o">.</span><span class="n">tz</span> <span class="o">!=</span> <span class="n">pytz</span><span class="o">.</span><span class="n">timezone</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">ts_idx</span><span class="o">.</span><span class="n">tz</span> <span class="o">==</span> <span class="n">pytz</span><span class="o">.</span><span class="n">timezone</span><span class="p">(</span><span class="s2">&quot;US/Pacific&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">set</span><span class="p">(</span><span class="n">ts_idx</span><span class="o">.</span><span class="n">year</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span> <span class="o">==</span> <span class="p">{</span><span class="mi">2015</span><span class="p">,</span> <span class="mi">2016</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="test_is_dst"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_time.test_is_dst">[docs]</a><span class="k">def</span> <span class="nf">test_is_dst</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">ts_as_data_frame</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">),</span>
+        <span class="n">ts_as_series</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">),</span>
+        <span class="n">ts_as_data_frame</span><span class="p">,</span>
+        <span class="n">ts_as_data_frame</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="s2">&quot;UTC&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="s2">&quot;US/Pacific&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="ow">not</span> <span class="n">is_dst</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">is_dst</span><span class="p">(</span><span class="n">a</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

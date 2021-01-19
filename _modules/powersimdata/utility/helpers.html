@@ -1,0 +1,272 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.utility.helpers &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.utility.helpers</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">importlib</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+
+<div class="viewcode-block" id="CommandBuilder"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.CommandBuilder">[docs]</a><span class="k">class</span> <span class="nc">CommandBuilder</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper class to construct unix commands that are run over ssh</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="CommandBuilder.copy"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.CommandBuilder.copy">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dest</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">update</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Builds a cp command with some options</span>
+
+<span class="sd">        :param str src: The source directory or file</span>
+<span class="sd">        :param str dest: The desination directory or file</span>
+<span class="sd">        :param bool recursive: Whether to pass -R option</span>
+<span class="sd">        :param bool update: Whether to pass -u option</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">r_flag</span> <span class="o">=</span> <span class="s2">&quot;R&quot;</span> <span class="k">if</span> <span class="n">recursive</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">u_flag</span> <span class="o">=</span> <span class="s2">&quot;u&quot;</span> <span class="k">if</span> <span class="n">update</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">p_flag</span> <span class="o">=</span> <span class="s2">&quot;p&quot;</span>
+        <span class="n">flags</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;-</span><span class="si">{</span><span class="n">r_flag</span><span class="si">}{</span><span class="n">u_flag</span><span class="si">}{</span><span class="n">p_flag</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="sa">fr</span><span class="s2">&quot;\cp </span><span class="si">{</span><span class="n">flags</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">src</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">dest</span><span class="si">}</span><span class="s2">&quot;</span></div>
+
+<div class="viewcode-block" id="CommandBuilder.remove"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.CommandBuilder.remove">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Builds a rm command with some options</span>
+
+<span class="sd">        :param str target: the path or file to be removed</span>
+<span class="sd">        :param bool recursive: whether to pass -r option</span>
+<span class="sd">        :param bool force: whether to pass -f option</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">r_flag</span> <span class="o">=</span> <span class="s2">&quot;r&quot;</span> <span class="k">if</span> <span class="n">recursive</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">f_flag</span> <span class="o">=</span> <span class="s2">&quot;f&quot;</span> <span class="k">if</span> <span class="n">force</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">recursive</span> <span class="ow">or</span> <span class="n">force</span><span class="p">:</span>
+            <span class="n">flags</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;-</span><span class="si">{</span><span class="n">r_flag</span><span class="si">}{</span><span class="n">f_flag</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;rm </span><span class="si">{</span><span class="n">flags</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;rm </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">&quot;</span></div>
+
+<div class="viewcode-block" id="CommandBuilder.list"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.CommandBuilder.list">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">list</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Builds an ls command</span>
+
+<span class="sd">        :param str path: the path argument</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;ls </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span></div></div>
+
+
+<div class="viewcode-block" id="MemoryCache"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.MemoryCache">[docs]</a><span class="k">class</span> <span class="nc">MemoryCache</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Wrapper around a dict object that exposes a cache interface. Users should</span>
+<span class="sd">    create a separate instance for each distinct use case.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="MemoryCache.put"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.MemoryCache.put">[docs]</a>    <span class="k">def</span> <span class="nf">put</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add or set the value for the given key.</span>
+
+<span class="sd">        :param tuple key: a tuple used to lookup the cached value</span>
+<span class="sd">        :param Any obj: the object to cache</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">obj</span></div>
+
+<div class="viewcode-block" id="MemoryCache.get"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.MemoryCache.get">[docs]</a>    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Retrieve the value associated with key if it exists.</span>
+
+<span class="sd">        :param tuple key: the cache key</span>
+<span class="sd">        :return: (*Any* or *NoneType*) -- the cached value if found, or None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="p">[</span><span class="n">key</span><span class="p">])</span></div>
+
+<div class="viewcode-block" id="MemoryCache.list_keys"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.MemoryCache.list_keys">[docs]</a>    <span class="k">def</span> <span class="nf">list_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return and print the current cache keys.</span>
+
+<span class="sd">        :return: (*list*) -- the list of cache keys</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cache</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">keys</span></div></div>
+
+
+<div class="viewcode-block" id="cache_key"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.cache_key">[docs]</a><span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Creates a cache key from the given args. The user should ensure that the</span>
+<span class="sd">    range of inputs will not result in key collisions.</span>
+
+<span class="sd">    :param args: variable length argument list</span>
+<span class="sd">    :return: (*tuple*) -- a tuple containing the input in heirarchical</span>
+<span class="sd">        structure</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">kb</span> <span class="o">=</span> <span class="n">CacheKeyBuilder</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">kb</span><span class="o">.</span><span class="n">build</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="CacheKeyBuilder"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.CacheKeyBuilder">[docs]</a><span class="k">class</span> <span class="nc">CacheKeyBuilder</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Helper class to generate cache keys</span>
+
+<span class="sd">    :param args: variable length arguments from which to build a key</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">args</span>
+
+<div class="viewcode-block" id="CacheKeyBuilder.build"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.CacheKeyBuilder.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Combine args into a tuple, preserving the structure of each element.</span>
+
+<span class="sd">        :return: (*tuple*) -- container which can be used as a cache key</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arg</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">arg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;null&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="n">arg</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">set</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_build</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arg</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unsupported type for cache key = </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PrintManager"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.PrintManager">[docs]</a><span class="k">class</span> <span class="nc">PrintManager</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Manages print messages.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span>
+
+<div class="viewcode-block" id="PrintManager.block_print"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.PrintManager.block_print">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">block_print</span><span class="p">():</span>
+        <span class="sd">&quot;&quot;&quot;Suppresses print&quot;&quot;&quot;</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">devnull</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PrintManager.enable_print"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.PrintManager.enable_print">[docs]</a>    <span class="k">def</span> <span class="nf">enable_print</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Enables print&quot;&quot;&quot;</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stdout</span></div></div>
+
+
+<span class="k">def</span> <span class="nf">_check_import</span><span class="p">(</span><span class="n">package_name</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Import a package, or give a useful error message if it&#39;s not there.&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">package_name</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="n">err_msg</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">package_name</span><span class="si">}</span><span class="s2"> is not installed. &quot;</span>
+            <span class="s2">&quot;It may be an optional powersimdata requirement.&quot;</span>
+        <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

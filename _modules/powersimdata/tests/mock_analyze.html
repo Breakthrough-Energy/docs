@@ -1,0 +1,247 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.tests.mock_analyze &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.tests.mock_analyze</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.analyze</span> <span class="kn">import</span> <span class="n">Analyze</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_grid</span> <span class="kn">import</span> <span class="n">MockGrid</span>
+
+
+<span class="k">def</span> <span class="nf">_ensure_ts_index</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;If a dataframe is provided and the index is not a time series, add a time series</span>
+<span class="sd">    index. If the input is None, return it as is.</span>
+
+<span class="sd">    :param pandas.DataFrame/None df: data frame, or None.</span>
+<span class="sd">    :return: (*pandas.DataFrame/None*) -- input, with time series index if possible.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">df</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">df</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DatetimeIndex</span><span class="p">):</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">),</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">),</span>
+            <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;UTC&quot;</span>
+    <span class="k">return</span> <span class="n">df</span>
+
+
+<div class="viewcode-block" id="MockAnalyze"><a class="viewcode-back" href="../../../powersimdata.tests.html#powersimdata.tests.mock_analyze.MockAnalyze">[docs]</a><span class="k">class</span> <span class="nc">MockAnalyze</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">grid_attrs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">congl</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">congu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">ct</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">demand</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">lmp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">pg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">solar</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">wind</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">hydro</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
+
+<span class="sd">        :param dict grid_attrs: fields to be added to grid.</span>
+<span class="sd">        :param pandas.DataFrame congl: dummy congl</span>
+<span class="sd">        :param pandas.DataFrame congu: dummy congu</span>
+<span class="sd">        :param dict ct: dummy ct</span>
+<span class="sd">        :param pandas.DataFrame demand: dummy demand</span>
+<span class="sd">        :param pandas.DataFrame lmp: dummy lmp</span>
+<span class="sd">        :param pandas.DataFrame pg: dummy pg</span>
+<span class="sd">        :param pandas.DataFrame solar: dummy solar</span>
+<span class="sd">        :param pandas.DataFrame wind: dummy wind</span>
+<span class="sd">        :param pandas.DataFrame hydro: dummy hydro</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">MockGrid</span><span class="p">(</span><span class="n">grid_attrs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">congl</span> <span class="o">=</span> <span class="n">_ensure_ts_index</span><span class="p">(</span><span class="n">congl</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">congu</span> <span class="o">=</span> <span class="n">_ensure_ts_index</span><span class="p">(</span><span class="n">congu</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="n">ct</span> <span class="k">if</span> <span class="n">ct</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">demand</span> <span class="o">=</span> <span class="n">_ensure_ts_index</span><span class="p">(</span><span class="n">demand</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lmp</span> <span class="o">=</span> <span class="n">_ensure_ts_index</span><span class="p">(</span><span class="n">lmp</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pg</span> <span class="o">=</span> <span class="n">_ensure_ts_index</span><span class="p">(</span><span class="n">pg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">solar</span> <span class="o">=</span> <span class="n">_ensure_ts_index</span><span class="p">(</span><span class="n">solar</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wind</span> <span class="o">=</span> <span class="n">_ensure_ts_index</span><span class="p">(</span><span class="n">wind</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hydro</span> <span class="o">=</span> <span class="n">_ensure_ts_index</span><span class="p">(</span><span class="n">hydro</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;analyze&quot;</span>
+
+<div class="viewcode-block" id="MockAnalyze.get_congl"><a class="viewcode-back" href="../../../powersimdata.tests.html#powersimdata.tests.mock_analyze.MockAnalyze.get_congl">[docs]</a>    <span class="k">def</span> <span class="nf">get_congl</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get congl.</span>
+<span class="sd">        :return: (pandas.DataFrame) -- dummy congl</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">congl</span></div>
+
+<div class="viewcode-block" id="MockAnalyze.get_congu"><a class="viewcode-back" href="../../../powersimdata.tests.html#powersimdata.tests.mock_analyze.MockAnalyze.get_congu">[docs]</a>    <span class="k">def</span> <span class="nf">get_congu</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get congu.</span>
+<span class="sd">        :return: (pandas.DataFrame) -- dummy congu</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">congu</span></div>
+
+<div class="viewcode-block" id="MockAnalyze.get_ct"><a class="viewcode-back" href="../../../powersimdata.tests.html#powersimdata.tests.mock_analyze.MockAnalyze.get_ct">[docs]</a>    <span class="k">def</span> <span class="nf">get_ct</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get ct.</span>
+<span class="sd">        :return: (Dict) -- dummy ct</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span></div>
+
+<div class="viewcode-block" id="MockAnalyze.get_demand"><a class="viewcode-back" href="../../../powersimdata.tests.html#powersimdata.tests.mock_analyze.MockAnalyze.get_demand">[docs]</a>    <span class="k">def</span> <span class="nf">get_demand</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">original</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get demand.</span>
+<span class="sd">        :return: (pandas.DataFrame) -- dummy demand</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">demand</span></div>
+
+<div class="viewcode-block" id="MockAnalyze.get_grid"><a class="viewcode-back" href="../../../powersimdata.tests.html#powersimdata.tests.mock_analyze.MockAnalyze.get_grid">[docs]</a>    <span class="k">def</span> <span class="nf">get_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get grid.</span>
+<span class="sd">        :return: (MockGrid) -- mock grid</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span></div>
+
+<div class="viewcode-block" id="MockAnalyze.get_lmp"><a class="viewcode-back" href="../../../powersimdata.tests.html#powersimdata.tests.mock_analyze.MockAnalyze.get_lmp">[docs]</a>    <span class="k">def</span> <span class="nf">get_lmp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get lmp.</span>
+<span class="sd">        :return: (pandas.DataFrame) -- dummy lmp</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lmp</span></div>
+
+<div class="viewcode-block" id="MockAnalyze.get_pg"><a class="viewcode-back" href="../../../powersimdata.tests.html#powersimdata.tests.mock_analyze.MockAnalyze.get_pg">[docs]</a>    <span class="k">def</span> <span class="nf">get_pg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get PG.</span>
+<span class="sd">        :return: (pandas.DataFrame) -- dummy pg</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pg</span></div>
+
+<div class="viewcode-block" id="MockAnalyze.get_solar"><a class="viewcode-back" href="../../../powersimdata.tests.html#powersimdata.tests.mock_analyze.MockAnalyze.get_solar">[docs]</a>    <span class="k">def</span> <span class="nf">get_solar</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get solar.</span>
+<span class="sd">        :return: (pandas.DataFrame) -- dummy solar</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">solar</span></div>
+
+<div class="viewcode-block" id="MockAnalyze.get_wind"><a class="viewcode-back" href="../../../powersimdata.tests.html#powersimdata.tests.mock_analyze.MockAnalyze.get_wind">[docs]</a>    <span class="k">def</span> <span class="nf">get_wind</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get wind.</span>
+<span class="sd">        :return: (pandas.DataFrame) -- dummy wind</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">wind</span></div>
+
+<div class="viewcode-block" id="MockAnalyze.get_hydro"><a class="viewcode-back" href="../../../powersimdata.tests.html#powersimdata.tests.mock_analyze.MockAnalyze.get_hydro">[docs]</a>    <span class="k">def</span> <span class="nf">get_hydro</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get hydro.</span>
+<span class="sd">        :return: (pandas.DataFrame) -- dummy hydro</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">hydro</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">__class__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;If anyone asks, I&#39;m an Analyze object!&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Analyze</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

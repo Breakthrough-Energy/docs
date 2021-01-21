@@ -16,10 +16,10 @@ Thank you for joining the Breakthrough Energy Sciences community!
 7. Make a pull request (see the guide [here][git guide])
 
 
-### Data intake procedure
+### Data Intake Procedure
 Before using any external dataset in your project, we must be absolutely certain that it can be redistributed. This applies to both data obtained via an API and data files that are first downloaded and then uploaded to one of our repository on GitHub or any public storage.
 
-A feature relying on external data will not be merged to the code base unless those can be redistributed; therefore it would be a waste of time to write code centered around an external data set before knowing if it can be used. For this reason, we ask you, as soon as you have identified data you need, to follow the following procedure:
+A feature relying on external data will not be merged to the code base unless those can be redistributed; therefore it would be a waste of time to write code centered around an external dataset before knowing if it can be used. For this reason, we ask you to follow the below procedure if you should need external data to develop your feature:
 
 1. Create an issue on GitHub using the ***data intake*** template, available in **PreREISE**, **PowerSimData** and **PostREISE** repositories. Fill out all the fields. Make sure the issue has ***data intake*** as label and that *Daniel Olsen* and *Benjamin Rouillé d'Orfeuil* are assigned to the issue.
 2. The Breakthrough Energy Sciences team makes sure the data can be used/redistributed.

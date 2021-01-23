@@ -1,0 +1,388 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.design.investment.create_mapping_files &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.design.investment.create_mapping_files</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.design.investment</span> <span class="kn">import</span> <span class="n">const</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility.helpers</span> <span class="kn">import</span> <span class="n">_check_import</span>
+
+
+<div class="viewcode-block" id="sjoin_nearest"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.create_mapping_files.sjoin_nearest">[docs]</a><span class="k">def</span> <span class="nf">sjoin_nearest</span><span class="p">(</span><span class="n">left_df</span><span class="p">,</span> <span class="n">right_df</span><span class="p">,</span> <span class="n">search_dist</span><span class="o">=</span><span class="mf">0.06</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Perform a spatial join between two input layers.</span>
+<span class="sd">    If a geometry in left_df falls outside (all) geometries in right_df, the data from</span>
+<span class="sd">        nearest Polygon will be used as a result.</span>
+<span class="sd">    To make queries faster, change &quot;search_dist.&quot;</span>
+<span class="sd">    :param geopandas.GeoDataFrame left_df: A dataframe of Points.</span>
+<span class="sd">    :param geopandas.GeoDataFrame right_df: A dataframe of Polygons/Multipolygons</span>
+<span class="sd">    :param float/int search_dist: parameter (specified in map units) is used to limit</span>
+<span class="sd">        the search area for geometries around source points. Smaller -&gt; faster runtime.</span>
+<span class="sd">    :return: (*geopandas.GeoDataFrame*) -- A dataframe of Points mapped to each polygon</span>
+<span class="sd">        in right_df.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_find_nearest</span><span class="p">(</span><span class="n">series</span><span class="p">,</span> <span class="n">polygons</span><span class="p">,</span> <span class="n">search_dist</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Given a row with a bus id and a Point, find the closest polygon.</span>
+
+<span class="sd">        :param pandas.Series series: point to map.</span>
+<span class="sd">        :param geopandas.geodataframe.GeoDataFrame polygons: polygons to select from.</span>
+<span class="sd">        :param float search_dist: radius around point to detect polygons in.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">geom</span> <span class="o">=</span> <span class="n">series</span><span class="p">[</span><span class="n">left_df</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
+        <span class="c1"># Get geometries within search distance</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="n">polygons</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">polygons</span><span class="o">.</span><span class="n">intersects</span><span class="p">(</span><span class="n">geom</span><span class="o">.</span><span class="n">buffer</span><span class="p">(</span><span class="n">search_dist</span><span class="p">))]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No polygons found within </span><span class="si">{</span><span class="n">search_dist</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="n">series</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Select the closest Polygon</span>
+        <span class="n">distances</span> <span class="o">=</span> <span class="n">candidates</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">geom</span><span class="o">.</span><span class="n">distance</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">candidates</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">exterior</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+        <span class="p">)</span>
+        <span class="n">closest_poly</span> <span class="o">=</span> <span class="n">polygons</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">distances</span><span class="o">.</span><span class="n">idxmin</span><span class="p">]</span><span class="o">.</span><span class="n">to_frame</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="c1"># Reset index</span>
+        <span class="n">series</span> <span class="o">=</span> <span class="n">series</span><span class="o">.</span><span class="n">to_frame</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Drop geometry from closest polygon</span>
+        <span class="n">closest_poly</span> <span class="o">=</span> <span class="n">closest_poly</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">polygons</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">closest_poly</span> <span class="o">=</span> <span class="n">closest_poly</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Join values</span>
+        <span class="n">join</span> <span class="o">=</span> <span class="n">series</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">closest_poly</span><span class="p">,</span> <span class="n">lsuffix</span><span class="o">=</span><span class="s2">&quot;_left&quot;</span><span class="p">,</span> <span class="n">rsuffix</span><span class="o">=</span><span class="s2">&quot;_right&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Add information about distance to closest geometry if requested</span>
+        <span class="n">join</span><span class="p">[</span><span class="s2">&quot;dist&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">distances</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">join</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+
+    <span class="n">gpd</span> <span class="o">=</span> <span class="n">_check_import</span><span class="p">(</span><span class="s2">&quot;geopandas&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="s2">&quot;dist&quot;</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">left_df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">right_df</span><span class="o">.</span><span class="n">columns</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;neither series nor polygons can contain a &#39;dist&#39; column&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Explode possible MultiGeometries. This is a major speedup!</span>
+    <span class="n">right_df</span> <span class="o">=</span> <span class="n">right_df</span><span class="o">.</span><span class="n">explode</span><span class="p">()</span>
+    <span class="n">right_df</span> <span class="o">=</span> <span class="n">right_df</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Make spatial join between points that fall inside the Polygons</span>
+    <span class="n">points_in_regions</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">sjoin</span><span class="p">(</span><span class="n">left_df</span><span class="o">=</span><span class="n">left_df</span><span class="p">,</span> <span class="n">right_df</span><span class="o">=</span><span class="n">right_df</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="s2">&quot;intersects&quot;</span><span class="p">)</span>
+    <span class="n">points_in_regions</span><span class="p">[</span><span class="s2">&quot;dist&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1"># Find closest Polygons, for points that don&#39;t fall within any</span>
+    <span class="n">missing_indices</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">left_df</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">points_in_regions</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="n">points_not_in_regions</span> <span class="o">=</span> <span class="n">left_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">missing_indices</span><span class="p">]</span>
+    <span class="n">closest_geometries</span> <span class="o">=</span> <span class="n">points_not_in_regions</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="n">_find_nearest</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">right_df</span><span class="p">,</span> <span class="n">search_dist</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Merge everything together</span>
+    <span class="n">closest_geometries</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">(</span><span class="n">closest_geometries</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">points_in_regions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">closest_geometries</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="points_to_polys"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.create_mapping_files.points_to_polys">[docs]</a><span class="k">def</span> <span class="nf">points_to_polys</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">shpfile</span><span class="p">,</span> <span class="n">search_dist</span><span class="o">=</span><span class="mf">0.04</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given a dataframe which includes &#39;lat&#39; and &#39;lon&#39; columns, and a shapefile of</span>
+<span class="sd">        Polygons/Multipolygon regions, map df.index to closest regions.</span>
+
+<span class="sd">    :param pandas.DataFrame df: includes an index, and &#39;lat&#39; and &#39;lon&#39; columns.</span>
+<span class="sd">    :param str name: what to name the id (bus, plant, substation, etc)</span>
+<span class="sd">    :param str shpfile: name of shapefile containing a collection Polygon/Multipolygon</span>
+<span class="sd">        shapes with region IDs.</span>
+<span class="sd">    :param float/int search_dist: distance to search from point for nearest polygon.</span>
+<span class="sd">    :raises ValueError: if some points are dropped because too far away from polys.</span>
+<span class="sd">    :return: (*geopandas.GeoDataFrame*) --</span>
+<span class="sd">        columns: index id, (point) geometry, [region, other properties of region]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">gpd</span> <span class="o">=</span> <span class="n">_check_import</span><span class="p">(</span><span class="s2">&quot;geopandas&quot;</span><span class="p">)</span>
+    <span class="n">polys</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="n">shpfile</span><span class="p">)</span>
+
+    <span class="c1"># If no assigned crs, assign it. If it has another crs assigned, convert it.</span>
+    <span class="n">crs</span> <span class="o">=</span> <span class="s2">&quot;EPSG:4326&quot;</span>
+    <span class="k">if</span> <span class="n">polys</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">polys</span><span class="o">.</span><span class="n">crs</span> <span class="o">=</span> <span class="n">crs</span>
+    <span class="k">elif</span> <span class="n">polys</span><span class="o">.</span><span class="n">crs</span> <span class="o">!=</span> <span class="n">crs</span><span class="p">:</span>
+        <span class="n">polys</span> <span class="o">=</span> <span class="n">polys</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">)</span>
+
+    <span class="c1"># load buses into Points geodataframe</span>
+    <span class="n">id_name</span> <span class="o">=</span> <span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;_id&quot;</span>
+    <span class="n">pts</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">(</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="n">id_name</span><span class="p">:</span> <span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="p">}),</span>
+        <span class="n">geometry</span><span class="o">=</span><span class="n">gpd</span><span class="o">.</span><span class="n">points_from_xy</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">lon</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">lat</span><span class="p">),</span>
+        <span class="n">crs</span><span class="o">=</span><span class="n">crs</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># find which ReEDS region the points belong to</span>
+    <span class="c1"># (within the region or as close as possible, if in the ocean or something)</span>
+    <span class="n">pts_poly</span> <span class="o">=</span> <span class="n">sjoin_nearest</span><span class="p">(</span><span class="n">left_df</span><span class="o">=</span><span class="n">pts</span><span class="p">,</span> <span class="n">right_df</span><span class="o">=</span><span class="n">polys</span><span class="p">,</span> <span class="n">search_dist</span><span class="o">=</span><span class="n">search_dist</span><span class="p">)</span>
+    <span class="n">pts_poly</span> <span class="o">=</span> <span class="n">pts_poly</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">&quot;index_right&quot;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">pts_poly</span><span class="p">):</span>
+        <span class="n">dropped</span> <span class="o">=</span> <span class="n">pts</span><span class="p">[</span><span class="o">~</span><span class="n">pts</span><span class="p">[</span><span class="n">id_name</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">pts_poly</span><span class="p">[</span><span class="n">id_name</span><span class="p">])][</span><span class="n">id_name</span><span class="p">]</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+        <span class="n">err_msg</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;Some points dropped because could not be mapped to regions. &quot;</span>
+            <span class="s2">&quot;Check your lat/lon values to be sure it&#39;s in the US. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Or increase search_dist if close. Problem ids: </span><span class="si">{</span><span class="n">dropped</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">pts_poly</span></div>
+
+
+<div class="viewcode-block" id="bus_to_reeds_reg"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.create_mapping_files.bus_to_reeds_reg">[docs]</a><span class="k">def</span> <span class="nf">bus_to_reeds_reg</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given a dataframe of buses, return a dataframe of bus_id&#39;s with associated</span>
+<span class="sd">        ReEDS regions (wind resource regions (rs) and BA regions (rb)).</span>
+<span class="sd">    Used to map regional generation investment cost multipliers.</span>
+<span class="sd">    region_map.csv is from: &quot;/bokehpivot/in/reeds2/region_map.csv&quot;.</span>
+<span class="sd">    rs/rs.shp is created with :py:func:`write_poly_shapefile`.</span>
+
+<span class="sd">    :param pandas.DataFrame df: grid bus dataframe.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- bus_id map. columns: bus_id, rs, rb</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">pts_poly</span> <span class="o">=</span> <span class="n">points_to_polys</span><span class="p">(</span>
+        <span class="n">df</span><span class="p">,</span> <span class="s2">&quot;bus&quot;</span><span class="p">,</span> <span class="n">const</span><span class="o">.</span><span class="n">reeds_wind_shapefile_path</span><span class="p">,</span> <span class="n">search_dist</span><span class="o">=</span><span class="mi">2</span>
+    <span class="p">)</span>
+
+    <span class="c1"># load in rs to rb region mapping file</span>
+    <span class="n">region_map</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">reeds_wind_to_ba_path</span><span class="p">)</span>
+
+    <span class="c1"># map rs (wind region) to rb (ba region)</span>
+    <span class="n">pts_poly</span> <span class="o">=</span> <span class="n">pts_poly</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">region_map</span><span class="p">,</span> <span class="n">left_on</span><span class="o">=</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">right_on</span><span class="o">=</span><span class="s2">&quot;rs&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+    <span class="n">pts_poly</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">pts_poly</span><span class="p">)</span><span class="o">.</span><span class="n">drop</span><span class="p">([</span><span class="s2">&quot;geometry&quot;</span><span class="p">,</span> <span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">pts_poly</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;bus_id&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">pts_poly</span></div>
+
+
+<div class="viewcode-block" id="bus_to_neem_reg"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.create_mapping_files.bus_to_neem_reg">[docs]</a><span class="k">def</span> <span class="nf">bus_to_neem_reg</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given a dataframe of buses, return a dataframe of bus_id&#39;s with associated</span>
+<span class="sd">        NEEM region, lat, and lon of bus.</span>
+<span class="sd">    Used to map regional transmission investment cost multipliers.</span>
+<span class="sd">    Shapefile used to map is &#39;data/NEEM/NEEMregions.shp&#39; which is pulled from Energy</span>
+<span class="sd">        Zones `Mapping tool &lt;http://ezmt.anl.gov&gt;`_. This map is overly detailed, so I</span>
+<span class="sd">        simplified the shapes using 1 km distance (Douglas-Peucker) method in QGIS.</span>
+
+<span class="sd">    :param pandas.DataFrame df: grid.bus instance.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- bus_id map.</span>
+<span class="sd">        columns: bus_id, lat, lon, name_abbr (NEEM region)</span>
+
+<span class="sd">    Note: mapping may take a while, especially for many points.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">pts_poly</span> <span class="o">=</span> <span class="n">points_to_polys</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="s2">&quot;bus&quot;</span><span class="p">,</span> <span class="n">const</span><span class="o">.</span><span class="n">neem_shapefile_path</span><span class="p">,</span> <span class="n">search_dist</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># save lat/lon for consistency check later in _calculate_ac_inv_costs</span>
+    <span class="n">pts_poly</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pts_poly</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">y</span>
+    <span class="n">pts_poly</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pts_poly</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">x</span>
+
+    <span class="n">pts_poly</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">pts_poly</span><span class="p">)</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span>
+        <span class="p">[</span><span class="s2">&quot;geometry&quot;</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;shape_area&quot;</span><span class="p">,</span> <span class="s2">&quot;shape_leng&quot;</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+    <span class="n">pts_poly</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;bus_id&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pts_poly</span></div>
+
+
+<div class="viewcode-block" id="write_bus_neem_map"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.create_mapping_files.write_bus_neem_map">[docs]</a><span class="k">def</span> <span class="nf">write_bus_neem_map</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Maps the bus locations from the base USA grid to NEEM regions.</span>
+<span class="sd">    Writes out csv with bus numbers, associated NEEM region, and lat/lon of bus</span>
+<span class="sd">        (to check if consistent with bus location in _calculate_ac_inv_costs).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">([</span><span class="s2">&quot;USA&quot;</span><span class="p">])</span>
+    <span class="n">df_pts_bus</span> <span class="o">=</span> <span class="n">bus_to_neem_reg</span><span class="p">(</span><span class="n">base_grid</span><span class="o">.</span><span class="n">bus</span><span class="p">)</span>
+    <span class="n">df_pts_bus</span><span class="o">.</span><span class="n">sort_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_neem_regions_path</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">df_pts_bus</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_neem_regions_path</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="write_bus_reeds_map"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.create_mapping_files.write_bus_reeds_map">[docs]</a><span class="k">def</span> <span class="nf">write_bus_reeds_map</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Maps the bus locations from the base USA grid to ReEDS regions.</span>
+<span class="sd">    Writes out csv with bus numbers, associated ReEDS regions, and distances.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">([</span><span class="s2">&quot;USA&quot;</span><span class="p">])</span>
+    <span class="n">df_pts_bus</span> <span class="o">=</span> <span class="n">bus_to_reeds_reg</span><span class="p">(</span><span class="n">base_grid</span><span class="o">.</span><span class="n">bus</span><span class="p">)</span>
+    <span class="n">df_pts_bus</span><span class="o">.</span><span class="n">sort_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_reeds_regions_path</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">df_pts_bus</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_reeds_regions_path</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="write_poly_shapefile"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.create_mapping_files.write_poly_shapefile">[docs]</a><span class="k">def</span> <span class="nf">write_poly_shapefile</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Converts a ReEDS csv-format file to a shapefile. Shouldn&#39;t need to run again</span>
+<span class="sd">        unless new source data.</span>
+<span class="sd">    Right now, hard-coded read ReEDS wind resource regions (labelled rs).</span>
+<span class="sd">    gis_rs.csv is from ReEDS open-source: &quot;/bokehpivot/in/gis_rs.csv&quot;</span>
+<span class="sd">    hierarchy.csv is from: &quot;/bokehpivot/in/reeds2/hierarchy.csv&quot;</span>
+<span class="sd">    writes out the shapefile in &quot;rs/rs.shp&quot;</span>
+
+<span class="sd">    Note: These ReEDS wind resource region shapes are approximate. Thus, there are</span>
+<span class="sd">        probably some mistakes, but this is currently only used for mapping plant</span>
+<span class="sd">        regional multipliers, which are approximate anyway, so it should be fine.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fiona</span> <span class="o">=</span> <span class="n">_check_import</span><span class="p">(</span><span class="s2">&quot;fiona&quot;</span><span class="p">)</span>
+    <span class="n">shapely_geometry</span> <span class="o">=</span> <span class="n">_check_import</span><span class="p">(</span><span class="s2">&quot;shapely.geometry&quot;</span><span class="p">)</span>
+    <span class="n">Polygon</span> <span class="o">=</span> <span class="n">shapely_geometry</span><span class="o">.</span><span class="n">Polygon</span>
+    <span class="n">mapping</span> <span class="o">=</span> <span class="n">shapely_geometry</span><span class="o">.</span><span class="n">mapping</span>
+
+    <span class="n">outpath</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">reeds_wind_shapefile_path</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">outpath</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">polys</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+        <span class="n">const</span><span class="o">.</span><span class="n">reeds_wind_csv_path</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;,&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="s2">&quot;group&quot;</span><span class="p">:</span> <span class="nb">object</span><span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">hierarchy</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">reeds_mapping_hierarchy_path</span><span class="p">)</span>
+    <span class="n">polys</span> <span class="o">=</span> <span class="n">polys</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">hierarchy</span><span class="p">,</span> <span class="n">left_on</span><span class="o">=</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">right_on</span><span class="o">=</span><span class="s2">&quot;rs&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+    <span class="n">polys</span> <span class="o">=</span> <span class="n">polys</span><span class="p">[</span><span class="n">polys</span><span class="p">[</span><span class="s2">&quot;country&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;usa&quot;</span><span class="p">]</span>
+
+    <span class="c1"># Remove holes</span>
+    <span class="n">polys</span> <span class="o">=</span> <span class="n">polys</span><span class="p">[</span><span class="n">polys</span><span class="p">[</span><span class="s2">&quot;hole&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="kc">False</span><span class="p">]</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">&quot;hole&quot;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># noqa: E712</span>
+
+    <span class="c1"># Define a polygon feature geometry with one attribute</span>
+    <span class="n">schema</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;geometry&quot;</span><span class="p">:</span> <span class="s2">&quot;Polygon&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;properties&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;str&quot;</span><span class="p">},</span>
+    <span class="p">}</span>
+
+    <span class="n">names</span> <span class="o">=</span> <span class="n">polys</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">()</span>
+
+    <span class="c1"># Write a new Shapefile</span>
+    <span class="k">with</span> <span class="n">fiona</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">outpath</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="s2">&quot;ESRI Shapefile&quot;</span><span class="p">,</span> <span class="n">schema</span><span class="p">)</span> <span class="k">as</span> <span class="n">c</span><span class="p">:</span>
+        <span class="c1"># If there are multiple geometries, put the &quot;for&quot; loop here</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+            <span class="n">poly_df</span> <span class="o">=</span> <span class="n">polys</span><span class="p">[</span><span class="n">polys</span><span class="p">[</span><span class="s2">&quot;group&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">i</span><span class="p">]</span>
+            <span class="n">id_name</span> <span class="o">=</span> <span class="n">poly_df</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">()</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="n">ls</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">poly_df</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+                <span class="n">ls</span> <span class="o">+=</span> <span class="p">[(</span><span class="n">poly_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="s2">&quot;long&quot;</span><span class="p">],</span> <span class="n">poly_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">])]</span>
+
+            <span class="n">poly</span> <span class="o">=</span> <span class="n">Polygon</span><span class="p">(</span><span class="n">ls</span><span class="p">)</span>
+            <span class="n">c</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;geometry&quot;</span><span class="p">:</span> <span class="n">mapping</span><span class="p">(</span><span class="n">poly</span><span class="p">),</span>
+                    <span class="s2">&quot;properties&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">id_name</span><span class="p">},</span>
+                <span class="p">}</span>
+            <span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise_package.html">PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reisejl_package.html">REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

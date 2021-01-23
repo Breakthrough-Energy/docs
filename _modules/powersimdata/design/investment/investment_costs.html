@@ -1,0 +1,579 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.design.investment.investment_costs &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.design.investment.investment_costs</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">copy</span> <span class="k">as</span> <span class="nn">cp</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.design.investment</span> <span class="kn">import</span> <span class="n">const</span>
+<span class="kn">from</span> <span class="nn">powersimdata.design.investment.create_mapping_files</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">bus_to_neem_reg</span><span class="p">,</span>
+    <span class="n">bus_to_reeds_reg</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.design.investment.inflation</span> <span class="kn">import</span> <span class="n">calculate_inflation</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility.distance</span> <span class="kn">import</span> <span class="n">haversine</span>
+
+
+<div class="viewcode-block" id="calculate_ac_inv_costs"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.investment_costs.calculate_ac_inv_costs">[docs]</a><span class="k">def</span> <span class="nf">calculate_ac_inv_costs</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exclude_branches</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given a Scenario object, calculate the total cost of building that scenario&#39;s</span>
+<span class="sd">    upgrades of lines and transformers.</span>
+<span class="sd">    Currently uses NEEM regions to find regional multipliers.</span>
+<span class="sd">    Currently ignores financials, but all values are in 2010 $-year.</span>
+<span class="sd">    Need to test that there aren&#39;t any na values in regional multipliers</span>
+<span class="sd">    (some empty parts of table)</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param boolean sum_results: if True, sum dataframe for each category.</span>
+<span class="sd">    :return: (*dict*) -- Total costs (line costs, transformer costs) (in $2010).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="c1"># find upgraded AC lines</span>
+    <span class="n">grid_new</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="c1"># Reindex so that we don&#39;t get NaN when calculating upgrades for new branches</span>
+    <span class="n">base_grid</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">grid_new</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">index</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">grid_new</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">rateA</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">rateA</span> <span class="o">-</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">rateA</span>
+    <span class="n">grid_new</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">grid_new</span><span class="o">.</span><span class="n">branch</span><span class="p">[</span><span class="n">grid_new</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">rateA</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">exclude_branches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">present_exclude_branches</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">exclude_branches</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid_new</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="n">grid_new</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">present_exclude_branches</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">costs</span> <span class="o">=</span> <span class="n">_calculate_ac_inv_costs</span><span class="p">(</span><span class="n">grid_new</span><span class="p">,</span> <span class="n">sum_results</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">costs</span></div>
+
+
+<span class="k">def</span> <span class="nf">_calculate_ac_inv_costs</span><span class="p">(</span><span class="n">grid_new</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given a grid, calculate the total cost of building that grid&#39;s</span>
+<span class="sd">    lines and transformers.</span>
+<span class="sd">    This function is separate from calculate_ac_inv_costs() for testing purposes.</span>
+<span class="sd">    Currently counts Transformer and TransformerWinding as transformers.</span>
+<span class="sd">    Currently uses NEEM regions to find regional multipliers.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid_new: grid instance.</span>
+<span class="sd">    :param boolean sum_results: if True, sum dataframe for each category.</span>
+<span class="sd">    :return: (*dict*) -- Total costs (line costs, transformer costs).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">select_mw</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">cost_df</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Given a single branch, determine the closest kV/MW combination and return</span>
+<span class="sd">        the corresponding cost $/MW-mi.</span>
+
+<span class="sd">        :param pandas.core.series.Series x: data for a single branch</span>
+<span class="sd">        :param pandas.core.frame.DataFrame cost_df: DataFrame with kV, MW, cost columns</span>
+<span class="sd">        :return: (*pandas.core.series.Series*) -- series of [&#39;MW&#39;, &#39;costMWmi&#39;] to be</span>
+<span class="sd">            assigned to given branch</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># select corresponding cost table of selected kV</span>
+        <span class="n">tmp</span> <span class="o">=</span> <span class="n">cost_df</span><span class="p">[</span><span class="n">cost_df</span><span class="p">[</span><span class="s2">&quot;kV&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">x</span><span class="o">.</span><span class="n">kV</span><span class="p">]</span>
+        <span class="c1"># get rid of NaN values in this kV table</span>
+        <span class="n">tmp</span> <span class="o">=</span> <span class="n">tmp</span><span class="p">[</span><span class="o">~</span><span class="n">tmp</span><span class="p">[</span><span class="s2">&quot;MW&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()]</span>
+        <span class="c1"># find closest MW &amp; corresponding cost</span>
+        <span class="k">return</span> <span class="n">tmp</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">tmp</span><span class="p">[</span><span class="s2">&quot;MW&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="o">.</span><span class="n">rateA</span><span class="p">))][[</span><span class="s2">&quot;MW&quot;</span><span class="p">,</span> <span class="s2">&quot;costMWmi&quot;</span><span class="p">]]</span>
+
+    <span class="k">def</span> <span class="nf">get_transformer_mult</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">bus_reg</span><span class="p">,</span> <span class="n">ac_reg_mult</span><span class="p">,</span> <span class="n">xfmr_lookup_alerted</span><span class="o">=</span><span class="nb">set</span><span class="p">()):</span>
+        <span class="sd">&quot;&quot;&quot;Determine the regional multiplier based on kV and power (closest).</span>
+
+<span class="sd">        :param pandas.core.series.Series x: data for a single transformer.</span>
+<span class="sd">        :param pandas.core.frame.DataFrame bus_reg: data frame with bus regions</span>
+<span class="sd">        :param pandas.core.frame.DataFrame ac_reg_mult: data frame with regional mults.</span>
+<span class="sd">        :param set xfmr_lookup_alerted: set of (voltage, region) tuples for which</span>
+<span class="sd">            a message has already been printed that this lookup was not found.</span>
+<span class="sd">        :return: (*float*) -- regional multiplier.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">max_kV</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[[</span><span class="n">x</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">to_bus_id</span><span class="p">],</span> <span class="s2">&quot;baseKV&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="n">region</span> <span class="o">=</span> <span class="n">bus_reg</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">,</span> <span class="s2">&quot;name_abbr&quot;</span><span class="p">]</span>
+        <span class="n">region_mults</span> <span class="o">=</span> <span class="n">ac_reg_mult</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">ac_reg_mult</span><span class="o">.</span><span class="n">name_abbr</span> <span class="o">==</span> <span class="n">region</span><span class="p">]</span>
+
+        <span class="n">mult_lookup_kV</span> <span class="o">=</span> <span class="n">region_mults</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">region_mults</span><span class="o">.</span><span class="n">kV</span> <span class="o">-</span> <span class="n">max_kV</span><span class="p">)</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">idxmin</span><span class="p">()]</span><span class="o">.</span><span class="n">kV</span>
+        <span class="n">region_kV_mults</span> <span class="o">=</span> <span class="n">region_mults</span><span class="p">[</span><span class="n">region_mults</span><span class="o">.</span><span class="n">kV</span> <span class="o">==</span> <span class="n">mult_lookup_kV</span><span class="p">]</span>
+        <span class="n">region_kV_mults</span> <span class="o">=</span> <span class="n">region_kV_mults</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="o">~</span><span class="n">region_kV_mults</span><span class="o">.</span><span class="n">mult</span><span class="o">.</span><span class="n">isnull</span><span class="p">()]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">region_kV_mults</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">mult</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">mult_lookup_kV</span><span class="p">,</span> <span class="n">region</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">xfmr_lookup_alerted</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No multiplier for voltage </span><span class="si">{</span><span class="n">mult_lookup_kV</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="n">region</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">xfmr_lookup_alerted</span><span class="o">.</span><span class="n">add</span><span class="p">((</span><span class="n">mult_lookup_kV</span><span class="p">,</span> <span class="n">region</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mult_lookup_MW</span> <span class="o">=</span> <span class="n">region_kV_mults</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+                <span class="p">(</span><span class="n">region_kV_mults</span><span class="o">.</span><span class="n">MW</span> <span class="o">-</span> <span class="n">x</span><span class="o">.</span><span class="n">rateA</span><span class="p">)</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">idxmin</span><span class="p">(),</span> <span class="s2">&quot;MW&quot;</span>
+            <span class="p">]</span>
+            <span class="n">mult</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">region_kV_mults</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region_kV_mults</span><span class="o">.</span><span class="n">MW</span> <span class="o">==</span> <span class="n">mult_lookup_MW</span><span class="p">]</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span><span class="o">.</span><span class="n">mult</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">mult</span>
+
+    <span class="c1"># import data</span>
+    <span class="n">ac_cost</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">ac_line_cost</span><span class="p">)</span>
+    <span class="n">ac_reg_mult</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">ac_reg_mult_path</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">bus_reg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_neem_regions_path</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="s2">&quot;bus_id&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="n">bus_reg</span> <span class="o">=</span> <span class="n">bus_to_neem_reg</span><span class="p">(</span><span class="n">grid_new</span><span class="o">.</span><span class="n">bus</span><span class="p">)</span>
+        <span class="n">bus_reg</span><span class="o">.</span><span class="n">sort_index</span><span class="p">()</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_neem_regions_path</span><span class="p">)</span>
+    <span class="n">xfmr_cost</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">transformer_cost_path</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">xfmr_cost</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">xfmr_cost</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+    <span class="c1"># Mirror across diagonal</span>
+    <span class="n">xfmr_cost</span> <span class="o">+=</span> <span class="n">xfmr_cost</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">xfmr_cost</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()))</span>
+
+    <span class="c1"># map line kV</span>
+    <span class="n">bus</span> <span class="o">=</span> <span class="n">grid_new</span><span class="o">.</span><span class="n">bus</span>
+    <span class="n">branch</span> <span class="o">=</span> <span class="n">grid_new</span><span class="o">.</span><span class="n">branch</span>
+    <span class="n">branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;kV&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branch</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">,</span> <span class="s2">&quot;baseKV&quot;</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+
+    <span class="c1"># separate transformers and lines</span>
+    <span class="n">t_mask</span> <span class="o">=</span> <span class="n">branch</span><span class="p">[</span><span class="s2">&quot;branch_device_type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">([</span><span class="s2">&quot;Transformer&quot;</span><span class="p">,</span> <span class="s2">&quot;TransformerWinding&quot;</span><span class="p">])</span>
+    <span class="n">transformers</span> <span class="o">=</span> <span class="n">branch</span><span class="p">[</span><span class="n">t_mask</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">branch</span><span class="p">[</span><span class="o">~</span><span class="n">t_mask</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="c1"># Find closest kV rating</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;kV&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">ac_cost</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">ac_cost</span><span class="p">[</span><span class="s2">&quot;kV&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="o">.</span><span class="n">kV</span><span class="p">)</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">idxmin</span><span class="p">(),</span> <span class="s2">&quot;kV&quot;</span><span class="p">],</span>
+        <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">lines</span><span class="p">[[</span><span class="s2">&quot;MW&quot;</span><span class="p">,</span> <span class="s2">&quot;costMWmi&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">select_mw</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ac_cost</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># check that all buses included in this file and lat/long values match,</span>
+    <span class="c1">#   otherwise re-run mapping script on mis-matching buses.</span>
+    <span class="c1"># these buses are missing in region file</span>
+    <span class="n">bus_fix_index</span> <span class="o">=</span> <span class="n">bus</span><span class="p">[</span><span class="o">~</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">bus_reg</span><span class="o">.</span><span class="n">index</span><span class="p">)]</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">bus_mask</span> <span class="o">=</span> <span class="n">bus</span><span class="p">[</span><span class="o">~</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">bus_fix_index</span><span class="p">)]</span>
+    <span class="n">bus_mask</span> <span class="o">=</span> <span class="n">bus_mask</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">bus_reg</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;bus_id&quot;</span><span class="p">)</span>
+    <span class="c1"># these buses have incorrect lat/lon values in the region mapping file.</span>
+    <span class="c1">#   re-running the region mapping script on those buses only.</span>
+    <span class="n">bus_fix_index2</span> <span class="o">=</span> <span class="n">bus_mask</span><span class="p">[</span>
+        <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">bus_mask</span><span class="o">.</span><span class="n">lat_x</span><span class="p">,</span> <span class="n">bus_mask</span><span class="o">.</span><span class="n">lat_y</span><span class="p">)</span>
+        <span class="o">|</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">bus_mask</span><span class="o">.</span><span class="n">lon_x</span><span class="p">,</span> <span class="n">bus_mask</span><span class="o">.</span><span class="n">lon_y</span><span class="p">)</span>
+    <span class="p">]</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">bus_fix_index_all</span> <span class="o">=</span> <span class="n">bus_fix_index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">+</span> <span class="n">bus_fix_index2</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="c1"># fix the identified buses, if necessary</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bus_fix_index_all</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">bus_fix</span> <span class="o">=</span> <span class="n">bus_to_neem_reg</span><span class="p">(</span><span class="n">bus</span><span class="p">[</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">bus_fix_index_all</span><span class="p">)])</span>
+        <span class="n">fix_cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;name_abbr&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]</span>
+        <span class="n">bus_reg</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">bus_reg</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">bus_fix</span><span class="o">.</span><span class="n">index</span><span class="p">),</span> <span class="n">fix_cols</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_fix</span><span class="p">[</span><span class="n">fix_cols</span><span class="p">]</span>
+
+    <span class="n">bus_reg</span><span class="o">.</span><span class="n">drop</span><span class="p">([</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># map region multipliers onto lines</span>
+    <span class="n">ac_reg_mult</span> <span class="o">=</span> <span class="n">ac_reg_mult</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span>
+        <span class="n">id_vars</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;kV&quot;</span><span class="p">,</span> <span class="s2">&quot;MW&quot;</span><span class="p">],</span> <span class="n">var_name</span><span class="o">=</span><span class="s2">&quot;name_abbr&quot;</span><span class="p">,</span> <span class="n">value_name</span><span class="o">=</span><span class="s2">&quot;mult&quot;</span>
+    <span class="p">)</span>
+
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">bus_reg</span><span class="p">,</span> <span class="n">left_on</span><span class="o">=</span><span class="s2">&quot;to_bus_id&quot;</span><span class="p">,</span> <span class="n">right_on</span><span class="o">=</span><span class="s2">&quot;bus_id&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;inner&quot;</span><span class="p">)</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">ac_reg_mult</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;name_abbr&quot;</span><span class="p">,</span> <span class="s2">&quot;kV&quot;</span><span class="p">,</span> <span class="s2">&quot;MW&quot;</span><span class="p">],</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;name_abbr&quot;</span><span class="p">:</span> <span class="s2">&quot;reg_to&quot;</span><span class="p">,</span> <span class="s2">&quot;mult&quot;</span><span class="p">:</span> <span class="s2">&quot;mult_to&quot;</span><span class="p">},</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">bus_reg</span><span class="p">,</span> <span class="n">left_on</span><span class="o">=</span><span class="s2">&quot;from_bus_id&quot;</span><span class="p">,</span> <span class="n">right_on</span><span class="o">=</span><span class="s2">&quot;bus_id&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;inner&quot;</span><span class="p">)</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">ac_reg_mult</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;name_abbr&quot;</span><span class="p">,</span> <span class="s2">&quot;kV&quot;</span><span class="p">,</span> <span class="s2">&quot;MW&quot;</span><span class="p">],</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;name_abbr&quot;</span><span class="p">:</span> <span class="s2">&quot;reg_from&quot;</span><span class="p">,</span> <span class="s2">&quot;mult&quot;</span><span class="p">:</span> <span class="s2">&quot;mult_from&quot;</span><span class="p">},</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># take average between 2 buses&#39; region multipliers</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;mult&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="s2">&quot;mult_to&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;mult_from&quot;</span><span class="p">])</span> <span class="o">/</span> <span class="mf">2.0</span>
+
+    <span class="c1"># calculate MWmi</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;lengthMi&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">haversine</span><span class="p">((</span><span class="n">x</span><span class="o">.</span><span class="n">from_lat</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">from_lon</span><span class="p">),</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_lat</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">to_lon</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;MWmi&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;lengthMi&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;rateA&quot;</span><span class="p">]</span>
+
+    <span class="c1"># calculate cost of each line</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;Cost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;MWmi&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;costMWmi&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;mult&quot;</span><span class="p">]</span>
+
+    <span class="c1"># calculate transformer costs</span>
+    <span class="n">transformers</span><span class="p">[</span><span class="s2">&quot;per_MW_cost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">transformers</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">xfmr_cost</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span>
+            <span class="n">xfmr_cost</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span><span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">,</span> <span class="s2">&quot;baseKV&quot;</span><span class="p">],</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span><span class="p">),</span>
+            <span class="n">xfmr_cost</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span><span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">to_bus_id</span><span class="p">,</span> <span class="s2">&quot;baseKV&quot;</span><span class="p">],</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span><span class="p">),</span>
+        <span class="p">],</span>
+        <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">transformers</span><span class="p">[</span><span class="s2">&quot;mult&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">transformers</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">get_transformer_mult</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">bus_reg</span><span class="p">,</span> <span class="n">ac_reg_mult</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+
+    <span class="n">transformers</span><span class="p">[</span><span class="s2">&quot;Cost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">transformers</span><span class="p">[</span><span class="s2">&quot;rateA&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">transformers</span><span class="p">[</span><span class="s2">&quot;per_MW_cost&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">transformers</span><span class="p">[</span><span class="s2">&quot;mult&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="n">lines</span><span class="o">.</span><span class="n">Cost</span> <span class="o">*=</span> <span class="n">calculate_inflation</span><span class="p">(</span><span class="mi">2010</span><span class="p">)</span>
+    <span class="n">transformers</span><span class="o">.</span><span class="n">Cost</span> <span class="o">*=</span> <span class="n">calculate_inflation</span><span class="p">(</span><span class="mi">2020</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">sum_results</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;line_cost&quot;</span><span class="p">:</span> <span class="n">lines</span><span class="o">.</span><span class="n">Cost</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+            <span class="s2">&quot;transformer_cost&quot;</span><span class="p">:</span> <span class="n">transformers</span><span class="o">.</span><span class="n">Cost</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;line_cost&quot;</span><span class="p">:</span> <span class="n">lines</span><span class="p">,</span> <span class="s2">&quot;transformer_cost&quot;</span><span class="p">:</span> <span class="n">transformers</span><span class="p">}</span>
+
+
+<div class="viewcode-block" id="calculate_dc_inv_costs"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.investment_costs.calculate_dc_inv_costs">[docs]</a><span class="k">def</span> <span class="nf">calculate_dc_inv_costs</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given a Scenario object, calculate the total cost of that grid&#39;s dc line</span>
+<span class="sd">        investment. Currently ignores financials, but all values are in 2015 $-year.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param boolean sum_results: if True, sum Series to return float.</span>
+<span class="sd">    :return: (*pandas.Series/float*) -- [Summed] dc line costs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="n">grid_new</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="c1"># Reindex so that we don&#39;t get NaN when calculating upgrades for new DC lines</span>
+    <span class="n">base_grid</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">grid_new</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">index</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="c1"># find upgraded DC lines</span>
+    <span class="n">grid_new</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">-</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">Pmax</span>
+    <span class="n">grid_new</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">grid_new</span><span class="o">.</span><span class="n">dcline</span><span class="p">[</span><span class="n">grid_new</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">]</span>
+
+    <span class="n">costs</span> <span class="o">=</span> <span class="n">_calculate_dc_inv_costs</span><span class="p">(</span><span class="n">grid_new</span><span class="p">,</span> <span class="n">sum_results</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">costs</span></div>
+
+
+<span class="k">def</span> <span class="nf">_calculate_dc_inv_costs</span><span class="p">(</span><span class="n">grid_new</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given a grid, calculate the total cost of that grid&#39;s dc line investment.</span>
+<span class="sd">    This function is separate from calculate_dc_inv_costs() for testing purposes.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid_new: grid instance.</span>
+<span class="sd">    :param boolean sum_results: if True, sum Series to return float.</span>
+<span class="sd">    :return: (*pandas.Series/float*) -- [Summed] dc line costs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_calculate_single_line_cost</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">bus</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Given a series representing a DC line upgrade/addition, and a dataframe of</span>
+<span class="sd">        bus locations, calculate this line&#39;s upgrade cost.</span>
+
+<span class="sd">        :param pandas.Series line: DC line series featuring:</span>
+<span class="sd">            {&quot;from_bus_id&quot;, &quot;to_bus_id&quot;, &quot;Pmax&quot;}.</span>
+<span class="sd">        :param pandas.Dataframe bus: Bus data frame featuring {&quot;lat&quot;, &quot;lon&quot;}.</span>
+<span class="sd">        :return: (*float*) -- DC line upgrade cost (in $2015).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Calculate distance</span>
+        <span class="n">from_lat</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">]</span>
+        <span class="n">from_lon</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]</span>
+        <span class="n">to_lat</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">to_bus_id</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">]</span>
+        <span class="n">to_lon</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">to_bus_id</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]</span>
+        <span class="n">miles</span> <span class="o">=</span> <span class="n">haversine</span><span class="p">((</span><span class="n">from_lat</span><span class="p">,</span> <span class="n">from_lon</span><span class="p">),</span> <span class="p">(</span><span class="n">to_lat</span><span class="p">,</span> <span class="n">to_lon</span><span class="p">))</span>
+        <span class="c1"># Calculate cost</span>
+        <span class="n">total_cost</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">*</span> <span class="p">(</span>
+            <span class="n">miles</span> <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">hvdc_line_cost</span><span class="p">[</span><span class="s2">&quot;costMWmi&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">calculate_inflation</span><span class="p">(</span><span class="mi">2015</span><span class="p">)</span>
+            <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">hvdc_terminal_cost_per_MW</span> <span class="o">*</span> <span class="n">calculate_inflation</span><span class="p">(</span><span class="mi">2020</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">total_cost</span>
+
+    <span class="n">bus</span> <span class="o">=</span> <span class="n">grid_new</span><span class="o">.</span><span class="n">bus</span>
+    <span class="n">dcline</span> <span class="o">=</span> <span class="n">grid_new</span><span class="o">.</span><span class="n">dcline</span>
+
+    <span class="c1"># if any dclines, do calculations, otherwise, return 0 costs.</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dcline</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="n">dcline_costs</span> <span class="o">=</span> <span class="n">dcline</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_calculate_single_line_cost</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">bus</span><span class="p">,),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sum_results</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dcline_costs</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dcline_costs</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">0.0</span>
+
+
+<div class="viewcode-block" id="calculate_gen_inv_costs"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.investment_costs.calculate_gen_inv_costs">[docs]</a><span class="k">def</span> <span class="nf">calculate_gen_inv_costs</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">cost_case</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given a Scenario object, calculate the total cost of building that scenario&#39;s</span>
+<span class="sd">        upgrades of generation.</span>
+<span class="sd">    Currently only uses one (arbutrary) sub-technology. Drops the rest of the costs.</span>
+<span class="sd">        Will want to fix for wind/solar (based on resource supply curves).</span>
+<span class="sd">    Currently uses ReEDS regions to find regional multipliers.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param int/str year: year of builds.</span>
+<span class="sd">    :param str cost_case: the ATB cost case of data:</span>
+<span class="sd">        &#39;Moderate&#39;: mid cost case,</span>
+<span class="sd">        &#39;Conservative&#39;: generally higher costs,</span>
+<span class="sd">        &#39;Advanced&#39;: generally lower costs</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- Total generation investment cost summed by</span>
+<span class="sd">        technology.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="c1"># Find change in generation capacity</span>
+    <span class="n">grid_new</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="c1"># Reindex so that we don&#39;t get NaN when calculating upgrades for new generators</span>
+    <span class="n">base_grid</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">grid_new</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">grid_new</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">-</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span>
+    <span class="c1"># Find change in storage capacity</span>
+    <span class="c1"># Reindex so that we don&#39;t get NaN when calculating upgrades for new storage</span>
+    <span class="n">base_grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span>
+        <span class="n">grid_new</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mi">0</span>
+    <span class="p">)</span>
+    <span class="n">grid_new</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">-</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">Pmax</span>
+    <span class="p">)</span>
+    <span class="n">grid_new</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;storage&quot;</span>
+
+    <span class="c1"># Drop small changes</span>
+    <span class="n">grid_new</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">grid_new</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="n">grid_new</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">&gt;</span> <span class="mf">0.01</span><span class="p">]</span>
+
+    <span class="n">costs</span> <span class="o">=</span> <span class="n">_calculate_gen_inv_costs</span><span class="p">(</span><span class="n">grid_new</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">cost_case</span><span class="p">,</span> <span class="n">sum_results</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">costs</span></div>
+
+
+<span class="k">def</span> <span class="nf">_calculate_gen_inv_costs</span><span class="p">(</span><span class="n">grid_new</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">cost_case</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given a grid, calculate the total cost of building that generation investment.</span>
+<span class="sd">    Computes total capital cost as CAPEX_total =</span>
+<span class="sd">        CAPEX ($/MW) * Pmax (MW) * reg_cap_cost_mult (regional cost multiplier)</span>
+<span class="sd">    This function is separate from calculate_gen_inv_costs() for testing purposes.</span>
+<span class="sd">    Currently only uses one (arbutrary) sub-technology. Drops the rest of the costs.</span>
+<span class="sd">        Will want to fix for wind/solar (based on resource supply curves).</span>
+<span class="sd">    Currently uses ReEDS regions to find regional multipliers.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid_new: grid instance.</span>
+<span class="sd">    :param int/str year: year of builds (used in financials).</span>
+<span class="sd">    :param str cost_case: the ATB cost case of data:</span>
+<span class="sd">        &#39;Moderate&#39;: mid cost case</span>
+<span class="sd">        &#39;Conservative&#39;: generally higher costs</span>
+<span class="sd">        &#39;Advanced&#39;: generally lower costs</span>
+<span class="sd">    :raises ValueError: if year not 2020 - 2050, or cost case not an allowed option.</span>
+<span class="sd">    :raises TypeError: if year gets the wrong type, or if cost_case is not str.</span>
+<span class="sd">    :return: (*pandas.Series*) -- Total generation investment cost,</span>
+<span class="sd">        summed by technology.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">load_cost</span><span class="p">(</span><span class="n">year</span><span class="p">,</span> <span class="n">cost_case</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load in base costs from NREL&#39;s 2020 ATB for generation technologies (CAPEX).</span>
+<span class="sd">            Can be adapted in the future for FOM, VOM, &amp; CAPEX.</span>
+<span class="sd">        This data is pulled from the ATB xlsx file Summary pages (saved as csv&#39;s).</span>
+<span class="sd">        Therefore, currently uses default financials, but will want to create custom</span>
+<span class="sd">            financial functions in the future.</span>
+
+<span class="sd">        :param int/str year: year of cost projections.</span>
+<span class="sd">        :param str cost_case: the ATB cost case of data</span>
+<span class="sd">            (see :py:func:`write_poly_shapefile` for details).</span>
+<span class="sd">        :return: (*pandas.DataFrame*) -- Cost by technology/subtype (in $2018).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cost</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">gen_inv_cost_path</span><span class="p">)</span>
+        <span class="n">cost</span> <span class="o">=</span> <span class="n">cost</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+
+        <span class="c1"># drop non-useful columns</span>
+        <span class="n">cols_drop</span> <span class="o">=</span> <span class="n">cost</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span>
+            <span class="o">~</span><span class="n">cost</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span>
+                <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">cost</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">6</span><span class="p">]]</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;Metric&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">year</span><span class="p">)]</span>
+            <span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">cost</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">cols_drop</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># rename year of interest column</span>
+        <span class="n">cost</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="nb">str</span><span class="p">(</span><span class="n">year</span><span class="p">):</span> <span class="s2">&quot;value&quot;</span><span class="p">},</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># get rid of #refs</span>
+        <span class="n">cost</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">cost</span><span class="p">[</span><span class="n">cost</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;#REF!&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># get rid of $s, commas</span>
+        <span class="n">cost</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cost</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;$&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">cost</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cost</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;float64&quot;</span><span class="p">)</span>
+        <span class="c1"># scale from $/kW to $/MW</span>
+        <span class="n">cost</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">*=</span> <span class="mi">1000</span>
+
+        <span class="n">cost</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="s2">&quot;CAPEX&quot;</span><span class="p">},</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># select scenario of interest</span>
+        <span class="n">cost</span> <span class="o">=</span> <span class="n">cost</span><span class="p">[</span><span class="n">cost</span><span class="p">[</span><span class="s2">&quot;CostCase&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">cost_case</span><span class="p">]</span>
+        <span class="n">cost</span><span class="o">.</span><span class="n">drop</span><span class="p">([</span><span class="s2">&quot;CostCase&quot;</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">cost</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">year</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
+        <span class="n">year</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">year</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">year</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">2051</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;year not in range.&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;year must be int or str.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cost_case</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">cost_case</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;Moderate&quot;</span><span class="p">,</span> <span class="s2">&quot;Conservative&quot;</span><span class="p">,</span> <span class="s2">&quot;Advanced&quot;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;cost_case not Moderate, Conservative, or Advanced&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;cost_case must be str.&quot;</span><span class="p">)</span>
+
+    <span class="n">plants</span> <span class="o">=</span> <span class="n">grid_new</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">grid_new</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">])</span>
+    <span class="n">plants</span> <span class="o">=</span> <span class="n">plants</span><span class="p">[</span>
+        <span class="o">~</span><span class="n">plants</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">isin</span><span class="p">([</span><span class="s2">&quot;dfo&quot;</span><span class="p">,</span> <span class="s2">&quot;other&quot;</span><span class="p">])</span>
+    <span class="p">]</span>  <span class="c1"># drop these technologies, no cost data</span>
+
+    <span class="c1"># BASE TECHNOLOGY COST</span>
+
+    <span class="c1"># load in investment costs $/MW</span>
+    <span class="n">gen_costs</span> <span class="o">=</span> <span class="n">load_cost</span><span class="p">(</span><span class="n">year</span><span class="p">,</span> <span class="n">cost_case</span><span class="p">)</span>
+    <span class="c1"># keep only certain (arbitrary) subclasses for now</span>
+    <span class="n">gen_costs</span> <span class="o">=</span> <span class="n">gen_costs</span><span class="p">[</span>
+        <span class="n">gen_costs</span><span class="p">[</span><span class="s2">&quot;TechDetail&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">gen_inv_cost_techdetails_to_keep</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="c1"># rename techs to match grid object</span>
+    <span class="n">gen_costs</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">gen_inv_cost_translation</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">gen_costs</span><span class="o">.</span><span class="n">drop</span><span class="p">([</span><span class="s2">&quot;Key&quot;</span><span class="p">,</span> <span class="s2">&quot;FinancialCase&quot;</span><span class="p">,</span> <span class="s2">&quot;CRPYears&quot;</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># ATB technology costs merge</span>
+    <span class="n">plants</span> <span class="o">=</span> <span class="n">plants</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">gen_costs</span><span class="p">,</span> <span class="n">right_on</span><span class="o">=</span><span class="s2">&quot;Technology&quot;</span><span class="p">,</span> <span class="n">left_on</span><span class="o">=</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+
+    <span class="c1"># REGIONAL COST MULTIPLIER</span>
+
+    <span class="c1"># Find ReEDS regions of plants (for regional cost multipliers)</span>
+    <span class="n">plant_buses</span> <span class="o">=</span> <span class="n">plants</span><span class="o">.</span><span class="n">bus_id</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">bus_reg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_reeds_regions_path</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="s2">&quot;bus_id&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">plant_buses</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">bus_reg</span><span class="o">.</span><span class="n">index</span><span class="p">):</span>
+            <span class="n">missing_buses</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">plant_buses</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">bus_reg</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+            <span class="n">bus_reg</span> <span class="o">=</span> <span class="n">bus_reg</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bus_to_reeds_reg</span><span class="p">(</span><span class="n">grid_new</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">missing_buses</span><span class="p">]))</span>
+            <span class="n">bus_reg</span><span class="o">.</span><span class="n">sort_index</span><span class="p">()</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_reeds_regions_path</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="n">bus_reg</span> <span class="o">=</span> <span class="n">bus_to_reeds_reg</span><span class="p">(</span><span class="n">grid_new</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_buses</span><span class="p">])</span>
+        <span class="n">bus_reg</span><span class="o">.</span><span class="n">sort_index</span><span class="p">()</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_reeds_regions_path</span><span class="p">)</span>
+    <span class="n">plants</span> <span class="o">=</span> <span class="n">plants</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">bus_reg</span><span class="p">,</span> <span class="n">left_on</span><span class="o">=</span><span class="s2">&quot;bus_id&quot;</span><span class="p">,</span> <span class="n">right_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Determine one region &#39;r&#39; for each plant, based on one of two mappings</span>
+    <span class="n">plants</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;r&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="c1"># Some types get regional multipliers via &#39;wind regions&#39; (&#39;rs&#39;)</span>
+    <span class="n">wind_region_mask</span> <span class="o">=</span> <span class="n">plants</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">regional_multiplier_wind_region_types</span><span class="p">)</span>
+    <span class="n">plants</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">wind_region_mask</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">plants</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">wind_region_mask</span><span class="p">,</span> <span class="s2">&quot;rs&quot;</span><span class="p">]</span>
+    <span class="c1"># Other types get regional multipliers via &#39;BA regions&#39; (&#39;rb&#39;)</span>
+    <span class="n">ba_region_mask</span> <span class="o">=</span> <span class="n">plants</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">regional_multiplier_ba_region_types</span><span class="p">)</span>
+    <span class="n">plants</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">ba_region_mask</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">plants</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">ba_region_mask</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">]</span>
+    <span class="n">plants</span><span class="o">.</span><span class="n">drop</span><span class="p">([</span><span class="s2">&quot;rs&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># merge regional multipliers with plants</span>
+    <span class="n">region_multiplier</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">regional_multiplier_path</span><span class="p">)</span>
+    <span class="n">region_multiplier</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">regional_multiplier_gen_translation</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">plants</span> <span class="o">=</span> <span class="n">plants</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+        <span class="n">region_multiplier</span><span class="p">,</span> <span class="n">left_on</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="s2">&quot;Technology&quot;</span><span class="p">],</span> <span class="n">right_on</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="s2">&quot;i&quot;</span><span class="p">],</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># multiply all together to get summed CAPEX ($)</span>
+    <span class="n">plants</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;CAPEX_total&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">plants</span><span class="p">[</span><span class="s2">&quot;CAPEX&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">plants</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">plants</span><span class="p">[</span><span class="s2">&quot;reg_cap_cost_mult&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="c1"># sum cost by technology</span>
+    <span class="n">plants</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;CAPEX_total&quot;</span><span class="p">]</span> <span class="o">*=</span> <span class="n">calculate_inflation</span><span class="p">(</span><span class="mi">2018</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">sum_results</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">plants</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;Technology&quot;</span><span class="p">])[</span><span class="s2">&quot;CAPEX_total&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">plants</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise_package.html">PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reisejl_package.html">REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

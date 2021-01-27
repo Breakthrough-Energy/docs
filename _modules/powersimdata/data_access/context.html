@@ -32,8 +32,12 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.data_access.context</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">powersimdata.data_access.data_access</span> <span class="kn">import</span> <span class="n">SSHDataAccess</span>
+<span></span><span class="kn">from</span> <span class="nn">powersimdata.data_access.data_access</span> <span class="kn">import</span> <span class="n">LocalDataAccess</span><span class="p">,</span> <span class="n">SSHDataAccess</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility.server_setup</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DeploymentMode</span><span class="p">,</span>
+    <span class="n">get_deployment_mode</span><span class="p">,</span>
+<span class="p">)</span>
 
 
 <div class="viewcode-block" id="Context"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.context.Context">[docs]</a><span class="k">class</span> <span class="nc">Context</span><span class="p">:</span>
@@ -42,17 +46,20 @@
 <div class="viewcode-block" id="Context.get_data_access"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.context.Context.get_data_access">[docs]</a>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">get_data_access</span><span class="p">(</span><span class="n">data_loc</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return a data access instance appropriate for the current</span>
-<span class="sd">        environment. Currently only supports internal client server mode.</span>
+<span class="sd">        environment.</span>
 
-<span class="sd">        :param str data_loc: pass &quot;disk&quot; if using for backups otherwise leave</span>
-<span class="sd">            the default and the behavior will be determined by environment</span>
-<span class="sd">            variables</span>
+<span class="sd">        :param str data_loc: pass &quot;disk&quot; if using data from backup disk,</span>
+<span class="sd">            otherwise leave the default.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">data_loc</span> <span class="o">==</span> <span class="s2">&quot;disk&quot;</span><span class="p">:</span>
             <span class="n">root</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">BACKUP_DATA_ROOT_DIR</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">root</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span>
-        <span class="k">return</span> <span class="n">SSHDataAccess</span><span class="p">(</span><span class="n">root</span><span class="p">)</span></div></div>
+
+        <span class="n">mode</span> <span class="o">=</span> <span class="n">get_deployment_mode</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="n">DeploymentMode</span><span class="o">.</span><span class="n">Server</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">SSHDataAccess</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">LocalDataAccess</span><span class="p">(</span><span class="n">root</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>

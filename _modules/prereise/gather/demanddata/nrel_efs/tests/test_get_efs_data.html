@@ -40,17 +40,19 @@
 
 <span class="kn">from</span> <span class="nn">prereise.gather.demanddata.nrel_efs.get_efs_data</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">account_for_leap_year</span><span class="p">,</span>
-    <span class="n">download_data</span><span class="p">,</span>
-    <span class="n">partition_by_sector</span><span class="p">,</span>
+    <span class="n">download_demand_data</span><span class="p">,</span>
+    <span class="n">download_flexibility_data</span><span class="p">,</span>
+    <span class="n">partition_demand_by_sector</span><span class="p">,</span>
+    <span class="n">partition_flexibility_by_sector</span><span class="p">,</span>
 <span class="p">)</span>
 
 
-<div class="viewcode-block" id="test_download_data"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.nrel_efs.tests.html#prereise.gather.demanddata.nrel_efs.tests.test_get_efs_data.test_download_data">[docs]</a><span class="k">def</span> <span class="nf">test_download_data</span><span class="p">():</span>
-    <span class="c1"># Download one of the EFS data sets</span>
-    <span class="n">download_data</span><span class="p">(</span><span class="n">es</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Reference&quot;</span><span class="p">},</span> <span class="n">ta</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Slow&quot;</span><span class="p">})</span>
+<div class="viewcode-block" id="test_download_demand_data"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.nrel_efs.tests.html#prereise.gather.demanddata.nrel_efs.tests.test_get_efs_data.test_download_demand_data">[docs]</a><span class="k">def</span> <span class="nf">test_download_demand_data</span><span class="p">():</span>
+    <span class="c1"># Download one of the EFS demand data sets</span>
+    <span class="n">download_demand_data</span><span class="p">(</span><span class="n">es</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Reference&quot;</span><span class="p">},</span> <span class="n">ta</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Slow&quot;</span><span class="p">})</span>
 
     <span class="k">try</span><span class="p">:</span>
-        <span class="c1"># Load the downloaded EFS data set</span>
+        <span class="c1"># Load the downloaded EFS demand data set</span>
         <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;EFSLoadProfile_Reference_Slow.csv&quot;</span><span class="p">)</span>
 
         <span class="c1"># Access the columns</span>
@@ -80,12 +82,49 @@
         <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;EFSLoadProfile_Reference_Slow.zip&quot;</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="test_partition_by_sector"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.nrel_efs.tests.html#prereise.gather.demanddata.nrel_efs.tests.test_get_efs_data.test_partition_by_sector">[docs]</a><span class="k">def</span> <span class="nf">test_partition_by_sector</span><span class="p">():</span>
+<div class="viewcode-block" id="test_download_flexibility_data"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.nrel_efs.tests.html#prereise.gather.demanddata.nrel_efs.tests.test_get_efs_data.test_download_flexibility_data">[docs]</a><span class="k">def</span> <span class="nf">test_download_flexibility_data</span><span class="p">():</span>
+    <span class="c1"># Download one of the EFS flexibility data sets</span>
+    <span class="n">download_flexibility_data</span><span class="p">(</span><span class="n">es</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Reference&quot;</span><span class="p">})</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Load the downloaded EFS flexibility data set</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;EFSFlexLoadProfiles_Reference.csv&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Access the columns</span>
+        <span class="n">test_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+        <span class="n">exp_cols</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;Electrification&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;TechnologyAdvancement&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Flexibility&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Year&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;LocalHourID&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;State&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Sector&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;LoadMW&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Compare the two values</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">test_cols</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">exp_cols</span><span class="p">)</span>
+
+        <span class="c1"># Remove the downloaded EFS data set</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;EFSFlexLoadProfiles_Reference.csv&quot;</span><span class="p">)</span>
+
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="c1"># If the automated extraction did not work, check that the .zip file was created</span>
+        <span class="k">assert</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span>
+            <span class="s2">&quot;EFS Flexible Load Profiles - Reference Electrification.zip&quot;</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Remove the downloaded .zip file</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;EFS Flexible Load Profiles - Reference Electrification.zip&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_partition_demand_by_sector"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.nrel_efs.tests.html#prereise.gather.demanddata.nrel_efs.tests.test_get_efs_data.test_partition_demand_by_sector">[docs]</a><span class="k">def</span> <span class="nf">test_partition_demand_by_sector</span><span class="p">():</span>
     <span class="c1"># Create a dummy data set</span>
     <span class="n">cont_states</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">abv2state</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;AK&quot;</span><span class="p">,</span> <span class="s2">&quot;HI&quot;</span><span class="p">})</span>
     <span class="n">dummy_data</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;Electrification&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">48</span> <span class="o">*</span> <span class="mi">8760</span><span class="p">,</span>
-        <span class="s2">&quot;TechnologyAdvancement&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">48</span> <span class="o">*</span> <span class="mi">8760</span><span class="p">,</span>
+        <span class="s2">&quot;Electrification&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;High&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">48</span> <span class="o">*</span> <span class="mi">8760</span><span class="p">,</span>
+        <span class="s2">&quot;TechnologyAdvancement&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Rapid&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">48</span> <span class="o">*</span> <span class="mi">8760</span><span class="p">,</span>
         <span class="s2">&quot;Year&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2030</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">48</span> <span class="o">*</span> <span class="mi">8760</span><span class="p">,</span>
         <span class="s2">&quot;LocalHourID&quot;</span><span class="p">:</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">8761</span><span class="p">)]</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">48</span><span class="p">),</span>
         <span class="s2">&quot;State&quot;</span><span class="p">:</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">cont_states</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span> <span class="o">*</span> <span class="mi">8760</span><span class="p">,</span>
@@ -98,7 +137,9 @@
     <span class="n">dummy_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">&quot;EFSLoadProfile_High_Rapid.csv&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
     <span class="c1"># Generate the test results</span>
-    <span class="n">test_sect_dem</span> <span class="o">=</span> <span class="n">partition_by_sector</span><span class="p">(</span><span class="n">es</span><span class="o">=</span><span class="s2">&quot;High&quot;</span><span class="p">,</span> <span class="n">ta</span><span class="o">=</span><span class="s2">&quot;Rapid&quot;</span><span class="p">,</span> <span class="n">year</span><span class="o">=</span><span class="mi">2030</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">test_sect_dem</span> <span class="o">=</span> <span class="n">partition_demand_by_sector</span><span class="p">(</span>
+        <span class="n">es</span><span class="o">=</span><span class="s2">&quot;High&quot;</span><span class="p">,</span> <span class="n">ta</span><span class="o">=</span><span class="s2">&quot;Rapid&quot;</span><span class="p">,</span> <span class="n">year</span><span class="o">=</span><span class="mi">2030</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
 
     <span class="c1"># Create the expected results</span>
     <span class="n">exp_res_dem</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
@@ -109,10 +150,48 @@
     <span class="n">exp_res_dem</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Local Time&quot;</span>
 
     <span class="c1"># Compare the two DataFrames</span>
-    <span class="n">assert_frame_equal</span><span class="p">(</span><span class="n">exp_res_dem</span><span class="p">,</span> <span class="n">test_sect_dem</span><span class="p">[</span><span class="s2">&quot;Residential&quot;</span><span class="p">])</span>
+    <span class="n">assert_frame_equal</span><span class="p">(</span><span class="n">exp_res_dem</span><span class="p">,</span> <span class="n">test_sect_dem</span><span class="p">[</span><span class="s2">&quot;Residential&quot;</span><span class="p">],</span> <span class="n">check_names</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
     <span class="c1"># Delete the test .csv file</span>
     <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;EFSLoadProfile_High_Rapid.csv&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_partition_flexibility_by_sector"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.nrel_efs.tests.html#prereise.gather.demanddata.nrel_efs.tests.test_get_efs_data.test_partition_flexibility_by_sector">[docs]</a><span class="k">def</span> <span class="nf">test_partition_flexibility_by_sector</span><span class="p">():</span>
+    <span class="c1"># Create a dummy data set</span>
+    <span class="n">cont_states</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">abv2state</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;AK&quot;</span><span class="p">,</span> <span class="s2">&quot;HI&quot;</span><span class="p">})</span>
+    <span class="n">dummy_data</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;Electrification&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;High&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">48</span> <span class="o">*</span> <span class="mi">8760</span><span class="p">,</span>
+        <span class="s2">&quot;TechnologyAdvancement&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Rapid&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">48</span> <span class="o">*</span> <span class="mi">8760</span><span class="p">,</span>
+        <span class="s2">&quot;Flexibility&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Base&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">48</span> <span class="o">*</span> <span class="mi">8760</span><span class="p">,</span>
+        <span class="s2">&quot;Year&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2030</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">48</span> <span class="o">*</span> <span class="mi">8760</span><span class="p">,</span>
+        <span class="s2">&quot;LocalHourID&quot;</span><span class="p">:</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">8761</span><span class="p">)]</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">48</span><span class="p">),</span>
+        <span class="s2">&quot;State&quot;</span><span class="p">:</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">cont_states</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span> <span class="o">*</span> <span class="mi">8760</span><span class="p">,</span>
+        <span class="s2">&quot;Sector&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Commercial&quot;</span><span class="p">,</span> <span class="s2">&quot;Industrial&quot;</span><span class="p">,</span> <span class="s2">&quot;Residential&quot;</span><span class="p">,</span> <span class="s2">&quot;Transportation&quot;</span><span class="p">]</span>
+        <span class="o">*</span> <span class="mi">48</span>
+        <span class="o">*</span> <span class="mi">8760</span><span class="p">,</span>
+        <span class="s2">&quot;LoadMW&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span> <span class="o">*</span> <span class="mi">48</span> <span class="o">*</span> <span class="mi">8760</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">dummy_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">dummy_data</span><span class="p">)</span>
+    <span class="n">dummy_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">&quot;EFSFlexLoadProfiles_High.csv&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Generate the test results</span>
+    <span class="n">test_sect_flex</span> <span class="o">=</span> <span class="n">partition_flexibility_by_sector</span><span class="p">(</span>
+        <span class="n">es</span><span class="o">=</span><span class="s2">&quot;High&quot;</span><span class="p">,</span> <span class="n">ta</span><span class="o">=</span><span class="s2">&quot;Rapid&quot;</span><span class="p">,</span> <span class="n">flex</span><span class="o">=</span><span class="s2">&quot;Base&quot;</span><span class="p">,</span> <span class="n">year</span><span class="o">=</span><span class="mi">2030</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Create the expected results</span>
+    <span class="n">exp_res_flex</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="mi">3</span><span class="p">,</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2017-01-01&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">closed</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">),</span>
+        <span class="n">columns</span><span class="o">=</span><span class="n">cont_states</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">exp_res_flex</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Local Time&quot;</span>
+
+    <span class="c1"># Compare the two DataFrames</span>
+    <span class="n">assert_frame_equal</span><span class="p">(</span><span class="n">exp_res_flex</span><span class="p">,</span> <span class="n">test_sect_flex</span><span class="p">[</span><span class="s2">&quot;Residential&quot;</span><span class="p">],</span> <span class="n">check_names</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Delete the test .csv file</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;EFSFlexLoadProfiles_High.csv&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_account_for_leap_year"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.nrel_efs.tests.html#prereise.gather.demanddata.nrel_efs.tests.test_get_efs_data.test_account_for_leap_year">[docs]</a><span class="k">def</span> <span class="nf">test_account_for_leap_year</span><span class="p">():</span>

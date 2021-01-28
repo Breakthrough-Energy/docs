@@ -36,46 +36,268 @@
 <h1>REISE.jl<a class="headerlink" href="#reise-jl" title="Permalink to this headline">¶</a></h1>
 <p>Renewable Energy Integration Simulation Engine.</p>
 <p>This repository contains, in the <strong>src</strong> folder, the Julia scripts to run the power-flow study in the U.S. electric grid. The simulation engine relies on <a class="reference external" href="https://www.gurobi.com">Gurobi</a> as the optimization solver.</p>
+<div class="section" id="table-of-contents">
+<h2>Table of Contents<a class="headerlink" href="#table-of-contents" title="Permalink to this headline">¶</a></h2>
+<ol class="simple">
+<li><p><a class="reference external" href="#dependencies">Dependencies</a></p></li>
+<li><p><a class="reference external" href="#installation-local">Installation (Local)</a></p></li>
+<li><p><a class="reference external" href="#usage-julia">Usage (Julia)</a></p></li>
+<li><p><a class="reference external" href="#usage-python">Usage (Python)</a></p></li>
+<li><p><a class="reference external" href="#docker">Docker</a></p></li>
+<li><p><a class="reference external" href="#package-structure">Package Structure</a></p></li>
+<li><p><a class="reference external" href="#formulation">Formulation</a></p></li>
+</ol>
+</div>
 <div class="section" id="dependencies">
 <h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this headline">¶</a></h2>
-<p>This package requires installations of the following</p>
+<p>This package requires installations of the following, with recommended versions listed.</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://julialang.org/">Julia</a></p></li>
-<li><p><a class="reference external" href="https://www.gurobi.com">Gurobi</a></p></li>
-<li><p><a class="reference external" href="https://www.python.org/">Python</a></p></li>
+<li><p><a class="reference external" href="https://julialang.org/">Julia</a>, version 1.5</p></li>
+<li><p><a class="reference external" href="https://www.gurobi.com">Gurobi</a>, version 9.1</p></li>
+<li><p><a class="reference external" href="https://www.python.org/">Python</a>, version 3.8</p></li>
+</ul>
+<p>This package can also be run using Docker, in which the following are required:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://docs.docker.com/get-docker/">Docker</a></p></li>
+<li><p><a class="reference external" href="https://cloud.gurobi.com/manager/licenses">Gurobi Cloud License</a> file</p></li>
 </ul>
 <p>For sample data to use with the simulation, please visit <a class="reference external" href="https://zenodo.org/record/3530898">Zenodo</a>.</p>
+<div class="section" id="system-requirements">
+<h3>System Requirements<a class="headerlink" href="#system-requirements" title="Permalink to this headline">¶</a></h3>
+<p>Large simulations can require significant amounts of RAM. The amount of RAM necessary is proportional to both the size of the grid and the size of the interval with which to run the simulation.</p>
+<p>As a general estimate, 1-2 GB of RAM is needed per hour in the interval in a simulation across the entire USA grid. For example, a 24-hour interval would require 24-48 GB of RAM; if only 16 GB of RAM is available, consider using a time interval of 8 hours or less as that would take 8-16 GB of RAM.</p>
+<p>The memory necessary would also be proportional to the size of grid used, so as the Western interconnect is roughly 8 times smaller than the entire USA grid, a simulation of just the Western interconnect with a 24-hour interval would require ~3-6 GB of RAM.</p>
 </div>
-<div class="section" id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
-<div class="section" id="julia-package">
-<h3>Julia package<a class="headerlink" href="#julia-package" title="Permalink to this headline">¶</a></h3>
-<p>The most reliable way to install this package is by cloning the repo locally, navigating to the project folder, activating the project, and instantiating it. This approach will copy install all dependencies in the <strong>exact</strong> version as they were installed during package development. <strong>Note</strong>: if <code class="docutils literal notranslate"><span class="pre">Gurobi.jl</span></code> is not already installed in your Julia environment, then its build step will fail if it cannot find the Gurobi installation folder. To avoid this, you can specify an environment variable for <code class="docutils literal notranslate"><span class="pre">GUROBI_HOME</span></code>, pointing to the Gurobi <code class="docutils literal notranslate"><span class="pre">&lt;installdir&gt;</span></code>.</p>
-<p>For more information, see https://github.com/JuliaOpt/Gurobi.jl#installation.</p>
-<p>To instantiate:</p>
-<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">pkg</span><span class="o">&gt;</span> <span class="n">activate</span> <span class="o">.</span>
+</div>
+<div class="section" id="installation-local">
+<h2>Installation (Local)<a class="headerlink" href="#installation-local" title="Permalink to this headline">¶</a></h2>
+<p>When installing this package locally, the below dependencies will need to be installed following the provider recommendation:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://www.gurobi.com/documentation/quickstart.html">Gurobi Installation Guide</a></p></li>
+<li><p><a class="reference external" href="https://julialang.org/downloads/#current_stable_release">Download Julia</a></p></li>
+<li><p><a class="reference external" href="https://www.python.org/downloads/release/python-386/">Download Python</a></p></li>
+</ul>
+<p>The package itself has two components that require installation:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="#julia-package-installation"><code class="docutils literal notranslate"><span class="pre">Julia</span></code> package</a> to run the simulation</p></li>
+<li><p>optional <a class="reference external" href="#python-requirements-installation"><code class="docutils literal notranslate"><span class="pre">python</span></code> scripts</a> for some additional pre- and post-processing</p></li>
+</ul>
+<p>Instead of installing locally, this package can also be used with the included <a class="reference external" href="#Docker">Docker</a> image.</p>
+<p>Detailed installation instructions for both the necessary applications and packages can be found below:</p>
+<ol class="simple">
+<li><p><a class="reference external" href="#gurobi-installation">Gurobi Installation</a></p>
+<ol class="simple">
+<li><p><a class="reference external" href="#gurobi-installation-example-linux-cloud-license">Gurobi Installation Example (Linux + Cloud License)</a></p></li>
+<li><p><a class="reference external" href="#gurobi-verification">Gurobi Installation Verification</a></p></li>
+</ol>
+</li>
+<li><p><a class="reference external" href="#julia-installation">Julia Installation</a></p>
+<ol class="simple">
+<li><p><a class="reference external" href="#julia-installation-example-linux">Julia Installation Example (Linux)</a></p></li>
+<li><p><a class="reference external" href="#julia-package-installation">Julia Package Installation</a></p></li>
+<li><p><a class="reference external" href="#julia-verification">Julia Installation Verification</a></p></li>
+</ol>
+</li>
+<li><p><a class="reference external" href="#python-installation">Python Installation</a></p>
+<ol class="simple">
+<li><p><a class="reference external" href="#python-requirements-installation">Python Requirements Installation</a></p></li>
+<li><p><a class="reference external" href="#python-installation-verification">Python Installation Verification</a></p></li>
+</ol>
+</li>
+</ol>
+<div class="section" id="gurobi-installation">
+<h3>Gurobi Installation<a class="headerlink" href="#gurobi-installation" title="Permalink to this headline">¶</a></h3>
+<p>Installation of <code class="docutils literal notranslate"><span class="pre">Gurobi</span></code> depends on both your operating system and license type. Detailed instructions can be found at the <a class="reference external" href="https://www.gurobi.com/documentation/quickstart.html">Gurobi Installation Guide</a>.</p>
+<div class="section" id="gurobi-installation-example-linux-cloud-license">
+<h4>Gurobi Installation Example (Linux + Cloud License)<a class="headerlink" href="#gurobi-installation-example-linux-cloud-license" title="Permalink to this headline">¶</a></h4>
+<ol class="simple">
+<li><p>Choose a destination directory for <code class="docutils literal notranslate"><span class="pre">Gurobi</span></code>. For a shared installation, <code class="docutils literal notranslate"><span class="pre">/opt</span></code> is recommended.</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span> /opt
+</pre></div>
+</div>
+<ol class="simple">
+<li><p>Download and unzip the <code class="docutils literal notranslate"><span class="pre">Gurobi</span></code> package in the chosen directory.</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>wget https://packages.gurobi.com/9.1/gurobi9.1.0_linux64.tar.gz
+tar -xvfz gurobi9.1.0_linux64.tar.gz
+</pre></div>
+</div>
+<p>This will create a subdirectory, <code class="docutils literal notranslate"><span class="pre">/opt/gurobi910/linux64</span></code> in which the complete distribution is located. This will be considered the <code class="docutils literal notranslate"><span class="pre">&lt;installdir&gt;</span></code> in the rest of this section.</p>
+<ol class="simple">
+<li><p>Set environmental variables for <code class="docutils literal notranslate"><span class="pre">Gurobi</span></code>:</p></li>
+</ol>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">GUROBI_HOME</span></code> should be set to your <code class="docutils literal notranslate"><span class="pre">&lt;installdir&gt;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PATH</span></code> should be extended to include <code class="docutils literal notranslate"><span class="pre">&lt;installdir&gt;/bin</span></code>.`</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LD_LIBRARY_PATH</span></code> should be extended to include <installdir>/lib.</p></li>
+</ul>
+<p>For bash shell users, add the following to the <code class="docutils literal notranslate"><span class="pre">.bashrc</span></code> file:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">GUROBI_HOME</span><span class="o">=</span><span class="s2">&quot;/opt/gurobi910/linux64&quot;</span>
+<span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">PATH</span><span class="si">}</span><span class="s2">:</span><span class="si">${</span><span class="nv">GUROBI_HOME</span><span class="si">}</span><span class="s2">/bin&quot;</span>
+<span class="nb">export</span> <span class="nv">LD_LIBRARY_PATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">LD_LIBRARY_PATH</span><span class="si">}</span><span class="s2">:</span><span class="si">${</span><span class="nv">GUROBI_HOME</span><span class="si">}</span><span class="s2">/lib&quot;</span>
+</pre></div>
+</div>
+<ol class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">Gurobi</span></code> license needs to be download and installed. Download a copy of the <a class="reference external" href="https://cloud.gurobi.com/manager/licenses">Gurobi Cloud License</a> from the account portal, and copy it to the parent directory of the <code class="docutils literal notranslate"><span class="pre">&lt;installdir&gt;</span></code>.</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cp gurobi.lic /opt/gurobi910/gurobi.lic
+</pre></div>
+</div>
+</div>
+<div class="section" id="gurobi-verification">
+<h4>Gurobi Verification<a class="headerlink" href="#gurobi-verification" title="Permalink to this headline">¶</a></h4>
+<p>To verify that Gurobi has installed properly, run <code class="docutils literal notranslate"><span class="pre">gurobi.sh</span></code> located in the <code class="docutils literal notranslate"><span class="pre">bin</span></code> folder of the Gurobi installation.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/usr/share/gurobi910/linux64/bin/gurobi.sh
+</pre></div>
+</div>
+<p>An example of the expected output for this program:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">This</span> <span class="n">program</span> <span class="n">should</span> <span class="n">give</span> <span class="n">the</span> <span class="n">following</span> <span class="n">output</span>
+<span class="n">Python</span> <span class="mf">3.7</span><span class="o">.</span><span class="mi">4</span> <span class="p">(</span><span class="n">default</span><span class="p">,</span> <span class="n">Oct</span> <span class="mi">29</span> <span class="mi">2019</span><span class="p">,</span> <span class="mi">10</span><span class="p">:</span><span class="mi">15</span><span class="p">:</span><span class="mi">53</span><span class="p">)</span> 
+<span class="p">[</span><span class="n">GCC</span> <span class="mf">4.4</span><span class="o">.</span><span class="mi">7</span> <span class="mi">20120313</span> <span class="p">(</span><span class="n">Red</span> <span class="n">Hat</span> <span class="mf">4.4</span><span class="o">.</span><span class="mi">7</span><span class="o">-</span><span class="mi">18</span><span class="p">)]</span> <span class="n">on</span> <span class="n">linux</span>
+<span class="n">Type</span> <span class="s2">&quot;help&quot;</span><span class="p">,</span> <span class="s2">&quot;copyright&quot;</span><span class="p">,</span> <span class="s2">&quot;credits&quot;</span> <span class="ow">or</span> <span class="s2">&quot;license&quot;</span> <span class="k">for</span> <span class="n">more</span> <span class="n">information</span><span class="o">.</span>
+<span class="n">Using</span> <span class="n">license</span> <span class="n">file</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">share</span><span class="o">/</span><span class="n">gurobi_license</span><span class="o">/</span><span class="n">gurobi</span><span class="o">.</span><span class="n">lic</span>
+<span class="n">Set</span> <span class="n">parameter</span> <span class="n">CloudAccessID</span>
+<span class="n">Set</span> <span class="n">parameter</span> <span class="n">CloudSecretKey</span>
+<span class="n">Set</span> <span class="n">parameter</span> <span class="n">LogFile</span> <span class="n">to</span> <span class="n">value</span> <span class="n">gurobi</span><span class="o">.</span><span class="n">log</span>
+<span class="n">Waiting</span> <span class="k">for</span> <span class="n">cloud</span> <span class="n">server</span> <span class="n">to</span> <span class="n">start</span> <span class="p">(</span><span class="n">pool</span> <span class="n">default</span><span class="p">)</span><span class="o">...</span>
+<span class="n">Starting</span><span class="o">...</span>
+<span class="n">Starting</span><span class="o">...</span>
+<span class="n">Starting</span><span class="o">...</span>
+<span class="n">Starting</span><span class="o">...</span>
+<span class="n">Compute</span> <span class="n">Server</span> <span class="n">job</span> <span class="n">ID</span><span class="p">:</span> <span class="mi">1</span><span class="n">eacfb69</span><span class="o">-</span><span class="mi">3083</span><span class="o">-</span><span class="mf">44e2</span><span class="o">-</span><span class="mf">872e-58515</span><span class="n">b143b5d</span>
+<span class="n">Capacity</span> <span class="n">available</span> <span class="n">on</span> <span class="s1">&#39;https://ip-10-0-55-163:61000&#39;</span> <span class="o">-</span> <span class="n">connecting</span><span class="o">...</span>
+<span class="n">Established</span> <span class="n">HTTPS</span> <span class="n">encrypted</span> <span class="n">connection</span>
+
+<span class="n">Gurobi</span> <span class="n">Interactive</span> <span class="n">Shell</span> <span class="p">(</span><span class="n">linux64</span><span class="p">),</span> <span class="n">Version</span> <span class="mf">9.1</span><span class="o">.</span><span class="mi">0</span>
+<span class="n">Copyright</span> <span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="mi">2020</span><span class="p">,</span> <span class="n">Gurobi</span> <span class="n">Optimization</span><span class="p">,</span> <span class="n">LLC</span>
+<span class="n">Type</span> <span class="s2">&quot;help()&quot;</span> <span class="k">for</span> <span class="n">help</span>
+
+<span class="n">gurobi</span><span class="o">&gt;</span> 
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="julia-installation">
+<h3>Julia Installation<a class="headerlink" href="#julia-installation" title="Permalink to this headline">¶</a></h3>
+<p><a class="reference external" href="https://julialang.org/downloads/#current_stable_release">Download Julia</a> and install the version specific to your operating system.</p>
+<div class="section" id="julia-installation-example-linux">
+<h4>Julia Installation Example (Linux)<a class="headerlink" href="#julia-installation-example-linux" title="Permalink to this headline">¶</a></h4>
+<ol class="simple">
+<li><p>Choose a destination directory for <code class="docutils literal notranslate"><span class="pre">Julia</span></code>. Again, <code class="docutils literal notranslate"><span class="pre">/opt</span></code> is recommended.</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span> /opt
+</pre></div>
+</div>
+<ol class="simple">
+<li><p>Download and unzip the <code class="docutils literal notranslate"><span class="pre">Julia</span></code> package in the chosen directory.</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>wget -q https://julialang-s3.julialang.org/bin/linux/x64/1.5/julia-1.5.3-linux-x86_64.tar.gz
+tar -xf julia-1.5.3-linux-x86_64.tar.gz
+</pre></div>
+</div>
+<ol class="simple">
+<li><p>Add <code class="docutils literal notranslate"><span class="pre">Julia</span></code> to the <code class="docutils literal notranslate"><span class="pre">PATH</span></code> environmental variable.</p></li>
+</ol>
+<p>For bash shell users, add the following to the <code class="docutils literal notranslate"><span class="pre">.bashrc</span></code> file:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$PATH</span><span class="s2">:/opt/julia-1.5.3/bin&quot;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="julia-package-installation">
+<h4>Julia Package Installation<a class="headerlink" href="#julia-package-installation" title="Permalink to this headline">¶</a></h4>
+<p><strong>Note</strong>: To install the <code class="docutils literal notranslate"><span class="pre">Gurobi.jl</span></code> part of this package, <code class="docutils literal notranslate"><span class="pre">Julia</span></code> will need
+to find the Gurobi installation folder. This is done by specifying an environment
+variable for <code class="docutils literal notranslate"><span class="pre">GUROBI_HOME</span></code> pointing to the Gurobi <code class="docutils literal notranslate"><span class="pre">&lt;installdir&gt;</span></code>.</p>
+<p>For more information, see the <a class="reference external" href="https://github.com/JuliaOpt/Gurobi.jl#installation">Gurobi.jl</a> documentation.</p>
+<p>As this package is unregistered with Julia, the easiest way to use this package
+is to first clone the repo locally (be sure to avoid whitespace in the path):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/Breakthrough-Energy/REISE.jl
+</pre></div>
+</div>
+<p>The package will need to be added to each user’s default <code class="docutils literal notranslate"><span class="pre">Julia</span></code> environment.
+This can be done by opening up <code class="docutils literal notranslate"><span class="pre">Julia</span></code> and activiating the Pkg REPL (the
+built-in package manager) with <code class="docutils literal notranslate"><span class="pre">]</span></code>. To exit the Pkg REPL, use <code class="docutils literal notranslate"><span class="pre">backspace</span></code>.</p>
+<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span>   <span class="n">_</span>       <span class="n">_</span> <span class="n">_</span><span class="p">(</span><span class="n">_</span><span class="p">)</span><span class="n">_</span>     <span class="o">|</span>  <span class="n">Documentation</span><span class="o">:</span> <span class="n">https</span><span class="o">://</span><span class="n">docs</span><span class="o">.</span><span class="n">julialang</span><span class="o">.</span><span class="n">org</span>
+  <span class="p">(</span><span class="n">_</span><span class="p">)</span>     <span class="o">|</span> <span class="p">(</span><span class="n">_</span><span class="p">)</span> <span class="p">(</span><span class="n">_</span><span class="p">)</span>    <span class="o">|</span>
+   <span class="n">_</span> <span class="n">_</span>   <span class="n">_</span><span class="o">|</span> <span class="o">|</span><span class="n">_</span>  <span class="n">__</span> <span class="n">_</span>   <span class="o">|</span>  <span class="kt">Type</span> <span class="s">&quot;?&quot;</span> <span class="k">for</span> <span class="n">help</span><span class="p">,</span> <span class="s">&quot;]?&quot;</span> <span class="k">for</span> <span class="n">Pkg</span> <span class="n">help</span><span class="o">.</span>
+  <span class="o">|</span> <span class="o">|</span> <span class="o">|</span> <span class="o">|</span> <span class="o">|</span> <span class="o">|</span> <span class="o">|/</span> <span class="n">_</span><span class="sb">` |  |</span>
+<span class="sb">  | | |_| | | | (_| |  |  Version 1.5.2 (2020-09-23)</span>
+<span class="sb"> _/ |\__&#39;_|_|_|\__&#39;_|  |  Official https://julialang.org/ release</span>
+<span class="sb">|__/                   |</span>
+
+<span class="sb">julia&gt; ]</span>
+
+<span class="sb">pkg&gt;</span>
+</pre></div>
+</div>
+<p>From here, there are many ways to add this package to <code class="docutils literal notranslate"><span class="pre">Julia</span></code>. Listed below are
+three different options:</p>
+<ol class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">add</span></code>ing a package allows a specific branch to be specified from the git
+repository. It will use the most recent allowed version of the dependencies
+specified in the <code class="docutils literal notranslate"><span class="pre">Project.toml</span></code> file. Currently, this package is known to be
+compatible with JuMP v0.21.3; this is specified in the <code class="docutils literal notranslate"><span class="pre">Project.toml</span></code> file,
+but there may be other packages for which the latest version does not maintain
+backward-compatibility.</p></li>
+</ol>
+<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">pkg</span><span class="o">&gt;</span> <span class="n">add</span> <span class="o">/</span><span class="n">PATH</span><span class="o">/</span><span class="n">TO</span><span class="o">/</span><span class="n">REISE</span><span class="o">.</span><span class="n">jl</span><span class="c">#develop</span>
+</pre></div>
+</div>
+<ol class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">dev</span></code>ing a package will always reflect the latest version of the code specified
+at the repository. If a branch other than <code class="docutils literal notranslate"><span class="pre">develop</span></code> is checked out, the code in
+that branch will be run. Like the above option, this method will also use the
+most recent allowed version of the dependencies for which backward-compatibility
+is not guaranteed.</p></li>
+</ol>
+<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">pkg</span><span class="o">&gt;</span> <span class="n">dev</span> <span class="o">/</span><span class="n">PATH</span><span class="o">/</span><span class="n">TO</span><span class="o">/</span><span class="n">REISE</span><span class="o">.</span><span class="n">jl</span>
+</pre></div>
+</div>
+<ol class="simple">
+<li><p>Using the specific environment specified in the project will use the exact
+dependency versions specified in the package. This will first have to be
+activated and instantiated to download and install all dependencies in <code class="docutils literal notranslate"><span class="pre">Julia</span></code>:</p></li>
+</ol>
+<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">pkg</span><span class="o">&gt;</span> <span class="n">activate</span> <span class="o">/</span><span class="n">PATH</span><span class="o">/</span><span class="n">TO</span><span class="o">/</span><span class="n">REISE</span><span class="o">.</span><span class="n">jl</span>
+ <span class="n">Activating</span> <span class="n">environment</span> <span class="n">at</span> <span class="sb">`~/REISE.jl/Project.toml`</span>
 
 <span class="p">(</span><span class="n">REISE</span><span class="p">)</span> <span class="n">pkg</span><span class="o">&gt;</span> <span class="n">instantiate</span>
 </pre></div>
 </div>
-<p>Another way is to install the package using the list of dependencies specified in the <code class="docutils literal notranslate"><span class="pre">Project.toml</span></code> file, which will pull the most recent allowed version of the dependencies. Currently, this package is known to be compatible with JuMP v0.21.3; this is specified in the <code class="docutils literal notranslate"><span class="pre">Project.toml</span></code> file, but there may be other packages for which the latest version does not maintain backward-compatibility.</p>
-<p>This package is not registered. Therefore, it must be added to a Julia environment either directly from GitHub:</p>
-<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">pkg</span><span class="o">&gt;</span> <span class="n">add</span> <span class="n">https</span><span class="o">://</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">Breakthrough</span><span class="o">-</span><span class="n">Energy</span><span class="o">/</span><span class="n">REISE</span><span class="o">.</span><span class="n">jl</span><span class="c">#develop</span>
+<p>In order for the below <code class="docutils literal notranslate"><span class="pre">python</span></code> scripts to use this environment, set a
+<code class="docutils literal notranslate"><span class="pre">JULIA_PROJECT</span></code> environment variable to the path to <code class="docutils literal notranslate"><span class="pre">/PATH/TO/REISE.jl</span></code>.</p>
+<p>For more information about the different installation options, please see the
+documentation for the <a class="reference external" href="https://julialang.github.io/Pkg.jl/v1/managing-packages/">Julia Package Manager</a>.</p>
+</div>
+<div class="section" id="verification-and-troubleshooting">
+<h4>Verification and Troubleshooting<a class="headerlink" href="#verification-and-troubleshooting" title="Permalink to this headline">¶</a></h4>
+<p>To verify that the package has been successfully installed, open a new instance of <code class="docutils literal notranslate"><span class="pre">Julia</span></code> and verify that the <code class="docutils literal notranslate"><span class="pre">REISE</span></code> package can load without any errors with the following command:</p>
+<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="n">REISE</span>
 </pre></div>
 </div>
-<p>or by cloning the repository locally and then specifying the path to the repo:</p>
-<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">pkg</span><span class="o">&gt;</span> <span class="n">add</span> <span class="o">/</span><span class="n">YOUR_PATH_HERE</span><span class="o">/</span><span class="n">REISE</span><span class="o">.</span><span class="n">jl</span><span class="c">#develop</span>
-</pre></div>
 </div>
-<p>Instead of calling <code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">PACKAGE</span></code>, it is also possible to call <code class="docutils literal notranslate"><span class="pre">dev</span> <span class="pre">PACKAGE</span></code>, which will always import the latest version of the code on your local machine. See the documentation for the Julia package manager for more information: https://julialang.github.io/Pkg.jl/v1/.</p>
 </div>
-<div class="section" id="associated-python-scripts">
-<h3>Associated python scripts<a class="headerlink" href="#associated-python-scripts" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="python-packages">
+<h3>Python Packages<a class="headerlink" href="#python-packages" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="python-requirements-installation">
+<h4>Python Requirements Installation<a class="headerlink" href="#python-requirements-installation" title="Permalink to this headline">¶</a></h4>
 <p>The dependencies of the python scripts contained in <code class="docutils literal notranslate"><span class="pre">pyreisejl</span></code> are not
 automatically installed. See <code class="docutils literal notranslate"><span class="pre">requirements.txt</span></code> for details. These requirements
 can be installed using pip:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip install -r requirements.txt
 </pre></div>
+</div>
+</div>
+<div class="section" id="python-installation-verification">
+<h4>Python Installation Verification<a class="headerlink" href="#python-installation-verification" title="Permalink to this headline">¶</a></h4>
+<p>To verify that the included python scripts can successfully run <code class="docutils literal notranslate"><span class="pre">REISE</span></code>, open a python interpreter and run the following commands. They should return with no errors.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">julia.api</span> <span class="kn">import</span> <span class="n">Julia</span>
+<span class="n">Julia</span><span class="p">(</span><span class="n">compiled_modules</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">julia</span> <span class="kn">import</span> <span class="n">REISE</span>
+</pre></div>
+</div>
+<p>Note that the final import of <code class="docutils literal notranslate"><span class="pre">REISE</span></code> may take a couple of minutes to complete.</p>
 </div>
 </div>
 </div>
@@ -256,22 +478,20 @@ this repository.</p>
 </div>
 <div class="section" id="docker">
 <h2>Docker<a class="headerlink" href="#docker" title="Permalink to this headline">¶</a></h2>
-<p>The easiest way to setup this engine is within a Docker image. There is an
-included <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code> that can be used to build the Docker image. With the
-Docker daemon installed and running, navigate to the <code class="docutils literal notranslate"><span class="pre">REISE.jl</span></code> folder
-containing the <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code> and build the image:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span> <span class="n">build</span> <span class="o">.</span> <span class="o">-</span><span class="n">t</span> <span class="n">reisejl</span>
+<p>The easiest way to setup this engine is within a Docker image. Note, however, that the Docker image is currently configured to use a <a class="reference external" href="https://cloud.gurobi.com/manager/licenses">Gurobi Cloud License</a> and not any of the other <code class="docutils literal notranslate"><span class="pre">Gurobi</span></code> licensing options.</p>
+<p>There is an included <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code> that can be used to build the Docker image. With the Docker daemon installed and running, navigate to the <code class="docutils literal notranslate"><span class="pre">REISE.jl</span></code> folder containing the <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code> and build the image:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker build . -t reisejl
 </pre></div>
 </div>
 <p>To run the Docker image, you will need to mount two volumes; one containing the
 <code class="docutils literal notranslate"><span class="pre">Gurobi</span></code> license file and another containing the necessary input files for the
 engine.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">docker</span> <span class="n">run</span> <span class="o">-</span><span class="n">i</span> <span class="o">-</span><span class="n">v</span> <span class="o">/</span><span class="n">LOCAL</span><span class="o">/</span><span class="n">PATH</span><span class="o">/</span><span class="n">TO</span><span class="o">/</span><span class="n">GUROBI</span><span class="o">.</span><span class="n">LIC</span><span class="p">:</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">share</span><span class="o">/</span><span class="n">gurobi_license</span> <span class="o">-</span><span class="n">v</span> <span class="o">/</span><span class="n">LOCAL</span><span class="o">/</span><span class="n">PATH</span><span class="o">/</span><span class="n">TO</span><span class="o">/</span><span class="n">DATA</span><span class="p">:</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">share</span><span class="o">/</span><span class="n">data</span> <span class="n">reisejl</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker run -it -v /LOCAL/PATH/TO/GUROBI.LIC:/usr/share/gurobi_license -v /LOCAL/PATH/TO/DATA:/usr/share/data reisejl bash
 </pre></div>
 </div>
-<p>Once the container is running, you can run a simulation using the <code class="docutils literal notranslate"><span class="pre">python</span></code>
-commands described above. For example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">pyreisejl</span><span class="o">/</span><span class="n">utility</span><span class="o">/</span><span class="n">call</span><span class="o">.</span><span class="n">py</span> <span class="o">-</span><span class="n">s</span> <span class="s1">&#39;2016-01-01&#39;</span> <span class="o">-</span><span class="n">e</span> <span class="s1">&#39;2016-01-07&#39;</span> <span class="o">-</span><span class="nb">int</span> <span class="mi">24</span> <span class="o">-</span><span class="n">i</span> <span class="s1">&#39;/usr/share/data&#39;</span>
+<p>The following command will start a bash shell session within the container,
+using the <code class="docutils literal notranslate"><span class="pre">python</span></code> commands described above.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python pyreisejl/utility/call.py -s <span class="s1">&#39;2016-01-01&#39;</span> -e <span class="s1">&#39;2016-01-07&#39;</span> -int <span class="m">24</span> -i <span class="s1">&#39;/usr/share/data&#39;</span>
 </pre></div>
 </div>
 <p>Note that loading the <code class="docutils literal notranslate"><span class="pre">REISE.jl</span></code> package can take up to a couple of minutes,
@@ -511,10 +731,15 @@ Penalty for ending the interval with less stored energy than the start, or rewar
 <li class="toctree-l1"><a class="reference internal" href="prereise_package.html">PreREISE</a></li>
 <li class="toctree-l1"><a class="reference internal" href="postreise_package.html">PostREISE</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">REISE.jl</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#dependencies">Dependencies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#julia-package">Julia package</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#associated-python-scripts">Associated python scripts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dependencies">Dependencies</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#system-requirements">System Requirements</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#installation-local">Installation (Local)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#gurobi-installation">Gurobi Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#julia-installation">Julia Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#python-packages">Python Packages</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#usage-julia">Usage (Julia)</a></li>

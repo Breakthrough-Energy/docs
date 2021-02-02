@@ -39,10 +39,12 @@
 <span class="kn">from</span> <span class="nn">numpy.testing</span> <span class="kn">import</span> <span class="n">assert_array_almost_equal</span><span class="p">,</span> <span class="n">assert_array_equal</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.tests.mock_grid</span> <span class="kn">import</span> <span class="n">MockGrid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_scenario</span> <span class="kn">import</span> <span class="n">MockScenario</span>
 
 <span class="kn">from</span> <span class="nn">postreise.analyze.helpers</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_active_resources_in_grid</span><span class="p">,</span>
     <span class="n">get_plant_id_for_resources</span><span class="p">,</span>
+    <span class="n">get_plant_id_for_resources_in_area</span><span class="p">,</span>
     <span class="n">get_plant_id_for_resources_in_interconnects</span><span class="p">,</span>
     <span class="n">get_plant_id_for_resources_in_loadzones</span><span class="p">,</span>
     <span class="n">get_plant_id_for_resources_in_states</span><span class="p">,</span>
@@ -50,6 +52,7 @@
     <span class="n">get_plant_id_in_loadzones</span><span class="p">,</span>
     <span class="n">get_plant_id_in_states</span><span class="p">,</span>
     <span class="n">get_resources_in_grid</span><span class="p">,</span>
+    <span class="n">get_storage_id_in_area</span><span class="p">,</span>
     <span class="n">summarize_plant_to_bus</span><span class="p">,</span>
     <span class="n">summarize_plant_to_location</span><span class="p">,</span>
 <span class="p">)</span>
@@ -63,6 +66,7 @@
     <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;coal&quot;</span><span class="p">,</span> <span class="s2">&quot;ng&quot;</span><span class="p">,</span> <span class="s2">&quot;coal&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">],</span>
     <span class="s2">&quot;Pmin&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
     <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">50</span><span class="p">],</span>
+    <span class="s2">&quot;zone_name&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">],</span>
 <span class="p">}</span>
 
 <span class="c1"># bus_id is the index</span>
@@ -70,6 +74,7 @@
     <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span>
     <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">47.6</span><span class="p">,</span> <span class="mf">37.8</span><span class="p">,</span> <span class="mf">37.8</span><span class="p">,</span> <span class="mf">40.7</span><span class="p">],</span>
     <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">122.3</span><span class="p">,</span> <span class="mf">122.4</span><span class="p">,</span> <span class="mf">122.4</span><span class="p">,</span> <span class="mi">74</span><span class="p">],</span>
+    <span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">101</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="mi">102</span><span class="p">,</span> <span class="mi">103</span><span class="p">],</span>
 <span class="p">}</span>
 
 <span class="n">mock_pg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
@@ -81,7 +86,18 @@
     <span class="p">}</span>
 <span class="p">)</span>
 
-<span class="n">grid_attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">,</span> <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="n">mock_bus</span><span class="p">}</span>
+<span class="n">mock_storage</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+    <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span>
+<span class="p">}</span>
+
+<span class="n">grid_attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">,</span> <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="n">mock_bus</span><span class="p">,</span> <span class="s2">&quot;storage_gen&quot;</span><span class="p">:</span> <span class="n">mock_storage</span><span class="p">}</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">MockScenario</span><span class="p">(</span><span class="n">grid_attrs</span><span class="p">)</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;zone1&quot;</span><span class="p">:</span> <span class="mi">101</span><span class="p">,</span>
+    <span class="s2">&quot;zone2&quot;</span><span class="p">:</span> <span class="mi">102</span><span class="p">,</span>
+    <span class="s2">&quot;zone3&quot;</span><span class="p">:</span> <span class="mi">103</span><span class="p">,</span>
+<span class="p">}</span>
 
 
 <div class="viewcode-block" id="check_dataframe_matches"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_helpers.check_dataframe_matches">[docs]</a><span class="k">def</span> <span class="nf">check_dataframe_matches</span><span class="p">(</span><span class="n">received_return</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">):</span>
@@ -377,6 +393,22 @@
         <span class="n">plant_id</span> <span class="o">=</span> <span class="n">get_plant_id_for_resources_in_states</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
         <span class="k">assert</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">type</span><span class="p">)</span> <span class="o">==</span> <span class="nb">set</span><span class="p">(</span><span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="k">assert</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">zone_id</span><span class="p">)</span> <span class="o">==</span> <span class="nb">set</span><span class="p">(</span><span class="n">e</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="test_get_plant_id_for_resources_in_area"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_helpers.test_get_plant_id_for_resources_in_area">[docs]</a><span class="k">def</span> <span class="nf">test_get_plant_id_for_resources_in_area</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">[(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="s2">&quot;coal&quot;</span><span class="p">),</span> <span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;coal&quot;</span><span class="p">)]</span>
+    <span class="n">expected</span> <span class="o">=</span> <span class="p">[[</span><span class="s2">&quot;A&quot;</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">]]</span>
+    <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">expected</span><span class="p">):</span>
+        <span class="n">plant_id</span> <span class="o">=</span> <span class="n">get_plant_id_for_resources_in_area</span><span class="p">(</span><span class="o">*</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">e</span> <span class="o">==</span> <span class="n">plant_id</span></div>
+
+
+<div class="viewcode-block" id="test_get_storage_id_in_area"><a class="viewcode-back" href="../../../../postreise.analyze.tests.html#postreise.analyze.tests.test_helpers.test_get_storage_id_in_area">[docs]</a><span class="k">def</span> <span class="nf">test_get_storage_id_in_area</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">[(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">),</span> <span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">)]</span>
+    <span class="n">expected</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]]</span>
+    <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">expected</span><span class="p">):</span>
+        <span class="n">storage_id</span> <span class="o">=</span> <span class="n">get_storage_id_in_area</span><span class="p">(</span><span class="o">*</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">e</span> <span class="o">==</span> <span class="n">storage_id</span></div>
 </pre></div>
 
           </div>

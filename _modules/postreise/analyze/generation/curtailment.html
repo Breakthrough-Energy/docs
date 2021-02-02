@@ -40,12 +40,16 @@
     <span class="n">_check_resources_are_renewable_and_format</span><span class="p">,</span>
     <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.summarize</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">get_generation_time_series_by_resources</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">postreise.analyze.helpers</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">decompose_plant_data_frame_into_areas</span><span class="p">,</span>
     <span class="n">decompose_plant_data_frame_into_areas_and_resources</span><span class="p">,</span>
     <span class="n">decompose_plant_data_frame_into_resources</span><span class="p">,</span>
     <span class="n">decompose_plant_data_frame_into_resources_and_areas</span><span class="p">,</span>
     <span class="n">get_plant_id_for_resources</span><span class="p">,</span>
+    <span class="n">get_plant_id_for_resources_in_area</span><span class="p">,</span>
     <span class="n">summarize_plant_to_bus</span><span class="p">,</span>
     <span class="n">summarize_plant_to_location</span><span class="p">,</span>
 <span class="p">)</span>
@@ -193,7 +197,8 @@
 
 <span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
 <span class="sd">    :param str/tuple/list/set resources: names of resources to analyze. Default is</span>
-<span class="sd">        all renewable resources.    :param dict areas: keys are area types (&#39;*loadzone*&#39;, &#39;*state*&#39; or</span>
+<span class="sd">        all renewable resources.</span>
+<span class="sd">    :param dict areas: keys are area types (&#39;*loadzone*&#39;, &#39;*state*&#39; or</span>
 <span class="sd">        &#39;*interconnect*&#39;), values are a list of areas. Default is the interconnect of</span>
 <span class="sd">        the scenario. Default is the scenario interconnect.</span>
 <span class="sd">    :return: (*dict*) -- keys are areas, values are dictionaries whose keys are</span>
@@ -256,6 +261,35 @@
     <span class="p">}</span>
 
     <span class="k">return</span> <span class="n">location_curtailment</span></div>
+
+
+<div class="viewcode-block" id="get_curtailment_time_series"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.curtailment.get_curtailment_time_series">[docs]</a><span class="k">def</span> <span class="nf">get_curtailment_time_series</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get time series curtailments for each available resource in a certain area of</span>
+<span class="sd">    a scenario</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance</span>
+<span class="sd">    :param str area: one of *loadzone*, *state*, *state abbreviation*,</span>
+<span class="sd">        *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">    :param str area_type: one of *&#39;loadzone&#39;*, *&#39;state&#39;*, *&#39;state_abbr&#39;*,</span>
+<span class="sd">        *&#39;interconnect&#39;*</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- index: time stamps, columns: available resources</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">renewables</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;wind_offshore&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">]</span>
+    <span class="n">curtailment</span> <span class="o">=</span> <span class="n">get_generation_time_series_by_resources</span><span class="p">(</span>
+        <span class="n">scenario</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">renewables</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="n">area_type</span>
+    <span class="p">)</span>
+    <span class="n">renewable_profiles</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_wind</span><span class="p">(),</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_solar</span><span class="p">()],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">renewables</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">curtailment</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">plant_id</span> <span class="o">=</span> <span class="n">get_plant_id_for_resources_in_area</span><span class="p">(</span>
+                <span class="n">scenario</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="n">area_type</span>
+            <span class="p">)</span>
+            <span class="n">curtailment</span><span class="p">[</span><span class="n">r</span><span class="p">]</span> <span class="o">=</span> <span class="n">renewable_profiles</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">curtailment</span><span class="p">[</span><span class="n">r</span><span class="p">]</span>
+    <span class="n">curtailment</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">+</span> <span class="s2">&quot;_curtailment&quot;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;columns&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">curtailment</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

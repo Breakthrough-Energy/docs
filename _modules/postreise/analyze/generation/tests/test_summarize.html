@@ -37,9 +37,12 @@
 
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">import</span> <span class="nn">pytest</span>
+<span class="kn">from</span> <span class="nn">numpy.testing</span> <span class="kn">import</span> <span class="n">assert_array_almost_equal</span>
 <span class="kn">from</span> <span class="nn">powersimdata.tests.mock_scenario</span> <span class="kn">import</span> <span class="n">MockScenario</span>
 
 <span class="kn">from</span> <span class="nn">postreise.analyze.generation.summarize</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">get_generation_time_series_by_resources</span><span class="p">,</span>
+    <span class="n">get_storage_time_series</span><span class="p">,</span>
     <span class="n">sum_generation_by_state</span><span class="p">,</span>
     <span class="n">sum_generation_by_type_zone</span><span class="p">,</span>
     <span class="n">summarize_hist_gen</span><span class="p">,</span>
@@ -51,6 +54,18 @@
     <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">],</span>
     <span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
     <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;zone_name&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">],</span>
+<span class="p">}</span>
+
+<span class="c1"># bus_id is the index</span>
+<span class="n">mock_bus</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span>
+    <span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+<span class="p">}</span>
+
+<span class="n">mock_storage</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+    <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span>
 <span class="p">}</span>
 
 <span class="n">mock_pg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
@@ -62,7 +77,20 @@
     <span class="p">}</span>
 <span class="p">)</span>
 
-<span class="n">grid_attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">}</span>
+<span class="n">mock_storage_pg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="mi">0</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+        <span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+        <span class="mi">2</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+
+<span class="n">grid_attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">,</span> <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="n">mock_bus</span><span class="p">,</span> <span class="s2">&quot;storage_gen&quot;</span><span class="p">:</span> <span class="n">mock_storage</span><span class="p">}</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">MockScenario</span><span class="p">(</span><span class="n">grid_attrs</span><span class="p">,</span> <span class="n">pg</span><span class="o">=</span><span class="n">mock_pg</span><span class="p">,</span> <span class="n">storage_pg</span><span class="o">=</span><span class="n">mock_storage_pg</span><span class="p">)</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;zone1&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="s2">&quot;zone2&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+<span class="p">}</span>
 
 
 <div class="viewcode-block" id="TestSumGenerationByTypeZone"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_summarize.TestSumGenerationByTypeZone">[docs]</a><span class="k">class</span> <span class="nc">TestSumGenerationByTypeZone</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
@@ -152,6 +180,23 @@
     <span class="n">actual_hist_gen</span> <span class="o">=</span> <span class="n">summarize_hist_gen</span><span class="p">(</span><span class="n">hist_gen_raw</span><span class="p">,</span> <span class="n">all_resources</span><span class="p">)</span>
     <span class="c1"># 48 contiguous, 3 interconnections and total</span>
     <span class="k">assert</span> <span class="p">(</span><span class="mi">52</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="o">==</span> <span class="n">actual_hist_gen</span><span class="o">.</span><span class="n">shape</span></div>
+
+
+<div class="viewcode-block" id="test_get_generation_time_series_by_resources"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_summarize.test_get_generation_time_series_by_resources">[docs]</a><span class="k">def</span> <span class="nf">test_get_generation_time_series_by_resources</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">[(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">),</span> <span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)]</span>
+    <span class="n">expected</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="n">mock_pg</span><span class="p">[</span><span class="s2">&quot;B&quot;</span><span class="p">]}),</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;hydro&quot;</span><span class="p">:</span> <span class="n">mock_pg</span><span class="p">[[</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)}),</span>
+    <span class="p">]</span>
+    <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">expected</span><span class="p">):</span>
+        <span class="n">check_dataframe_matches</span><span class="p">(</span><span class="n">get_generation_time_series_by_resources</span><span class="p">(</span><span class="o">*</span><span class="n">a</span><span class="p">),</span> <span class="n">e</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_get_storage_time_series"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_summarize.test_get_storage_time_series">[docs]</a><span class="k">def</span> <span class="nf">test_get_storage_time_series</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="p">[(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">),</span> <span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">)]</span>
+    <span class="n">expected</span> <span class="o">=</span> <span class="p">[</span><span class="n">mock_storage_pg</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">mock_storage_pg</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">expected</span><span class="p">):</span>
+        <span class="n">assert_array_almost_equal</span><span class="p">(</span><span class="n">get_storage_time_series</span><span class="p">(</span><span class="o">*</span><span class="n">a</span><span class="p">),</span> <span class="n">e</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

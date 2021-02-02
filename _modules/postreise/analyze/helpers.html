@@ -36,6 +36,7 @@
 
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants</span> <span class="kn">import</span> <span class="n">zones</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.usa_tamu_model</span> <span class="kn">import</span> <span class="n">area_to_loadzone</span>
 
 <span class="kn">from</span> <span class="nn">postreise.analyze.check</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">_check_areas_are_in_grid_and_format</span><span class="p">,</span>
@@ -159,7 +160,7 @@
     <span class="sd">&quot;&quot;&quot;Get plant id for for plants fueled by resource(s) in state(s).</span>
 
 <span class="sd">    :param str/list/tuple/set resources: name of resource(s).</span>
-<span class="sd">    :param str/list/tuple/set interconnects: state(s) name or abbreviation.</span>
+<span class="sd">    :param str/list/tuple/set states: state(s) name or abbreviation.</span>
 <span class="sd">    :param powersimdata.input.grid.Grid grid: a Grid instance.</span>
 <span class="sd">    :return: (*set*) -- list of plant id</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -310,9 +311,54 @@
 
     <span class="n">all_locations</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[[</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]]</span>
     <span class="n">locations_in_df</span> <span class="o">=</span> <span class="n">all_locations</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span><span class="o">.</span><span class="n">to_records</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="n">location_data</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">locations_in_df</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">location_data</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">locations_in_df</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
 
     <span class="k">return</span> <span class="n">location_data</span></div>
+
+
+<div class="viewcode-block" id="get_plant_id_for_resources_in_area"><a class="viewcode-back" href="../../../postreise.analyze.html#postreise.analyze.helpers.get_plant_id_for_resources_in_area">[docs]</a><span class="k">def</span> <span class="nf">get_plant_id_for_resources_in_area</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">resources</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get the list of plant ids of certain resources in the specific area of a</span>
+<span class="sd">    scenario.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance</span>
+<span class="sd">    :param str area: one of *loadzone*, *state*, *state abbreviation*,</span>
+<span class="sd">        *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">    :param str/list resources: one or a list of resources</span>
+<span class="sd">    :param str area_type: one of *&#39;loadzone&#39;*, *&#39;state&#39;*, *&#39;state_abbr&#39;*,</span>
+<span class="sd">        *&#39;interconnect&#39;*</span>
+<span class="sd">    :return: (*list*) -- list of plant id</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">resource_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">resources</span><span class="p">])</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="nb">set</span><span class="p">(</span><span class="n">resources</span><span class="p">)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">loadzone_set</span> <span class="o">=</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="n">area_type</span><span class="p">)</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span>
+        <span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">loadzone_set</span><span class="p">))</span>
+        <span class="o">&amp;</span> <span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">resource_set</span><span class="p">))</span>
+    <span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">plant_id</span></div>
+
+
+<div class="viewcode-block" id="get_storage_id_in_area"><a class="viewcode-back" href="../../../postreise.analyze.html#postreise.analyze.helpers.get_storage_id_in_area">[docs]</a><span class="k">def</span> <span class="nf">get_storage_id_in_area</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get the list of storage ids in the specific area of a scenario</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance</span>
+<span class="sd">    :param str area: one of *loadzone*, *state*, *state abbreviation*,</span>
+<span class="sd">        *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">    :param str area_type: one of *&#39;loadzone&#39;*, *&#39;state&#39;*, *&#39;state_abbr&#39;*,</span>
+<span class="sd">        *&#39;interconnect&#39;*</span>
+<span class="sd">    :return: (*list*) -- list of storage id</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">loadzone_set</span> <span class="o">=</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="n">area_type</span><span class="p">)</span>
+    <span class="n">loadzone_id_set</span> <span class="o">=</span> <span class="p">{</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">lz</span><span class="p">]</span> <span class="k">for</span> <span class="n">lz</span> <span class="ow">in</span> <span class="n">loadzone_set</span> <span class="k">if</span> <span class="n">lz</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">}</span>
+
+    <span class="n">gen</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span>
+    <span class="n">storage_id</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+        <span class="n">gen</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="s2">&quot;zone_id&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">loadzone_id_set</span><span class="p">)</span>
+    <span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">storage_id</span></div>
 </pre></div>
 
           </div>

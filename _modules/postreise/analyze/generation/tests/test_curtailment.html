@@ -41,9 +41,11 @@
 <span class="kn">from</span> <span class="nn">postreise.analyze.generation.curtailment</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">calculate_curtailment_percentage_by_resources</span><span class="p">,</span>
     <span class="n">calculate_curtailment_time_series_by_resources</span><span class="p">,</span>
+    <span class="n">get_curtailment_time_series</span><span class="p">,</span>
     <span class="n">summarize_curtailment_by_bus</span><span class="p">,</span>
     <span class="n">summarize_curtailment_by_location</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.tests.test_helpers</span> <span class="kn">import</span> <span class="n">check_dataframe_matches</span>
 
 <span class="c1"># plant_id is the index</span>
 <span class="n">mock_plant</span> <span class="o">=</span> <span class="p">{</span>
@@ -52,6 +54,7 @@
     <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">47.6</span><span class="p">,</span> <span class="mf">47.6</span><span class="p">,</span> <span class="mf">37.8</span><span class="p">,</span> <span class="mf">37.8</span><span class="p">],</span>
     <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">122.3</span><span class="p">,</span> <span class="mf">122.3</span><span class="p">,</span> <span class="mf">122.4</span><span class="p">,</span> <span class="mf">122.4</span><span class="p">],</span>
     <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;wind_offshore&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;zone_name&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">],</span>
 <span class="p">}</span>
 
 <span class="n">mock_pg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
@@ -230,6 +233,40 @@
         <span class="p">}</span>
         <span class="n">location_curtailment</span> <span class="o">=</span> <span class="n">summarize_curtailment_by_location</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">location_curtailment</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestGetCurtailmentTimeSeries"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_curtailment.TestGetCurtailmentTimeSeries">[docs]</a><span class="k">class</span> <span class="nc">TestGetCurtailmentTimeSeries</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestGetCurtailmentTimeSeries.test_get_curtailment_time_series"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_curtailment.TestGetCurtailmentTimeSeries.test_get_curtailment_time_series">[docs]</a>    <span class="k">def</span> <span class="nf">test_get_curtailment_time_series</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">arg</span> <span class="o">=</span> <span class="p">[(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;zone1&quot;</span><span class="p">),</span> <span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">),</span> <span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">)]</span>
+        <span class="n">expected_return</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;solar_curtailment&quot;</span><span class="p">:</span> <span class="n">mock_curtailment</span><span class="p">[</span><span class="s2">&quot;solar&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="n">index</span><span class="o">=</span><span class="n">mock_solar</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;wind_curtailment&quot;</span><span class="p">:</span> <span class="n">mock_curtailment</span><span class="p">[</span><span class="s2">&quot;wind&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                    <span class="s2">&quot;wind_offshore_curtailment&quot;</span><span class="p">:</span> <span class="n">mock_curtailment</span><span class="p">[</span><span class="s2">&quot;wind_offshore&quot;</span><span class="p">]</span>
+                    <span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="n">index</span><span class="o">=</span><span class="n">mock_wind</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;solar_curtailment&quot;</span><span class="p">:</span> <span class="n">mock_curtailment</span><span class="p">[</span><span class="s2">&quot;solar&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                    <span class="s2">&quot;wind_curtailment&quot;</span><span class="p">:</span> <span class="n">mock_curtailment</span><span class="p">[</span><span class="s2">&quot;wind&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                    <span class="s2">&quot;wind_offshore_curtailment&quot;</span><span class="p">:</span> <span class="n">mock_curtailment</span><span class="p">[</span><span class="s2">&quot;wind_offshore&quot;</span><span class="p">]</span>
+                    <span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="n">index</span><span class="o">=</span><span class="n">mock_pg</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">):</span>
+            <span class="n">check_dataframe_matches</span><span class="p">(</span><span class="n">get_curtailment_time_series</span><span class="p">(</span><span class="o">*</span><span class="n">a</span><span class="p">),</span> <span class="n">e</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>

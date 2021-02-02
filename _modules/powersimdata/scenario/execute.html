@@ -275,6 +275,20 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_launch_on_server</span><span class="p">(</span><span class="n">threads</span><span class="p">,</span> <span class="n">extract_data</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_launch_in_container</span><span class="p">(</span><span class="n">threads</span><span class="p">)</span></div>
 
+<div class="viewcode-block" id="Execute.check_progress"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.Execute.check_progress">[docs]</a>    <span class="k">def</span> <span class="nf">check_progress</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the lastest information from the server container</span>
+
+<span class="sd">        :raises NotImplementedError: if not running in container mode</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mode</span> <span class="o">=</span> <span class="n">get_deployment_mode</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">!=</span> <span class="n">DeploymentMode</span><span class="o">.</span><span class="n">Container</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Operation only supported for container mode&quot;</span><span class="p">)</span>
+
+        <span class="n">scenario_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;http://</span><span class="si">{</span><span class="n">server_setup</span><span class="o">.</span><span class="n">SERVER_ADDRESS</span><span class="si">}</span><span class="s2">:5000/status/</span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()</span></div>
+
 <div class="viewcode-block" id="Execute.extract_simulation_output"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.Execute.extract_simulation_output">[docs]</a>    <span class="k">def</span> <span class="nf">extract_simulation_output</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Extracts simulation outputs {PG, PF, LMP, CONGU, CONGL} on server.</span>
 
@@ -283,6 +297,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_update_scenario_status</span><span class="p">()</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span> <span class="o">==</span> <span class="s2">&quot;finished&quot;</span><span class="p">:</span>
+            <span class="n">mode</span> <span class="o">=</span> <span class="n">get_deployment_mode</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="n">DeploymentMode</span><span class="o">.</span><span class="n">Container</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;WARNING: extraction not yet supported, please extract manually&quot;</span><span class="p">)</span>
+                <span class="k">return</span>
+
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Extracting output data on server&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_script</span><span class="p">(</span><span class="s2">&quot;extract_data.py&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>

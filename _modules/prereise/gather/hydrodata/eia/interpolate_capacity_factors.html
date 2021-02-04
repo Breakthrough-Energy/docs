@@ -40,23 +40,25 @@
 
 
 <div class="viewcode-block" id="get_profile"><a class="viewcode-back" href="../../../../../prereise.gather.hydrodata.eia.html#prereise.gather.hydrodata.eia.interpolate_capacity_factors.get_profile">[docs]</a><span class="k">def</span> <span class="nf">get_profile</span><span class="p">(</span>
-    <span class="n">plant_id</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">end</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">23</span><span class="p">)</span>
+    <span class="n">plant</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">end</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">23</span><span class="p">)</span>
 <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Creates hydro profile from monthly capacity factors reported by EIA</span>
 <span class="sd">    `here &lt;https://www.eia.gov/electricity/annual/html/epa_04_08_b.html&gt;`_.</span>
 
-<span class="sd">    :param list plant_id: id of the hydro plants.</span>
+<span class="sd">    :param pandas.DataFrame plant: data frame with *&#39;Pmax&#39;* as column and</span>
+<span class="sd">        *&#39;plant_id&#39;* as indices.</span>
 <span class="sd">    :param pandas.Timestamp/numpy.datetime64/datetime.datetime start: start date.</span>
 <span class="sd">    :param pandas.Timestamp/numpy.datetime64/datetime.datetime end: end date.</span>
 <span class="sd">    :return: (*pandas.DataFrame*) -- data frame with UTC timestamp as indices and plant</span>
-<span class="sd">        id as column names. Values are the capacity factor. Note that a unique capacity</span>
-<span class="sd">        factor is given for each month and for the entire US. Therefore, each plant</span>
-<span class="sd">        will have the same profile.</span>
-<span class="sd">    :raises TypeError: if plant_id is not a list and/or dates are str.</span>
-<span class="sd">    :raises ValueError: if dates are invalid.</span>
+<span class="sd">        id as column names. Values are the energy in MWh.</span>
+<span class="sd">    :raises TypeError: if plant is not a data frame and/or dates are str.</span>
+<span class="sd">    :raises ValueError: if dates are invalid and/or data frame does not have a *&#39;Pmax&#39;*</span>
+<span class="sd">        column.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plant_id</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;plant_id must be a list&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plant</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;plant must be a pandas.DataFrame object&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;Pmax&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">plant</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Pmax must be in the plant data frame&quot;</span><span class="p">)</span>
 
     <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="p">[</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">]:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">)):</span>
@@ -89,7 +91,13 @@
     <span class="n">scaler</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">scaler</span> <span class="o">=</span> <span class="n">scaler</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
 
-    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="n">i</span><span class="p">:</span> <span class="n">scaler</span><span class="o">.</span><span class="n">cf</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">plant_id</span><span class="p">},</span> <span class="n">index</span><span class="o">=</span><span class="n">scaler</span><span class="o">.</span><span class="n">index</span><span class="p">)</span></div>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">scaler</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">plant</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+        <span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">cf</span> <span class="o">*</span> <span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">Pmax</span>
+
+    <span class="n">data</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">&quot;cf&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">data</span></div>
 </pre></div>
 
           </div>

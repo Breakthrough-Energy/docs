@@ -34,42 +34,11 @@
   <h1>Source code for postreise.analyze.transmission.congestion</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.input_data</span> <span class="kn">import</span> <span class="n">get_bus_demand</span>
 <span class="kn">from</span> <span class="nn">powersimdata.scenario.analyze</span> <span class="kn">import</span> <span class="n">Analyze</span>
 <span class="kn">from</span> <span class="nn">powersimdata.scenario.scenario</span> <span class="kn">import</span> <span class="n">Scenario</span>
 
 <span class="kn">from</span> <span class="nn">postreise.analyze.helpers</span> <span class="kn">import</span> <span class="n">summarize_plant_to_bus</span>
-
-
-<div class="viewcode-block" id="map_demand_to_buses"><a class="viewcode-back" href="../../../../postreise.analyze.transmission.html#postreise.analyze.transmission.congestion.map_demand_to_buses">[docs]</a><span class="k">def</span> <span class="nf">map_demand_to_buses</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">demand</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Map demand by (hour, zone) to (hour, bus).</span>
-
-<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance.</span>
-<span class="sd">    :param pandas.DataFrame demand: demand DataFrame.</span>
-<span class="sd">    :return: (*pandas.DataFrame*) -- bus_demand, indices (hour, bus).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">Grid</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;grid must be a Grid object&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">demand</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;demand must be a pandas DataFrame&quot;</span><span class="p">)</span>
-
-    <span class="n">bus</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span>
-    <span class="n">zones</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-    <span class="n">bus_demands</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">zones</span><span class="p">:</span>
-        <span class="c1"># Calculate share of zone demand to each zone bus</span>
-        <span class="n">zone_buses</span> <span class="o">=</span> <span class="n">bus</span><span class="p">[</span><span class="n">bus</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">z</span><span class="p">]</span>
-        <span class="n">load_sum</span> <span class="o">=</span> <span class="n">zone_buses</span><span class="p">[</span><span class="s2">&quot;Pd&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
-        <span class="n">load_ratio</span> <span class="o">=</span> <span class="n">zone_buses</span><span class="p">[</span><span class="s2">&quot;Pd&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">load_sum</span>
-        <span class="c1"># Then distribute time-series demand to buses</span>
-        <span class="n">bus_demands</span><span class="p">[</span><span class="n">z</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
-            <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">demand</span><span class="p">[</span><span class="n">z</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">load_ratio</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()),</span>
-            <span class="n">columns</span><span class="o">=</span><span class="n">load_ratio</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
-            <span class="n">index</span><span class="o">=</span><span class="n">demand</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
-        <span class="p">)</span>
-    <span class="n">bus_demand</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">bus_demands</span><span class="p">[</span><span class="n">z</span><span class="p">]</span> <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">zones</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">bus_demand</span></div>
 
 
 <div class="viewcode-block" id="calculate_congestion_surplus"><a class="viewcode-back" href="../../../../postreise.analyze.transmission.html#postreise.analyze.transmission.congestion.calculate_congestion_surplus">[docs]</a><span class="k">def</span> <span class="nf">calculate_congestion_surplus</span><span class="p">(</span><span class="n">scenario</span><span class="p">):</span>
@@ -84,12 +53,11 @@
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="p">,</span> <span class="n">Analyze</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;scenario.state must be Analyze&quot;</span><span class="p">)</span>
 
-    <span class="n">demand</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_demand</span><span class="p">(</span><span class="n">original</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
     <span class="n">lmp</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_lmp</span><span class="p">()</span>
     <span class="n">pg</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_pg</span><span class="p">()</span>
 
-    <span class="n">bus_demand</span> <span class="o">=</span> <span class="n">map_demand_to_buses</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">demand</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">bus_demand</span> <span class="o">=</span> <span class="n">get_bus_demand</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
     <span class="n">bus_pg</span> <span class="o">=</span> <span class="n">summarize_plant_to_bus</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">all_buses</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="n">congestion_surplus</span> <span class="o">=</span> <span class="p">(</span><span class="n">lmp</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">*</span> <span class="p">(</span><span class="n">bus_demand</span> <span class="o">-</span> <span class="n">bus_pg</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>

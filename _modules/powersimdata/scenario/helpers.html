@@ -32,11 +32,7 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.scenario.helpers</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-
-
-<div class="viewcode-block" id="check_interconnect"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.helpers.check_interconnect">[docs]</a><span class="k">def</span> <span class="nf">check_interconnect</span><span class="p">(</span><span class="n">interconnect</span><span class="p">):</span>
+<div class="viewcode-block" id="check_interconnect"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.helpers.check_interconnect">[docs]</a><span></span><span class="k">def</span> <span class="nf">check_interconnect</span><span class="p">(</span><span class="n">interconnect</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Sets interconnect.</span>
 
 <span class="sd">    :param list interconnect: interconnect name(s).</span>
@@ -80,28 +76,6 @@
                 <span class="k">return</span> <span class="s2">&quot;easternwestern&quot;</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;usa&quot;</span></div>
-
-
-<div class="viewcode-block" id="calculate_bus_demand"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.helpers.calculate_bus_demand">[docs]</a><span class="k">def</span> <span class="nf">calculate_bus_demand</span><span class="p">(</span><span class="n">bus</span><span class="p">,</span> <span class="n">demand</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Calculates bus-level demand from zone-level demand.</span>
-
-<span class="sd">    :param pandas.DataFrame bus: bus data frame.</span>
-<span class="sd">    :param pandas.DataFrame demand: demand data frame.</span>
-<span class="sd">    :return: (*pandas.DataFrame*) -- dataframe of (hour, bus) demand.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">zone_demand</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;zone_id&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">Pd</span>
-    <span class="n">bus_zone_share</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">Pd</span> <span class="o">/</span> <span class="n">zone_demand</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">zone_id</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">bus_to_zone</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">zone_demand</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">bus</span><span class="p">)))</span>
-    <span class="n">bus_idx_lookup</span> <span class="o">=</span> <span class="p">{</span><span class="n">b</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="p">)}</span>
-    <span class="n">zone_idx_lookup</span> <span class="o">=</span> <span class="p">{</span><span class="n">z</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">z</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">zone_demand</span><span class="o">.</span><span class="n">index</span><span class="p">)}</span>
-    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
-        <span class="n">bus_idx</span> <span class="o">=</span> <span class="n">bus_idx_lookup</span><span class="p">[</span><span class="n">b</span><span class="p">]</span>
-        <span class="n">zone_idx</span> <span class="o">=</span> <span class="n">zone_idx_lookup</span><span class="p">[</span><span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;zone_id&quot;</span><span class="p">]]</span>
-        <span class="n">bus_to_zone</span><span class="p">[</span><span class="n">zone_idx</span><span class="p">,</span> <span class="n">bus_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_zone_share</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">]</span>
-    <span class="n">bus_demand</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
-        <span class="p">(</span><span class="n">demand</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">@</span> <span class="n">bus_to_zone</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="n">demand</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span>
-    <span class="p">)</span>
-    <span class="k">return</span> <span class="n">bus_demand</span></div>
 </pre></div>
 
           </div>

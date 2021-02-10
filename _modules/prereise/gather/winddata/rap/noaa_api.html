@@ -36,6 +36,8 @@
 
 <span class="kn">import</span> <span class="nn">requests</span>
 
+<span class="kn">from</span> <span class="nn">prereise.gather.request_util</span> <span class="kn">import</span> <span class="n">TransientError</span><span class="p">,</span> <span class="n">retry</span>
+
 
 <div class="viewcode-block" id="NoaaApi"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.noaa_api.NoaaApi">[docs]</a><span class="k">class</span> <span class="nc">NoaaApi</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;API client for downloading rap-130 data from NOAA.</span>
@@ -120,9 +122,14 @@
 <span class="sd">        :return: (*Generator[requests.Response]*) -- yield the next http response</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
+        <span class="nd">@retry</span><span class="p">(</span><span class="n">retry_count</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">allowed_exceptions</span><span class="o">=</span><span class="p">(</span><span class="n">TransientError</span><span class="p">))</span>
         <span class="k">def</span> <span class="nf">download</span><span class="p">(</span><span class="n">time_slice</span><span class="p">,</span> <span class="n">fallback</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
             <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_url</span><span class="p">(</span><span class="n">time_slice</span><span class="p">,</span> <span class="n">fallback</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+            <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">500</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Server error for url=</span><span class="si">{</span><span class="n">resp</span><span class="o">.</span><span class="n">url</span><span class="si">}</span><span class="s2">, retry_count=</span><span class="si">{</span><span class="n">download</span><span class="o">.</span><span class="n">retry_count</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="k">raise</span> <span class="n">TransientError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">resp</span>
 
         <span class="k">for</span> <span class="n">time_slice</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">iter_hours</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
             <span class="n">response</span> <span class="o">=</span> <span class="n">download</span><span class="p">(</span><span class="n">time_slice</span><span class="p">)</span>

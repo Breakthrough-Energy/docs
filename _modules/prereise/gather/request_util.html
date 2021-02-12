@@ -84,14 +84,22 @@
     <span class="k">return</span> <span class="n">decorator</span> <span class="k">if</span> <span class="n">_func</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">decorator</span><span class="p">(</span><span class="n">_func</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="retry"><a class="viewcode-back" href="../../../prereise.gather.html#prereise.gather.request_util.retry">[docs]</a><span class="k">def</span> <span class="nf">retry</span><span class="p">(</span><span class="n">_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">retry_count</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">allowed_exceptions</span><span class="o">=</span><span class="p">(</span><span class="n">HTTPError</span><span class="p">)):</span>
+<div class="viewcode-block" id="retry"><a class="viewcode-back" href="../../../prereise.gather.html#prereise.gather.request_util.retry">[docs]</a><span class="k">def</span> <span class="nf">retry</span><span class="p">(</span>
+    <span class="n">_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">max_attempts</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">interval</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">raises</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">allowed_exceptions</span><span class="o">=</span><span class="p">(</span><span class="n">HTTPError</span><span class="p">),</span>
+<span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Creates a decorator to handle retry logic.</span>
 
-<span class="sd">    :param int retry_count: the max number of retries</span>
+<span class="sd">    :param int max_attempts: the max number of retries</span>
 <span class="sd">    :param int/float interval: minimum spacing between retries</span>
+<span class="sd">    :param bool raises: whether to re-raise the error after max_attempts is reached</span>
 <span class="sd">    :param tuple allowed_exceptions: exceptions for which the function will be retried, all others will be surfaced to the caller</span>
 
-<span class="sd">    :return: (*Any*) -- the return value of the decorated function</span>
+<span class="sd">    :return: (*Any*) -- the return value of the decorated function, or None if</span>
+<span class="sd">        raises is False and all attempts failed</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
@@ -100,13 +108,15 @@
 
         <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
         <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">retry_count</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_attempts</span><span class="p">):</span>
                 <span class="n">func</span><span class="o">.</span><span class="n">retry_count</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="k">return</span> <span class="n">limiter</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
                 <span class="k">except</span> <span class="n">allowed_exceptions</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                    <span class="k">pass</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Max retries reached!!&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">func</span><span class="o">.</span><span class="n">retry_count</span> <span class="o">==</span> <span class="n">max_attempts</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Max retries reached!!&quot;</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">raises</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="n">e</span>
 
         <span class="k">return</span> <span class="n">wrapper</span>
 

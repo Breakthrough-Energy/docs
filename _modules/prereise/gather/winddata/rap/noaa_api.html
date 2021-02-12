@@ -122,11 +122,13 @@
 <span class="sd">        :return: (*Generator[requests.Response]*) -- yield the next http response</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
-        <span class="nd">@retry</span><span class="p">(</span><span class="n">retry_count</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">allowed_exceptions</span><span class="o">=</span><span class="p">(</span><span class="n">TransientError</span><span class="p">))</span>
+        <span class="n">retry_limit</span> <span class="o">=</span> <span class="mi">3</span>
+
+        <span class="nd">@retry</span><span class="p">(</span><span class="n">max_attempts</span><span class="o">=</span><span class="n">retry_limit</span><span class="p">,</span> <span class="n">allowed_exceptions</span><span class="o">=</span><span class="p">(</span><span class="n">TransientError</span><span class="p">))</span>
         <span class="k">def</span> <span class="nf">download</span><span class="p">(</span><span class="n">time_slice</span><span class="p">,</span> <span class="n">fallback</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
             <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_url</span><span class="p">(</span><span class="n">time_slice</span><span class="p">,</span> <span class="n">fallback</span><span class="p">)</span>
             <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">500</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">500</span> <span class="ow">and</span> <span class="n">download</span><span class="o">.</span><span class="n">retry_count</span> <span class="o">&lt;</span> <span class="n">retry_limit</span><span class="p">:</span>
                 <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Server error for url=</span><span class="si">{</span><span class="n">resp</span><span class="o">.</span><span class="n">url</span><span class="si">}</span><span class="s2">, retry_count=</span><span class="si">{</span><span class="n">download</span><span class="o">.</span><span class="n">retry_count</span><span class="si">}</span><span class="s2">&quot;</span>
                 <span class="k">raise</span> <span class="n">TransientError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">resp</span>

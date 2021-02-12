@@ -53,14 +53,11 @@
 <p>This package requires installations of the following, with recommended versions listed.</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://julialang.org/">Julia</a>, version 1.5</p></li>
-<li><p><a class="reference external" href="https://www.gurobi.com">Gurobi</a>, version 9.1</p></li>
 <li><p><a class="reference external" href="https://www.python.org/">Python</a>, version 3.8</p></li>
 </ul>
-<p>This package can also be run using Docker, in which the following are required:</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://docs.docker.com/get-docker/">Docker</a></p></li>
-<li><p><a class="reference external" href="https://cloud.gurobi.com/manager/licenses">Gurobi Cloud License</a> file</p></li>
-</ul>
+<p>An external solver is required to run optimizations. We recommend <a class="reference external" href="https://www.gurobi.com">Gurobi</a> (version 9.1), though any other solver that is <a class="reference external" href="https://jump.dev/JuMP.jl/stable/installation/#Supported-solvers">compatible with JuMP</a> can be used.
+Note: as Gurobi is a commercial solver, a <a class="reference external" href="https://www.gurobi.com/downloads/">Gurobi license file</a> is required. This may be either a local license or a <a class="reference external" href="https://cloud.gurobi.com/manager/licenses">Gurobi Cloud license</a>. <a class="reference external" href="https://www.gurobi.com/academia/academic-program-and-licenses/">Free licenses for academic use</a> are available.</p>
+<p>This package can also be run using <a class="reference external" href="https://docs.docker.com/get-docker/">Docker</a>, which will automatically handle the installation of Julia, Python, and all dependencies. Gurobi is also installed, although as before a <a class="reference external" href="https://www.gurobi.com/downloads/">Gurobi license file</a> is still required to use Gurobi as a solver; other solvers can also be used.</p>
 <p>For sample data to use with the simulation, please visit <a class="reference external" href="https://zenodo.org/record/3530898">Zenodo</a>.</p>
 <div class="section" id="system-requirements">
 <h3>System Requirements<a class="headerlink" href="#system-requirements" title="Permalink to this headline">¶</a></h3>
@@ -71,11 +68,14 @@
 </div>
 <div class="section" id="installation-local">
 <h2>Installation (Local)<a class="headerlink" href="#installation-local" title="Permalink to this headline">¶</a></h2>
-<p>When installing this package locally, the below dependencies will need to be installed following the provider recommendation:</p>
+<p>When installing this package locally, the below dependencies will need to be installed following the provider recommendations:</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://www.gurobi.com/documentation/quickstart.html">Gurobi Installation Guide</a></p></li>
 <li><p><a class="reference external" href="https://julialang.org/downloads/#current_stable_release">Download Julia</a></p></li>
 <li><p><a class="reference external" href="https://www.python.org/downloads/release/python-386/">Download Python</a></p></li>
+</ul>
+<p>If Gurobi is to be used as the solver, this will need to be installed as well:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://www.gurobi.com/documentation/quickstart.html">Gurobi Installation Guide</a></p></li>
 </ul>
 <p>The package itself has two components that require installation:</p>
 <ul class="simple">
@@ -139,7 +139,7 @@ tar -xvfz gurobi9.1.0_linux64.tar.gz
 </pre></div>
 </div>
 <ol class="simple">
-<li><p>The <code class="docutils literal notranslate"><span class="pre">Gurobi</span></code> license needs to be download and installed. Download a copy of the <a class="reference external" href="https://cloud.gurobi.com/manager/licenses">Gurobi Cloud License</a> from the account portal, and copy it to the parent directory of the <code class="docutils literal notranslate"><span class="pre">&lt;installdir&gt;</span></code>.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">Gurobi</span></code> license needs to be download and installed. Download a copy of your Gurobi license from the account portal, and copy it to the parent directory of the <code class="docutils literal notranslate"><span class="pre">&lt;installdir&gt;</span></code>.</p></li>
 </ol>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cp gurobi.lic /opt/gurobi910/gurobi.lic
 </pre></div>
@@ -151,7 +151,7 @@ tar -xvfz gurobi9.1.0_linux64.tar.gz
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/usr/share/gurobi910/linux64/bin/gurobi.sh
 </pre></div>
 </div>
-<p>An example of the expected output for this program:</p>
+<p>An example of the expected output for this program (using a cloud license):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">This</span> <span class="n">program</span> <span class="n">should</span> <span class="n">give</span> <span class="n">the</span> <span class="n">following</span> <span class="n">output</span>
 <span class="n">Python</span> <span class="mf">3.7</span><span class="o">.</span><span class="mi">4</span> <span class="p">(</span><span class="n">default</span><span class="p">,</span> <span class="n">Oct</span> <span class="mi">29</span> <span class="mi">2019</span><span class="p">,</span> <span class="mi">10</span><span class="p">:</span><span class="mi">15</span><span class="p">:</span><span class="mi">53</span><span class="p">)</span> 
 <span class="p">[</span><span class="n">GCC</span> <span class="mf">4.4</span><span class="o">.</span><span class="mi">7</span> <span class="mi">20120313</span> <span class="p">(</span><span class="n">Red</span> <span class="n">Hat</span> <span class="mf">4.4</span><span class="o">.</span><span class="mi">7</span><span class="o">-</span><span class="mi">18</span><span class="p">)]</span> <span class="n">on</span> <span class="n">linux</span>
@@ -304,26 +304,40 @@ can be installed using pip:</p>
 <div class="section" id="usage-julia">
 <h2>Usage (Julia)<a class="headerlink" href="#usage-julia" title="Permalink to this headline">¶</a></h2>
 <p>Installation registers a package named <code class="docutils literal notranslate"><span class="pre">REISE</span></code>. Following Julia naming conventions, the <code class="docutils literal notranslate"><span class="pre">.jl</span></code> is dropped. The package can be imported using: <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">REISE</span></code> to call <code class="docutils literal notranslate"><span class="pre">REISE.run_scenario()</span></code>, or <code class="docutils literal notranslate"><span class="pre">using</span> <span class="pre">REISE</span></code> to call <code class="docutils literal notranslate"><span class="pre">run_scenario()</span></code>.</p>
-<p>To run a scenario which starts at the <code class="docutils literal notranslate"><span class="pre">1</span></code>st hour of the year, runs in <code class="docutils literal notranslate"><span class="pre">3</span></code> intervals of <code class="docutils literal notranslate"><span class="pre">24</span></code> hours each, loading input data from your present working directory (<code class="docutils literal notranslate"><span class="pre">pwd()</span></code>) and depositing results in the folder <code class="docutils literal notranslate"><span class="pre">output</span></code>, call:</p>
-<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">REISE</span><span class="o">.</span><span class="n">run_scenario</span><span class="p">(;</span>
-    <span class="n">interval</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">n_interval</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">start_index</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">outputfolder</span><span class="o">=</span><span class="s">&quot;output&quot;</span><span class="p">,</span>
-    <span class="n">inputfolder</span><span class="o">=</span><span class="n">pwd</span><span class="p">())</span>
-</pre></div>
-</div>
-<p>An optional keyword argument <code class="docutils literal notranslate"><span class="pre">num_segments</span></code> controls the linearization of cost curves into piecewise-linear segments (default is 1). For example:</p>
-<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="n">REISE</span><span class="o">.</span><span class="n">run_scenario</span><span class="p">(;</span>
-    <span class="n">interval</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">n_interval</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">start_index</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">outputfolder</span><span class="o">=</span><span class="s">&quot;output&quot;</span><span class="p">,</span>
-    <span class="n">inputfolder</span><span class="o">=</span><span class="n">pwd</span><span class="p">(),</span> <span class="n">num_segments</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>If another solver is desired, it can be passed via the <code class="docutils literal notranslate"><span class="pre">optimizer_factory</span></code> argument, e.g.:</p>
-<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="n">GLPK</span>
+<p>Running a scenario requires the following inputs:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">interval</span></code>: the length of each simulation interval (hours).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_interval</span></code>: the number of simulation intervals.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">start_index</span></code>: the hour to start the simulation, representing the row of the time-series profiles in <code class="docutils literal notranslate"><span class="pre">demand.csv</span></code>, <code class="docutils literal notranslate"><span class="pre">hydro.csv</span></code>, <code class="docutils literal notranslate"><span class="pre">solar.csv</span></code>, and <code class="docutils literal notranslate"><span class="pre">wind.csv</span></code>.
+Note that unlike some other programming languages, Julia is 1-indexed, so the first index is <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">inputfolder</span></code>: the directory from which to load input files.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">optimizer_factory</span></code>: an argument which can be passed to <code class="docutils literal notranslate"><span class="pre">JuMP.Model</span></code> to create a new model instance with an attached solver.
+Be sure to pass the factory itself (e.g. <code class="docutils literal notranslate"><span class="pre">GLPK.Optimizer</span></code>) rather than an instance (e.g. <code class="docutils literal notranslate"><span class="pre">GLPK.Optimizer()</span></code>). See the <a class="reference external" href="https://jump.dev/JuMP.jl/v0.21.1/solvers/#JuMP.Model-Tuple%7BAny%7D">JuMP.Model documentation</a> for more information.</p></li>
+</ul>
+<p>As an example, to run a scenario which starts at the <code class="docutils literal notranslate"><span class="pre">1</span></code>st hour of the year, runs in <code class="docutils literal notranslate"><span class="pre">3</span></code> intervals of <code class="docutils literal notranslate"><span class="pre">24</span></code> hours each, loading input data from your present working directory (<code class="docutils literal notranslate"><span class="pre">pwd()</span></code>), using the <code class="docutils literal notranslate"><span class="pre">GLPK</span></code> solver, call:</p>
+<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="n">REISE</span>
+<span class="k">import</span> <span class="n">GLPK</span>
 <span class="n">REISE</span><span class="o">.</span><span class="n">run_scenario</span><span class="p">(;</span>
-    <span class="n">interval</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">n_interval</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">start_index</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">outputfolder</span><span class="o">=</span><span class="s">&quot;output&quot;</span><span class="p">,</span>
-    <span class="n">inputfolder</span><span class="o">=</span><span class="n">pwd</span><span class="p">(),</span> <span class="n">optimizer_factory</span><span class="o">=</span><span class="n">GLPK</span><span class="o">.</span><span class="n">Optimizer</span><span class="p">)</span>
+    <span class="n">interval</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">n_interval</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">start_index</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inputfolder</span><span class="o">=</span><span class="n">pwd</span><span class="p">(),</span> <span class="n">optimizer_factory</span><span class="o">=</span><span class="n">GLPK</span><span class="o">.</span><span class="n">Optimizer</span>
+<span class="p">)</span>
 </pre></div>
 </div>
-<p>Be sure to pass the factory itself (e.g. <code class="docutils literal notranslate"><span class="pre">GLPK.Optimizer</span></code>) rather than an instance (e.g. <code class="docutils literal notranslate"><span class="pre">GLPK.Optimizer()</span></code>). See the <a class="reference external" href="https://jump.dev/JuMP.jl/stable/solvers/#JuMP.Model-Tuple%7BAny%7D">JuMP.Model documentation</a> for more information.</p>
+<p>Optional arguments include:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">num_segments</span></code>: the number of piecewise linear segments to use when linearizing polynomial cost curves (default is 1).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">outputfolder</span></code>: a directory in which to store results files. The default is a subdirectory <code class="docutils literal notranslate"><span class="pre">&quot;output&quot;</span></code> within the input directory (created if it does not already exist).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">threads</span></code>: the number of threads to be used by the solver. The default is to let the solver decide.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">solver_kwargs</span></code>: a dictionary of <code class="docutils literal notranslate"><span class="pre">String</span> <span class="pre">=&gt;</span> <span class="pre">value</span></code> pairs to be passed to the solver.</p></li>
+</ul>
+<p>Default settings for running using Gurobi can be accessed if <code class="docutils literal notranslate"><span class="pre">Gurobi.jl</span></code> has already been imported using the <code class="docutils literal notranslate"><span class="pre">REISE.run_scenario_gurobi</span></code> function:</p>
+<div class="highlight-julia notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="n">REISE</span>
+<span class="k">import</span> <span class="n">Gurobi</span>
+<span class="n">REISE</span><span class="o">.</span><span class="n">run_scenario_gurobi</span><span class="p">(;</span>
+    <span class="n">interval</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">n_interval</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">start_index</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inputfolder</span><span class="o">=</span><span class="n">pwd</span><span class="p">(),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Optional arguments for <code class="docutils literal notranslate"><span class="pre">REISE.run_scenario</span></code> can still be passed as desired.</p>
 </div>
 <div class="section" id="usage-python">
 <h2>Usage (Python)<a class="headerlink" href="#usage-python" title="Permalink to this headline">¶</a></h2>
@@ -349,7 +363,7 @@ to <code class="docutils literal notranslate"><span class="pre">.pkl</span></cod
 <div class="section" id="running-a-simulation">
 <h3>Running a Simulation<a class="headerlink" href="#running-a-simulation" title="Permalink to this headline">¶</a></h3>
 <p><strong>Note</strong> To see the available options for the <code class="docutils literal notranslate"><span class="pre">call.py</span></code> or <code class="docutils literal notranslate"><span class="pre">extract_data.py</span></code> script, use the <code class="docutils literal notranslate"><span class="pre">-h,</span> <span class="pre">--help</span></code> flag when calling the script.</p>
-<p>To run the <code class="docutils literal notranslate"><span class="pre">REISE.jl</span></code> simulation from python, run <code class="docutils literal notranslate"><span class="pre">call.py</span></code> with the following required options:</p>
+<p>To run the <code class="docutils literal notranslate"><span class="pre">REISE.jl</span></code> simulation from python, using Gurobi as the solver, run <code class="docutils literal notranslate"><span class="pre">call.py</span></code> with the following required options:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>  <span class="o">-</span><span class="n">s</span><span class="p">,</span> <span class="o">--</span><span class="n">start</span><span class="o">-</span><span class="n">date</span> <span class="n">START_DATE</span>
                         <span class="n">The</span> <span class="n">start</span> <span class="n">date</span> <span class="k">for</span> <span class="n">the</span> <span class="n">simulation</span> <span class="ow">in</span> <span class="nb">format</span>
 			<span class="s1">&#39;YYYY-MM-DD&#39;</span><span class="o">.</span> <span class="s1">&#39;YYYY-MM-DD HH&#39;</span><span class="o">.</span> <span class="s1">&#39;YYYY-MM-DD HH:MM&#39;</span><span class="p">,</span>
@@ -409,12 +423,14 @@ matlab files generated by the Julia engine:</p>
 <li><p>CONGL.pkl (congestion, lower flow limit)</p></li>
 <li><p>AVERAGED_CONG.pkl (time averaged congestion)</p></li>
 </ul>
-<p>If the simulation was run with the necessary input data, the following will
-also be extracted:</p>
+<p>If the grid used in the simulation contains DC lines and/or energy storage devices, the following files will also be extracted as necessary:</p>
 <ul class="simple">
 <li><p>PF_DCLINE.pkl (power flow on DC lines)</p></li>
 <li><p>STORAGE_PG.pkl (power generated by storage units)</p></li>
 <li><p>STORAGE_E.pkl (energy state of charge)</p></li>
+</ul>
+<p>If one or more intervals of the simulation were found to be infeasible without shedding load, the following file will also be extracted:</p>
+<ul class="simple">
 <li><p>LOAD_SHED.pkl (load shed profile for each load bus)</p></li>
 </ul>
 <p>The extraction process can be memory intensive, so it does not automatically

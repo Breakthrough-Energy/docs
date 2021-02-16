@@ -1,7 +1,7 @@
 # Installation Guide
 Our software is available on [GitHub][bte_github]. You will need to create an account if you have not done so already.
 
-In the following section, we present the two types of installation of our software, i) the laptop/desktop and ii) the client-server. Also, we go through the system requirements for both installations.
+In the following section, we present the different types of installation of our software, i) laptop/desktop, ii) client-server, and iii) docker. Also, we go through the system requirements for these installations.
 
 
 ## 1. Laptop/Desktop Installation
@@ -44,14 +44,12 @@ In that case, you will [Fork][git guide] the [PowerSimData][powersimdata_github]
 Before using the scenario framework, you need to update the path to the variables in ***PowerSimData/powersimdata/utility/server_setup.py*** file. Note that the **LOCAL_DIR** does not need to be updated if having a **ScenarioData** directory in your home folder is a good place to store scenario data. You can now create, execute, extract and analyze scenarios. The PowerSimData [README][powersimdata_local] goes over these steps.
 
 
-## 3. Validate your Installation
-Make sure the [tox] package is installed and run from the root folder:
-```bash
-pip install tox
+## 3. Using docker
+This option enables running the full framework in containers, colocated on the same machine.
+In this case, the only system requirement is to have [docker][docker], (including docker-compose) installed. 
 
-tox
-```
-This will run the tests along with formatting and other relevant checks.
+All the data and configuration needed to run a simulation are located in the [plug][plug_github] repository, along with usage examples.
+
 
 ## 4. How to Run Scenario
 Scenarios will be created, executed and extracted differently depending on the installation you selected. Follow the instructions in the following README links:
@@ -68,5 +66,7 @@ Scenarios will be created, executed and extracted differently depending on the i
 [python]: python_guide
 [reisejl_github]: https://github.com/Breakthrough-Energy/REISE.jl
 [reisejl_local]: ../reisejl_package
+[plug_github]: https://github.com/Breakthrough-Energy/plug
 [tox]: https://tox.readthedocs.io
 [zenodo]: https://zenodo.org/record/3905429
+[docker]: https://docs.docker.com/get-docker/

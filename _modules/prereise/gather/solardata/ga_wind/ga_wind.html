@@ -36,9 +36,10 @@
 <span class="kn">import</span> <span class="nn">h5pyd</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">pyproj</span> <span class="kn">import</span> <span class="n">Transformer</span>
 <span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
 
-<span class="kn">from</span> <span class="nn">prereise.gather.solardata.ga_wind.helpers</span> <span class="kn">import</span> <span class="n">ll2ij</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.solardata.ga_wind.helpers</span> <span class="kn">import</span> <span class="n">ll2ij</span><span class="p">,</span> <span class="n">proj_string</span>
 <span class="kn">from</span> <span class="nn">prereise.gather.solardata.helpers</span> <span class="kn">import</span> <span class="n">get_plant_info_unique_location</span>
 
 
@@ -76,9 +77,8 @@
 
     <span class="c1"># Get coordinates of nearest location</span>
     <span class="n">lat_origin</span><span class="p">,</span> <span class="n">lon_origin</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="s2">&quot;coordinates&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">ij</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">coord</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-        <span class="n">ij</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">ll2ij</span><span class="p">(</span><span class="n">lon_origin</span><span class="p">,</span> <span class="n">lat_origin</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="n">transformer</span> <span class="o">=</span> <span class="n">Transformer</span><span class="o">.</span><span class="n">from_pipeline</span><span class="p">(</span><span class="n">proj_string</span><span class="p">)</span>
+    <span class="n">ij</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">ll2ij</span><span class="p">(</span><span class="n">transformer</span><span class="p">,</span> <span class="n">lon_origin</span><span class="p">,</span> <span class="n">lat_origin</span><span class="p">,</span> <span class="o">*</span><span class="n">key</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">coord</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
 
     <span class="c1"># Extract time series</span>
     <span class="n">dt</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="s2">&quot;datetime&quot;</span><span class="p">]</span>

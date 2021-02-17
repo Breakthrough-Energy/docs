@@ -9,7 +9,7 @@ Thank you for joining the Breakthrough Energy Sciences community!
 ## How to Contribute
 1. First things first, go to the [Installation Guide](../user/installation_guide.md) to get the software up and running
 2. Get familiar with our Git/GitHub workflow (click [here][git guide] for more details)
-3. Do you need external data for your feature? (see [this section](#data-intake-procedure)))
+3. Do you need external data for your feature? (see [this section](#data-intake-procedure))
 4. Develop your feature (go to [this section](#develop-your-feature))
 5. Format your code (as explained in [this section](#format-your-code))
 6. Document your code (see section dedicated to docstring [here](#document-your-code))
@@ -61,7 +61,9 @@ We present the `Sphinx` docstring format [here](code_documentation.md). It is wo
 
 
 ## Communication
-Use [GitHub] to report bugs and propose features. Also, do not hesitate to contact us on our Slack workspace or by email at <modelinfo@breakthroughenergy.org> if you should have any questions.
+Use [GitHub] to report bugs and propose features. Also, do not hesitate to [subscribe](http://science.breakthroughenergy.org#get-updates) to our email list and join our Slack workspace in order to stay updated and reach us if you should have any questions.
+
+We have a [code of conduct](../code_of_conduct) that we ask you to review before communicating on these channels.
 
 
 [bes]: https://science.breakthroughenergy.org/

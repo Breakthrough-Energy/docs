@@ -26,9 +26,9 @@ When applying please provide:
 
 ## Idea list
 If you can’t find your ideal project on this list,
-but you have something else in mind that would enhance our open source project,
-let's discuss it the #ideas channel on Slack.
-For each project we provided various scales to adapt to your skill, ambition or individual situation.
+but you have something else in mind that would benefit our open source project,
+let's discuss it in the #ideas channel on Slack.
+For each project, we provide prerequisites along with a level of difficulty that should assist you in your decision.
 
 Also keep in mind when planning out your work that for each project we expect you to follow our [contribution guide](contribution_guide.md).
 
@@ -92,9 +92,10 @@ Docker, Python, Grafana, PAAS, Apache Airflow
 Medium to Hard
 
 **Mentor:**
+[Todd](https://github.com/ToddG)
 
 ### Project 2. - Test system for end-to-end testing of the simulation framework
-Use [existing test power systems](http://labs.ece.uw.edu/pstca/) that will be used in our simulation framework.
+Use [existing power systems test grids](http://labs.ece.uw.edu/pstca/) in order to to benchmark our simulation framework
 Generate input data to feed to the simulation engine using data science techniques.
 Write integration tests and produce documentation to showcase our open source software.
 
@@ -113,6 +114,7 @@ Easy
 
 **Mentor:**
 [Ben](https://github.com/rouille)
+[Todd](https://github.com/ToddG)
 
 ### Project 3. - Time-Series Modeling of Missing Energy Industry Data
 A significant barrier to realistic modeling of the power grid is missing data from public data sources.
@@ -123,8 +125,8 @@ We propose the following steps for this project:
 
 - Understand the data set and the [current methodology](https://github.com/Breakthrough-Energy/PreREISE#d-demand-data)
 - Literature review to understand prediction models for time series data
-- Collect data to build training/validation/testing sets to rank algorithms using various metrics
-- Setup platform to cross-validate with the data in order to evaluate algorithm performance
+- Collect data to build training/testing sets
+- Evaluate algorithms using cross validation or other metrics
 - Integrate most suitable algorithm(s) in our code base and generate new time series for our power system model
 
 **Requirements:**
@@ -136,7 +138,7 @@ Medium
 **Mentor:**
 
 ### Project 4. - Visualization
-Visualization of the power systems output data is essential for users to intepret the simulations results.
+Visualization of the power systems output data is essential for users to interpret the simulations results.
 Our current plotting functions are base on matplotlib and bokeh.
 
 **Requirements:**
@@ -144,3 +146,4 @@ Our current plotting functions are base on matplotlib and bokeh.
 **Level:**
 
 **Mentor:**
+[Merrielle](https://github.com/merrielle)

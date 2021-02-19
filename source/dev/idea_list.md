@@ -93,6 +93,7 @@ Medium to Hard
 
 **Mentor:**
 [Todd](https://github.com/ToddG)
+[Jon](https://github.com/jon-hagg)
 
 ### Project 2. - Test system for end-to-end testing of the simulation framework
 Use [existing power systems test grids](http://labs.ece.uw.edu/pstca/) in order to to benchmark our simulation framework
@@ -116,7 +117,7 @@ Easy
 [Ben](https://github.com/rouille)
 [Todd](https://github.com/ToddG)
 
-### Project 3. - Time-Series Modeling of Missing Energy Industry Data
+### Project 3. - Time-Series Modeling of Missing Energy Industry Data and Weather Data
 A significant barrier to realistic modeling of the power grid is missing data from public data sources.
 This project is to use statistical and ML models to fill in missing energy demand and renewable energy profile information in a way which mimics the real data as close as possible.
 In our current data sets of regional energy demand, we have used averaging of adjacent days to fill in our missing data, as described [here](https://github.com/Breakthrough-Energy/PreREISE#d-demand-data)
@@ -136,11 +137,14 @@ Python, Pandas, understanding of statistics and ML concepts
 Medium
 
 **Mentor:**
+[Daniel Muldrew](https://github.com/dmuldrew)
 
 ### Project 4. - Improve data visualization toolset
-Visualization of complex systems like the power grid is essential for people to be more engaged and truely understand the impact of different policies. The current visulizations are split between matplotlib and nivo, each being used by different teams. The goal of this project is to re-create these visulizations in a single, unified platform.
+Visualization of complex systems like the power grid is essential for people to be more engaged and truly understand the impact of different policies. 
+The current visualizations are split between matplotlib and nivo, each being used by different teams.
+The goal of this project is to re-create these visualizations in a single, unified platform.
 
-- Convert [matplotlib](https://matplotlib.org/stable/index.html) graphs used by the reasearch team to [plotly](https://plotly.com/python/)
+- Convert [matplotlib](https://matplotlib.org/stable/index.html) graphs used by the research team to [plotly](https://plotly.com/python/)
 - Convert [nivo](https://nivo.rocks/) graphs used by the website team to plotly
 - Explore the data and generate interesting new graphs
 
@@ -150,7 +154,7 @@ A participant with existing expertise might:
 - Generate more complex visualizations such as map graphs with availible mapbox tools
 
 **Requirements:**
-Python, Pandas,
+Python, Pandas
 
 **Level:**
 Easy - Medium

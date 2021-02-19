@@ -11,6 +11,7 @@ You are familiar with our mission and you just want to install the software, add
 * :doc:`code_of_conduct`
 * :doc:`dev/contribution_guide`
 * :doc:`user/git_guide`
+* :doc:`dev/idea_list`
 * :ref:`modindex`
 
 

@@ -39,7 +39,7 @@ Currently the data is collected by using the package when needed. There is still
 
 We propose three projects that will improve the user experience when gathering data and generating time series for our simulation framework. These projects can be carried out independently.
 
-#### Project 1. - Download Manager
+#### Project 1a. - Download Manager
 The goal is to encapsulate the existing code for downloading external resources into a single library and Command Line Interface (CLI).
 
 The result of this project will be a single CLI tool that we can use to download external resources, either manually, or by integrating into an orchestration/workflow system such as Apache Airflow.
@@ -53,7 +53,7 @@ The result of this project will be a single CLI tool that we can use to download
 
 **Mentor:**
 
-#### Project 2. - Validation Manager
+#### Project 1b. - Validation Manager
 The goal of this project is to encapsulate the existing validation and cleaning of external data resources into a single library and CLI.
 
 The result of this project will be a single CLI tool that we can use to validate external resources, either manually, or by integrating into an orchestration/workflow system such as Apache Airflow.
@@ -68,7 +68,7 @@ The result of this project will be a single CLI tool that we can use to validate
 
 **Mentor:**
 
-#### Project 3. - Ingestion Pipeline
+#### Project 1c. - Ingestion Pipeline
 The goal of this project is to automate the download, validation, and archival of external resources using industry standard components such as Apache Airflow, InfluxDB, Grafana, Blob Stores, etc.
 
 Note that this project will eventually incorporate the work of the Validation Manager and Download Manager projects. However, each of these projects can proceed in parallel.
@@ -93,7 +93,7 @@ Medium to Hard
 
 **Mentor:**
 
-### Project 4. - Test system for end-to-end testing of the simulation framework
+### Project 2. - Test system for end-to-end testing of the simulation framework
 Use [existing test power systems](http://labs.ece.uw.edu/pstca/) that will be used in our simulation framework.
 Generate input data to feed to the simulation engine using data science techniques.
 Write integration tests and produce documentation to showcase our open source software.
@@ -114,7 +114,7 @@ Easy
 **Mentor:**
 [Ben](https://github.com/rouille)
 
-### Project 5. - Time-Series Modeling of Missing Energy Industry Data
+### Project 3. - Time-Series Modeling of Missing Energy Industry Data
 A significant barrier to realistic modeling of the power grid is missing data from public data sources.
 This project is to use statistical and ML models to fill in missing energy demand and renewable energy profile information in a way which mimics the real data as close as possible.
 In our current data sets of regional energy demand, we have used averaging of adjacent days to fill in our missing data, as described [here](https://github.com/Breakthrough-Energy/PreREISE#d-demand-data)
@@ -135,7 +135,7 @@ Medium
 
 **Mentor:**
 
-### Project 6. - Visualization
+### Project 4. - Visualization
 Visualization of the power systems output data is essential for users to intepret the simulations results.
 Our current plotting functions are base on matplotlib and bokeh.
 

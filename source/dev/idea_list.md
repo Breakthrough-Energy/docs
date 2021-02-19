@@ -1,14 +1,14 @@
 # Google Summer of Code 2021
 Breakthrough Energy Sciences (BES) has applied to serve as a mentoring organization for Google Summer of Code (GSoC).
-The GSoC program offers student a stipend to work on open source code during the summer. 
+The GSoC program offers each student a stipend to work on open source code during the summer. 
 If you are interested in the program [here](https://summerofcode.withgoogle.com/) you can find more information.
 
-If you are a student and new to GSoC read the following [guide](https://google.github.io/gsocguides/student/).
-If you are new to BES [here](https://science.breakthroughenergy.org/) more about our organization.
+If you are a student and new to GSoC, please read the following [guide](https://google.github.io/gsocguides/student/).
+If you are new to BES, look [here](https://science.breakthroughenergy.org/) to learn more about our organization.
 
 
 ## Community and Communication
-We are active on Slack which is the best way to reach us.
+We are active on Slack and this is the best way to reach us.
 [Join us here](http://science.breakthroughenergy.org/#get-updates), introduce yourself, discuss your potential project in the #ideas channel, and let us know if you have any questions.
 
 If you need to reach us via email, here you go: sciences@breakthroughenergy.org
@@ -33,8 +33,8 @@ Also keep in mind when planning out your work that for each project we expect yo
 To run energy system simulations we need input data such as electrical demand, hydro flow, solar irradiance, and wind speed time series data among others. See here for [more details](https://github.com/Breakthrough-Energy/PreREISE#2-gather-data-for-simulation). 
 Currently the data is collected by using the package when needed. There is still a lot of manual labor involved in collecting and cleaning the data. Besides that the data source or API’s may change.
 
-The goal of this project is to encapsulate the existing code for downloading external resources into a single library and CLI.
-The result of this project will be a single CLI tool that BE can use to download external resources, either manually, or by integrating into an orchestration/workflow system such as Apache Airflow.
+The goal of this project is to encapsulate the existing code for downloading external resources into a single library and Command Line Interface (CLI).
+The result of this project will be a single CLI tool that we can use to download external resources, either manually, or by integrating into an orchestration/workflow system such as Apache Airflow.
 
 - Write a Python library and CLI that downloads external data sources
 - The tool should be well documented with a focus on code quality
@@ -50,9 +50,9 @@ To run energy system simulations we need input data such as electrical demand, h
 Currently the data is collected by using the package when needed. There is still a lot of manual labor involved in collecting and cleaning the data. Besides that the data source or API’s may change.
 
 The goal of this project is to encapsulate the validation and cleaning of external data resources in a into a single library and CLI. 
-The result of this project will be a single CLI tool that BE can use to validate external resources, either manually, or by integrating into an orchestration/workflow system such as Apache Airflow.
+The result of this project will be a single CLI tool that we can use to validate external resources, either manually, or by integrating into an orchestration/workflow system such as Apache Airflow.
 
-- Write a command-line tool that verifies previously downloaded external the data resources
+- Write a command-line tool that verifies previously downloaded external data resources
 - The tool ensures that the data is correct (format, data types, value domains, missing values, etc.), and either cleans the input data or responds with an error
 - The tool should be well documented with a focus on code quality
 
@@ -70,7 +70,6 @@ The goal of this project is to automate the download, validation, and archival o
 
 Note that this project will eventually incorporate the work of the Simulation Data Validation Manager and Simulation Data Download Manager projects. However, each of these projects can proceed in parallel.
 
-
 - Write Apache Airflow workflows that periodically 
     - Query external data sources for availability
     - Download external data sources
@@ -80,7 +79,8 @@ Note that this project will eventually incorporate the work of the Simulation Da
 - Telemetry are aggregated in InfluxDB
 - Metrics are displayed in a Grafana dashboard
 - If a data source is down, we throw an alarm
-The workflows should be well documented with a focus on code quality, and using best-of-breed current technology stacks (Apache Airflow, Kubernetes, Helm, Docker, Python3, Grafana, etc.)
+
+The workflows should be well documented with a focus on code quality, and use best-of-breed current technology stacks (Apache Airflow, Kubernetes, Helm, Docker, Python3, Grafana, etc.)
 
 **Requirements:**
 Docker, Python, Grafana, PAAS, Apache Airflow
@@ -114,15 +114,14 @@ Easy
 ### Project 5. - Time-Series Modeling of Missing Energy Industry Data
 A significant barrier to realistic modeling of the power grid is missing data from public data sources.
 This project is to use statistical and ML models to fill in missing energy demand and renewable energy profile information in a way which mimics the real data as close as possible.
-In our current datasets of regional energy demand, we have used averaging of adjacent days to fill in our missing data, as described [here](https://github.com/Breakthrough-Energy/PreREISE#d-demand-data)
+In our current data sets of regional energy demand, we have used averaging of adjacent days to fill in our missing data, as described [here](https://github.com/Breakthrough-Energy/PreREISE#d-demand-data)
 
 We propose the following steps for this project:
-
 
 - Understand the data set and the [current methodology](https://github.com/Breakthrough-Energy/PreREISE#d-demand-data)
 - Literature review to understand prediction models for time series data
 - Collect data to build training/validation/testing sets to rank algorithms using various metrics
-- Setup platform to crossvalidate with the data in order to evaluate algorithm performance
+- Setup platform to cross-validate with the data in order to evaluate algorithm performance
 - Integrate most suitable algorithm(s) in our code base and generate new time series for our power system model
     
 **Requirements:**
@@ -134,7 +133,7 @@ Medium
 **Mentor:**
 
 ### Project 6. - Visualization
-Visualization of the power systems output data is essential for users to inteprete the simulations results.
+Visualization of the power systems output data is essential for users to intepret the simulations results.
 Our current plotting functions are base on matplotlib and bokeh.
  
 **Requirements:**

@@ -1,17 +1,17 @@
 # Google Summer of Code 2021
 Breakthrough Energy Sciences (BES) has applied to serve as a mentoring organization for Google Summer of Code (GSoC).
 The GSoC program offers each student a stipend to work on open source code during the summer.
-If you are interested in the program [here](https://summerofcode.withgoogle.com/) you can find more information.
+If you are interested in the program you can find more information [here](https://summerofcode.withgoogle.com/).
 
 If you are a student and new to GSoC, please read the following [guide](https://google.github.io/gsocguides/student/).
-If you are new to BES, look [here](https://science.breakthroughenergy.org/) to learn more about our organization.
+If you are new to BES, [visit our website](https://science.breakthroughenergy.org/) to learn more about our organization.
 
 
 ## Community and Communication
 We are active on Slack and this is the best way to reach us.
 [Join us here](http://science.breakthroughenergy.org/#get-updates), introduce yourself, discuss your potential project in the #ideas channel, and let us know if you have any questions.
 
-If you need to reach us via email, here you go: sciences@breakthroughenergy.org
+If you need to reach us via email please use sciences@breakthroughenergy.org
 
 Please review our [code of conduct](code_of_conduct.md) before joining the community.
 
@@ -21,21 +21,21 @@ If you are a student and applying for GSoC find bellow the idea list and explore
 When applying please provide:
 
 - A project proposal in markdown following the [Elements of a Quality Proposal guide](https://google.github.io/gsocguides/student/writing-a-proposal#elements-of-a-quality-proposal)
-- Motivation why you choose this particular project?
+- Motivation for why you choose this particular project
 - Your resume with relevant experience in PDF format
 
 ## Idea list
-If you can’t find your ideal project on this list,
+For each project, we provide prerequisites along with a level of difficulty that should assist you in your decision.
+If you can’t find your ideal project on this list
 but you have something else in mind that would benefit our open source project,
 let's discuss it in the #ideas channel on Slack.
-For each project, we provide prerequisites along with a level of difficulty that should assist you in your decision.
 
 Also keep in mind when planning out your work that for each project we expect you to follow our [contribution guide](contribution_guide.md).
 
-### Simulation Data Manager
+### Project 1. - Simulation Data Manager
 To run energy system simulations we need input data such as electrical demand, hydro flow, solar irradiance, and wind speed time series data among others. You can read the  the [README of the PreREISE package](https://github.com/Breakthrough-Energy/PreREISE#2-gather-data-for-simulation) for more details.
 
-Currently the data is collected by using the package when needed. There is still a lot of manual labor involved in collecting and cleaning the data. Besides that the data source or API’s may change.
+Currently the data is collected by using the package when needed. There is still a lot of manual labor involved in collecting and cleaning the data. Besides that the data source or APIs may change.
 
 We propose three projects that will improve the user experience when gathering data and generating time series for our simulation framework. These projects can be carried out independently.
 
@@ -137,13 +137,23 @@ Medium
 
 **Mentor:**
 
-### Project 4. - Visualization
-Visualization of the power systems output data is essential for users to interpret the simulations results.
-Our current plotting functions are base on matplotlib and bokeh.
+### Project 4. - Improve data visualization toolset
+Visualization of complex systems like the power grid is essential for people to be more engaged and truely understand the impact of different policies. The current visulizations are split between matplotlib and nivo, each being used by different teams. The goal of this project is to re-create these visulizations in a single, unified platform.
+
+- Convert [matplotlib](https://matplotlib.org/stable/index.html) graphs used by the reasearch team to [plotly](https://plotly.com/python/)
+- Convert [nivo](https://nivo.rocks/) graphs used by the website team to plotly
+- Explore the data and generate interesting new graphs
+
+A participant with existing expertise might:
+- Create an extensible python script to automate the creation of plotly graphs that is triggered whenever new data is availible from the research team.
+- Stand up a local endpoint to serve as a dashboard completed graphs
+- Generate more complex visualizations such as map graphs with availible mapbox tools
 
 **Requirements:**
+Python, Pandas,
 
 **Level:**
+Easy - Medium
 
 **Mentor:**
 [Merrielle](https://github.com/merrielle)

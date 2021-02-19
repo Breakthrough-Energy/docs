@@ -53,6 +53,7 @@ The result of this project will be a single CLI tool that we can use to download
 
 **Mentor:**
 [Todd](https://github.com/ToddG)
+[Jon](https://github.com/jon-hagg)
 
 #### Project 1b. - Validation Manager
 The goal of this project is to encapsulate the existing validation and cleaning of external data resources into a single library and CLI.
@@ -69,6 +70,7 @@ The result of this project will be a single CLI tool that we can use to validate
 
 **Mentor:**
 [Todd](https://github.com/ToddG)
+[Jon](https://github.com/jon-hagg)
 
 #### Project 1c. - Ingestion Pipeline
 The goal of this project is to automate the download, validation, and archival of external resources using industry standard components such as Apache Airflow, InfluxDB, Grafana, Blob Stores, etc.

@@ -103,16 +103,16 @@
 
     <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
         <span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimit</span><span class="p">(</span><span class="n">interval</span><span class="p">)</span>
-        <span class="n">func</span><span class="o">.</span><span class="n">retry_count</span> <span class="o">=</span> <span class="mi">0</span>
 
         <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
         <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">wrapper</span><span class="o">.</span><span class="n">retry_count</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_attempts</span><span class="p">):</span>
-                <span class="n">func</span><span class="o">.</span><span class="n">retry_count</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="n">wrapper</span><span class="o">.</span><span class="n">retry_count</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="k">return</span> <span class="n">limiter</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
                 <span class="k">except</span> <span class="n">allowed_exceptions</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="n">func</span><span class="o">.</span><span class="n">retry_count</span> <span class="o">==</span> <span class="n">max_attempts</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">wrapper</span><span class="o">.</span><span class="n">retry_count</span> <span class="o">==</span> <span class="n">max_attempts</span><span class="p">:</span>
                         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Max retries reached!!&quot;</span><span class="p">)</span>
                         <span class="k">if</span> <span class="n">raises</span><span class="p">:</span>
                             <span class="k">raise</span> <span class="n">e</span>

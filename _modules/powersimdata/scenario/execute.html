@@ -207,11 +207,13 @@
                 <span class="sa">f</span><span class="s2">&quot;Status must be one of </span><span class="si">{</span><span class="n">valid_status</span><span class="si">}</span><span class="s2">, but got status=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_launch_on_server</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extract_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_launch_on_server</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extract_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Launch simulation on server, via ssh.</span>
 
 <span class="sd">        :param int/None threads: the number of threads to be used. This defaults to None,</span>
 <span class="sd">            where None means auto.</span>
+<span class="sd">        :param str solver: the solver used for optimization. This defaults to</span>
+<span class="sd">            None, which translates to gurobi</span>
 <span class="sd">        :param bool extract_data: whether the results of the simulation engine should</span>
 <span class="sd">            automatically extracted after the simulation has run. This defaults to True.</span>
 <span class="sd">        :raises TypeError: if extract_data is not a boolean</span>
@@ -223,6 +225,9 @@
             <span class="c1"># Use the -t flag as defined in call.py in REISE.jl</span>
             <span class="n">extra_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;--threads &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threads</span><span class="p">))</span>
 
+        <span class="k">if</span> <span class="n">solver</span><span class="p">:</span>
+            <span class="n">extra_args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;--solver&quot;</span><span class="p">,</span> <span class="n">solver</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">extract_data</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;extract_data must be a boolean: &#39;True&#39; or &#39;False&#39;&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">extract_data</span><span class="p">:</span>
@@ -230,47 +235,68 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_script</span><span class="p">(</span><span class="s2">&quot;call.py&quot;</span><span class="p">,</span> <span class="n">extra_args</span><span class="o">=</span><span class="n">extra_args</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_launch_in_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threads</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_launch_in_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threads</span><span class="p">,</span> <span class="n">solver</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Launches simulation in container via http call</span>
 
 <span class="sd">        :param int/None threads: the number of threads to be used. This defaults to None,</span>
 <span class="sd">            where None means auto.</span>
+<span class="sd">        :param str solver: the solver used for optimization. This defaults to</span>
+<span class="sd">            None, which translates to gurobi</span>
 <span class="sd">        :return: (*requests.Response*) -- the http response object</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">scenario_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
         <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;http://</span><span class="si">{</span><span class="n">server_setup</span><span class="o">.</span><span class="n">SERVER_ADDRESS</span><span class="si">}</span><span class="s2">:5000/launch/</span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;threads&quot;</span><span class="p">:</span> <span class="n">threads</span><span class="p">})</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;threads&quot;</span><span class="p">:</span> <span class="n">threads</span><span class="p">,</span> <span class="s2">&quot;solver&quot;</span><span class="p">:</span> <span class="n">solver</span><span class="p">})</span>
         <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Failed to launch simulation: status=</span><span class="si">{</span><span class="n">resp</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2">. See response for details&quot;</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">resp</span>
 
-<div class="viewcode-block" id="Execute.launch_simulation"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.Execute.launch_simulation">[docs]</a>    <span class="k">def</span> <span class="nf">launch_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extract_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Launches simulation on target environment (server or container)</span>
+    <span class="k">def</span> <span class="nf">_check_threads</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threads</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Validate threads argument</span>
 
-<span class="sd">        :param int/None threads: the number of threads to be used. This defaults to None,</span>
-<span class="sd">            where None means auto.</span>
-<span class="sd">        :param bool extract_data: whether the results of the simulation engine should</span>
-<span class="sd">            automatically extracted after the simulation has run. This defaults to True.</span>
+<span class="sd">        :param int threads: the number of threads to be used</span>
 <span class="sd">        :raises TypeError: if threads is not an int</span>
 <span class="sd">        :raises ValueError: if threads is not a positive value</span>
-<span class="sd">        :return: (*subprocess.Popen*) or (*requests.Response*) - either the</span>
-<span class="sd">            process (if using ssh to server) or http response (if run in container)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_if_ready</span><span class="p">()</span>
-
         <span class="k">if</span> <span class="n">threads</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">threads</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;threads must be an int&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">threads</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;threads must be a positive value&quot;</span><span class="p">)</span>
 
+    <span class="k">def</span> <span class="nf">_check_solver</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solver</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Validate solver argument</span>
+
+<span class="sd">        :param str solver: the solver used for the optimization</span>
+<span class="sd">        :raises ValueError: if invalid solver provided</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">solvers</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;gurobi&quot;</span><span class="p">,</span> <span class="s2">&quot;glpk&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">solver</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">solver</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">solvers</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid solver: options are </span><span class="si">{</span><span class="n">solvers</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Execute.launch_simulation"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.Execute.launch_simulation">[docs]</a>    <span class="k">def</span> <span class="nf">launch_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extract_data</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Launches simulation on target environment (server or container)</span>
+
+<span class="sd">        :param int/None threads: the number of threads to be used. This defaults to None,</span>
+<span class="sd">            where None means auto.</span>
+<span class="sd">        :param bool extract_data: whether the results of the simulation engine should</span>
+<span class="sd">            automatically extracted after the simulation has run. This defaults to True.</span>
+<span class="sd">        :param str solver: the solver used for optimization. This defaults to</span>
+<span class="sd">            None, which translates to gurobi</span>
+<span class="sd">        :return: (*subprocess.Popen*) or (*requests.Response*) - either the</span>
+<span class="sd">            process (if using ssh to server) or http response (if run in container)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_if_ready</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_threads</span><span class="p">(</span><span class="n">threads</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_solver</span><span class="p">(</span><span class="n">solver</span><span class="p">)</span>
+
         <span class="n">mode</span> <span class="o">=</span> <span class="n">get_deployment_mode</span><span class="p">()</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--&gt; Launching simulation on </span><span class="si">{</span><span class="n">mode</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="n">DeploymentMode</span><span class="o">.</span><span class="n">Server</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_launch_on_server</span><span class="p">(</span><span class="n">threads</span><span class="p">,</span> <span class="n">extract_data</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_launch_in_container</span><span class="p">(</span><span class="n">threads</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_launch_on_server</span><span class="p">(</span><span class="n">threads</span><span class="p">,</span> <span class="n">solver</span><span class="p">,</span> <span class="n">extract_data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_launch_in_container</span><span class="p">(</span><span class="n">threads</span><span class="p">,</span> <span class="n">solver</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Execute.check_progress"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.Execute.check_progress">[docs]</a>    <span class="k">def</span> <span class="nf">check_progress</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get the lastest information from the server container</span>

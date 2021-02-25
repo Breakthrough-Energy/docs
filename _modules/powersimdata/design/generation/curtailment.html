@@ -1,0 +1,248 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.design.generation.curtailment &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.design.generation.curtailment</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.scenario</span> <span class="kn">import</span> <span class="n">Scenario</span>
+
+<span class="n">default_pmin_dict</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;coal&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="s2">&quot;dfo&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">&quot;geothermal&quot;</span><span class="p">:</span> <span class="mf">0.95</span><span class="p">,</span>
+    <span class="s2">&quot;hydro&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="s2">&quot;ng&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">&quot;nuclear&quot;</span><span class="p">:</span> <span class="mf">0.95</span><span class="p">,</span>
+    <span class="s2">&quot;other&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">&quot;wind_offshore&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">profile_methods</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;hydro&quot;</span><span class="p">:</span> <span class="s2">&quot;get_hydro&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="s2">&quot;get_solar&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="s2">&quot;get_wind&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;wind_offshore&quot;</span><span class="p">:</span> <span class="s2">&quot;get_wind&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="temporal_curtailment"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.curtailment.temporal_curtailment">[docs]</a><span class="k">def</span> <span class="nf">temporal_curtailment</span><span class="p">(</span>
+    <span class="n">scenario</span><span class="p">,</span> <span class="n">pmin_by_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pmin_by_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">curtailable</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">}</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate the minimum share of potential renewable energy that will be curtailed</span>
+<span class="sd">        due to supply/demand mismatch, assuming no storage is present.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param dict/pandas.Series pmin_by_type: Mapping of types to Pmin assumptions. Values</span>
+<span class="sd">        between 0 and 1 (inclusive) are treated as shares of Pmax, and None values</span>
+<span class="sd">        either maintain given Pmin values (for dispatchable resources) or track profiles</span>
+<span class="sd">        (for profile resources, e.g. hydro).</span>
+<span class="sd">    :param dict/pandas.Series pmin_by_id: Mapping of IDs to Pmin assumptions, as an</span>
+<span class="sd">        override to the default behavior for that plant type. Values between 0 and 1</span>
+<span class="sd">        (inclusive) are treated as shares of Pmax, and None values either maintain given</span>
+<span class="sd">        Pmin values (for dispatchable resources) or track profiles</span>
+<span class="sd">        (for profile resources, e.g. hydro).</span>
+<span class="sd">    :param iterable curtailable: resource types which can be curtailed.</span>
+<span class="sd">    :return: (*float*) -- share of curtailable resources that will be curtailed.</span>
+<span class="sd">    :raises TypeError: if inputs do not mach specified type.</span>
+<span class="sd">    :raises ValueError: if any entries in curtailable or keys in pmin_by_type are not</span>
+<span class="sd">        types in the grid, any keys in pmin_by_id are not plant IDs in the Grid,</span>
+<span class="sd">        or any values in pmin_by_type/pmin_by_id are not in the range [0, 1] or None.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">Scenario</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;scenario must be a Scenario&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">pmin_by_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">pmin_by_type</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">pmin_by_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">pmin_by_id</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">check_dicts</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;pmin_by_id&quot;</span><span class="p">:</span> <span class="n">pmin_by_id</span><span class="p">,</span> <span class="s2">&quot;pmin_by_type&quot;</span><span class="p">:</span> <span class="n">pmin_by_type</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">check_dicts</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="p">(</span><span class="nb">dict</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> must be a dict or pandas Series&quot;</span><span class="p">)</span>
+        <span class="c1"># Access values via appropriate method whether d is a dict or a pandas Series</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="n">d</span><span class="o">.</span><span class="n">values</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">v</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="p">]):</span>
+            <span class="n">err_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;all entries in </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> must be None or in the range [0, 1]&quot;</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
+    <span class="n">plant</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span><span class="o">.</span><span class="n">plant</span>
+    <span class="n">valid_types</span> <span class="o">=</span> <span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">pmin_by_type</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">valid_types</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Got invalid plant type as a key to pmin_by_type&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">pmin_by_id</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Got invalid plant id as a key to pmin_by_id&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">curtailable</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">valid_types</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Got invalid plant type within curtailable&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;curtailable must be an iterable&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Get profiles, filter out plant-level overrides, then sum</span>
+    <span class="n">all_profiles</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+        <span class="p">[</span><span class="nb">getattr</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="p">,</span> <span class="n">m</span><span class="p">)()</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">profile_methods</span><span class="o">.</span><span class="n">values</span><span class="p">())],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+    <span class="n">plant_id_mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">pmin_by_id</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">base_plant_ids_by_type</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id_mask</span><span class="p">]</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">groups</span>
+    <span class="n">valid_profile_types</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">base_plant_ids_by_type</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">profile_methods</span><span class="p">)</span>
+    <span class="n">plant_ids_for_summed_profiles</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+        <span class="o">*</span><span class="p">[</span><span class="nb">set</span><span class="p">(</span><span class="n">base_plant_ids_by_type</span><span class="p">[</span><span class="n">g</span><span class="p">])</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">valid_profile_types</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">summed_profiles</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">all_profiles</span><span class="p">[</span><span class="n">plant_ids_for_summed_profiles</span><span class="p">]</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Build up a series of firm generation</span>
+    <span class="n">summed_demand</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_demand</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">firm_generation</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">summed_demand</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="c1"># Add plants without plant-level overrides (&#39;base&#39; plants)</span>
+    <span class="n">pmin_dict</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">default_pmin_dict</span><span class="p">,</span> <span class="o">**</span><span class="n">pmin_by_type</span><span class="p">}</span>
+    <span class="c1"># Don&#39;t iterate over plant types not present in this grid</span>
+    <span class="n">pmin_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">pmin_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">base_plant_ids_by_type</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">resource</span><span class="p">,</span> <span class="n">pmin</span> <span class="ow">in</span> <span class="n">pmin_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">resource</span> <span class="ow">in</span> <span class="n">curtailable</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">pmin</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">pmin</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">resource</span> <span class="ow">in</span> <span class="n">profile_methods</span><span class="p">:</span>
+                <span class="n">firm_generation</span> <span class="o">+=</span> <span class="n">summed_profiles</span><span class="p">[</span><span class="n">resource</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">summed_pmin</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">base_plant_ids_by_type</span><span class="p">[</span><span class="n">resource</span><span class="p">]]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="n">firm_generation</span> <span class="o">+=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">summed_pmin</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">summed_demand</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">summed_pmin</span> <span class="o">=</span> <span class="n">pmin</span> <span class="o">*</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">base_plant_ids_by_type</span><span class="p">[</span><span class="n">resource</span><span class="p">]]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="n">firm_generation</span> <span class="o">+=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">summed_pmin</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">summed_demand</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="c1"># Add plants with plant-level overrides</span>
+    <span class="k">for</span> <span class="n">plant_id</span><span class="p">,</span> <span class="n">pmin</span> <span class="ow">in</span> <span class="n">pmin_by_id</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">pmin</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">pmin</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">profile_methods</span><span class="p">:</span>
+                <span class="n">firm_generation</span> <span class="o">+=</span> <span class="n">all_profiles</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">plant_pmin</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="s2">&quot;Pmin&quot;</span><span class="p">]</span>
+                <span class="n">firm_generation</span> <span class="o">+=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">plant_pmin</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">summed_demand</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">plant_pmin</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">pmin</span>
+            <span class="n">firm_generation</span> <span class="o">+=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">plant_pmin</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">summed_demand</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+
+    <span class="c1"># Finally, compare this summed firm generation against summed curtailable generation</span>
+    <span class="n">total_curtailable</span> <span class="o">=</span> <span class="n">summed_profiles</span><span class="p">[</span><span class="n">curtailable</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">net_demand</span> <span class="o">=</span> <span class="n">summed_demand</span> <span class="o">-</span> <span class="n">firm_generation</span>
+    <span class="n">curtailable_max_gen</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">net_demand</span><span class="p">,</span> <span class="n">total_curtailable</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">curtailment_fraction</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">curtailable_max_gen</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">total_curtailable</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">curtailment_fraction</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise_package.html">PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reisejl_package.html">REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.5.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

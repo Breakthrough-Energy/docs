@@ -36,10 +36,9 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">posixpath</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">requests</span>
-<span class="kn">from</span> <span class="nn">scipy.io</span> <span class="kn">import</span> <span class="n">savemat</span>
 
+<span class="kn">from</span> <span class="nn">powersimdata.input.case_mat</span> <span class="kn">import</span> <span class="n">export_case_mat</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.input_data</span> <span class="kn">import</span> <span class="n">InputData</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
@@ -373,129 +372,12 @@
 
 <div class="viewcode-block" id="SimulationInput.prepare_mpc_file"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput.prepare_mpc_file">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_mpc_file</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Creates MATPOWER case file.&quot;&quot;&quot;</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Preparing MPC file&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Scaling grid&quot;</span><span class="p">)</span>
-        <span class="n">grid</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">)</span>
-
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Building MPC file&quot;</span><span class="p">)</span>
-        <span class="n">mpc</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;mpc&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="s2">&quot;2&quot;</span><span class="p">,</span> <span class="s2">&quot;baseMVA&quot;</span><span class="p">:</span> <span class="mf">100.0</span><span class="p">}}</span>
-
-        <span class="c1"># zone</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;zone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">items</span><span class="p">()),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
-
-        <span class="c1"># sub</span>
-        <span class="n">sub</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">sub</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">subid</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;sub&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub</span><span class="o">.</span><span class="n">values</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;subid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">subid</span>
-
-        <span class="c1"># bus</span>
-        <span class="n">bus</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">busid</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
-        <span class="n">bus</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">bus</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;bus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">values</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;busid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">busid</span>
-
-        <span class="c1"># bus2sub</span>
-        <span class="n">bus2sub</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus2sub</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;bus2sub&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus2sub</span><span class="o">.</span><span class="n">values</span>
-
-        <span class="c1"># plant</span>
-        <span class="n">gen</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">genid</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
-        <span class="n">genfuel</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
-        <span class="n">genfuelcost</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">GenFuelCost</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
-        <span class="n">heatratecurve</span> <span class="o">=</span> <span class="n">gen</span><span class="p">[[</span><span class="s2">&quot;GenIOB&quot;</span><span class="p">,</span> <span class="s2">&quot;GenIOC&quot;</span><span class="p">,</span> <span class="s2">&quot;GenIOD&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
-        <span class="n">gen</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">gen</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span>
-            <span class="n">columns</span><span class="o">=</span><span class="p">[</span>
-                <span class="s2">&quot;type&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;lat&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;lon&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;zone_id&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;zone_name&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;GenFuelCost&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;GenIOB&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;GenIOC&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;GenIOD&quot;</span><span class="p">,</span>
-            <span class="p">],</span>
-            <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">values</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;genid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">genid</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;genfuel&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">genfuel</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;genfuelcost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">genfuelcost</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;heatratecurve&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">heatratecurve</span>
-        <span class="c1"># branch</span>
-        <span class="n">branch</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">branchid</span> <span class="o">=</span> <span class="n">branch</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
-        <span class="n">branchdevicetype</span> <span class="o">=</span> <span class="n">branch</span><span class="o">.</span><span class="n">branch_device_type</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
-        <span class="n">branch</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">branch</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span>
-            <span class="n">columns</span><span class="o">=</span><span class="p">[</span>
-                <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;from_lat&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;from_lon&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;to_lat&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;to_lon&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;from_zone_id&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;to_zone_id&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;from_zone_name&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;to_zone_name&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;branch_device_type&quot;</span><span class="p">,</span>
-            <span class="p">],</span>
-            <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;branch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branch</span><span class="o">.</span><span class="n">values</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;branchid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branchid</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;branchdevicetype&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branchdevicetype</span>
-
-        <span class="c1"># generation cost</span>
-        <span class="n">gencost</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;gencost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
-
-        <span class="c1"># DC line</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">dcline</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-            <span class="n">dclineid</span> <span class="o">=</span> <span class="n">dcline</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
-            <span class="n">dcline</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">dcline</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;from_interconnect&quot;</span><span class="p">,</span> <span class="s2">&quot;to_interconnect&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;dcline&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dcline</span><span class="o">.</span><span class="n">values</span>
-            <span class="n">mpc</span><span class="p">[</span><span class="s2">&quot;mpc&quot;</span><span class="p">][</span><span class="s2">&quot;dclineid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">dclineid</span>
-
-        <span class="c1"># energy storage</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">storage</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-
-            <span class="n">mpc_storage</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;storage&quot;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="s2">&quot;xgd_table&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
-                    <span class="s2">&quot;gen&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">),</span>
-                    <span class="s2">&quot;sd_table&quot;</span><span class="p">:</span> <span class="p">{</span>
-                        <span class="s2">&quot;colnames&quot;</span><span class="p">:</span> <span class="n">storage</span><span class="p">[</span><span class="s2">&quot;StorageData&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span>
-                        <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="n">storage</span><span class="p">[</span><span class="s2">&quot;StorageData&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
-                    <span class="p">},</span>
-                <span class="p">}</span>
-            <span class="p">}</span>
-
-            <span class="n">file_name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_case_storage.mat&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
-            <span class="n">savemat</span><span class="p">(</span>
-                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">file_name</span><span class="p">),</span>
-                <span class="n">mpc_storage</span><span class="p">,</span>
-                <span class="n">appendmat</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">move_to</span><span class="p">(</span>
-                <span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="s2">&quot;case_storage.mat&quot;</span>
-            <span class="p">)</span>
-
-        <span class="c1"># MPC file</span>
         <span class="n">file_name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_case.mat&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
-        <span class="n">savemat</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">file_name</span><span class="p">),</span> <span class="n">mpc</span><span class="p">,</span> <span class="n">appendmat</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-
+        <span class="n">storage_file_name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_case_storage.mat&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+        <span class="n">file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+        <span class="n">storage_file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">storage_file_name</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Building MPC file&quot;</span><span class="p">)</span>
+        <span class="n">export_case_mat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">file_path</span><span class="p">,</span> <span class="n">storage_file_path</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">move_to</span><span class="p">(</span>
             <span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="s2">&quot;case.mat&quot;</span>
         <span class="p">)</span></div>

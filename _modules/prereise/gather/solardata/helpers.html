@@ -32,9 +32,7 @@
           <div class="body" role="main">
             
   <h1>Source code for prereise.gather.solardata.helpers</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
-
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
 
 <div class="viewcode-block" id="to_reise"><a class="viewcode-back" href="../../../../prereise.gather.solardata.html#prereise.gather.solardata.helpers.to_reise">[docs]</a><span class="k">def</span> <span class="nf">to_reise</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
@@ -45,8 +43,16 @@
 <span class="sd">        :func:`prereise.gather.solardata.nsrdb.sam.retrieve_data` or</span>
 <span class="sd">        :func:`prereise.gather.solardata.ga_wind.ga_wind.retrieve_data`</span>
 <span class="sd">    :return: (*pandas.DataFrame*) -- data frame formatted for REISE.</span>
+<span class="sd">    :raises TypeError: if *&#39;data&#39;* is not a data frame.</span>
+<span class="sd">    :raises ValueError: if *&#39;Pout&#39;*, *&#39;plant_id&#39;*, *&#39;ts&#39;* and *&#39;ts_id&#39;* are not among</span>
+<span class="sd">        the columns.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;data must be a pandas.DataFrame&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">{</span><span class="s2">&quot;Pout&quot;</span><span class="p">,</span> <span class="s2">&quot;plant_id&quot;</span><span class="p">,</span> <span class="s2">&quot;ts&quot;</span><span class="p">,</span> <span class="s2">&quot;ts_id&quot;</span><span class="p">}</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;data frame must have Pout, plant_id, ts and ts_id among columns&quot;</span>
+        <span class="p">)</span>
     <span class="n">ts</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;ts&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
     <span class="n">plant_id</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">ts_id</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">plant_id</span><span class="o">.</span><span class="n">values</span>
 
@@ -66,26 +72,22 @@
     <span class="k">return</span> <span class="n">profile</span></div>
 
 
-<div class="viewcode-block" id="get_plant_info_unique_location"><a class="viewcode-back" href="../../../../prereise.gather.solardata.html#prereise.gather.solardata.helpers.get_plant_info_unique_location">[docs]</a><span class="k">def</span> <span class="nf">get_plant_info_unique_location</span><span class="p">(</span><span class="n">plant</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Identify unique location and return relevant information of plants at</span>
-<span class="sd">    location.</span>
+<div class="viewcode-block" id="get_plant_id_unique_location"><a class="viewcode-back" href="../../../../prereise.gather.solardata.html#prereise.gather.solardata.helpers.get_plant_id_unique_location">[docs]</a><span class="k">def</span> <span class="nf">get_plant_id_unique_location</span><span class="p">(</span><span class="n">plant</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Identify unique location among plants.</span>
 
 <span class="sd">    :param pandas.DataFrame plant: plant data frame.</span>
-<span class="sd">    :return: (*dict*) -- keys are coordinates of location. Values is a list of</span>
-<span class="sd">        2-tuple giving the plant id at location along with its capacity.</span>
+<span class="sd">    :return: (*dict*) -- keys are coordinates. Values is a list of *&#39;plant_id&#39;*.</span>
+<span class="sd">    :raises TypeError: if *&#39;plant&#39;* is not a data frame.</span>
+<span class="sd">    :raises ValueError: if *&#39;plant_id&#39;* is not the index and/or *&#39;lat&#39;* and *&#39;lon&#39;* are</span>
+<span class="sd">        not among the columns.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">n_target</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">plant</span><span class="p">)</span>
-
-    <span class="c1"># Identify unique location</span>
-    <span class="n">coord</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_target</span><span class="p">):</span>
-        <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">plant</span><span class="o">.</span><span class="n">lon</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="nb">str</span><span class="p">(</span><span class="n">plant</span><span class="o">.</span><span class="n">lat</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
-        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">coord</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="n">coord</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[(</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">])]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">coord</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
-
-    <span class="k">return</span> <span class="n">coord</span></div>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plant</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;plant must be a pandas.DataFrame&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;plant_id&quot;</span> <span class="ow">and</span> <span class="p">{</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">}</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">plant</span><span class="o">.</span><span class="n">columns</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;data frame must have plant_id as index and lat and lon among columns&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">groups</span></div>
 </pre></div>
 
           </div>

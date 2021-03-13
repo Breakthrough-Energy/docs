@@ -37,20 +37,22 @@
 <span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants.zones</span> <span class="kn">import</span> <span class="n">abv2interconnect</span><span class="p">,</span> <span class="n">abv2loadzone</span>
 
 
-<div class="viewcode-block" id="get_profile_by_state"><a class="viewcode-back" href="../../../../../prereise.gather.hydrodata.eia.html#prereise.gather.hydrodata.eia.decompose_profile.get_profile_by_state">[docs]</a><span class="k">def</span> <span class="nf">get_profile_by_state</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+<div class="viewcode-block" id="get_profile_by_state"><a class="viewcode-back" href="../../../../../prereise.gather.hydrodata.eia.html#prereise.gather.hydrodata.eia.decompose_profile.get_profile_by_state">[docs]</a><span class="k">def</span> <span class="nf">get_profile_by_state</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">grid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Decompose total hydro profile into plant level profile based on hydro</span>
 <span class="sd">    generator capacities in the query state.</span>
 
-<span class="sd">    :param pandas.DataFrame profile: profile in query state.</span>
+<span class="sd">    :param pandas.Series/list profile: profile in query state.</span>
 <span class="sd">    :param str state: the query state.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance. Use the generator</span>
+<span class="sd">        capacities in the given grid if provided, otherwise use the base grid.</span>
 <span class="sd">    :return: (*pandas.DataFrame*) -- hydro profile for each plant</span>
 <span class="sd">        in the query state.</span>
 <span class="sd">    :raises TypeError: if profile is not a time-series and/or</span>
 <span class="sd">        state is not a str.</span>
 <span class="sd">    :raises ValueError: if state is invalid.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;profile must be a pandas.Series object&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;profile must be a pandas.Series object or list&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;state must be a str&quot;</span><span class="p">)</span>
 
@@ -59,10 +61,10 @@
             <span class="s2">&quot;Invalid state. Possible states are </span><span class="si">%s</span><span class="s2">&quot;</span>
             <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">abv2loadzone</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
         <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">grid</span><span class="p">:</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">([</span><span class="n">abv2interconnect</span><span class="p">[</span><span class="n">state</span><span class="p">]])</span>
 
-    <span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">([</span><span class="n">abv2interconnect</span><span class="p">[</span><span class="n">state</span><span class="p">]])</span>
     <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
-
     <span class="n">hydro_plant_in_state</span> <span class="o">=</span> <span class="n">plant</span><span class="p">[</span>
         <span class="p">(</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">abv2loadzone</span><span class="p">[</span><span class="n">state</span><span class="p">]))</span>
     <span class="p">]</span>
@@ -86,7 +88,7 @@
 
 <span class="sd">    :param pandas.DataFrame plant_df: plant dataframe contains generator</span>
 <span class="sd">        capacity as &#39;Pmax&#39; for each entry.</span>
-<span class="sd">    :param list total_profile: aggregated profile to decompose</span>
+<span class="sd">    :param pandas.Series/list total_profile: aggregated profile to decompose</span>
 <span class="sd">    :return: (*pandas.DataFrame*) -- hydro profile for each plant decomposed</span>
 <span class="sd">        from the total_profile.</span>
 <span class="sd">    :raises TypeError: if plant_df is not a pandas.Dataframe and/or</span>
@@ -96,9 +98,9 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plant_df</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;plant_df must be a pandas.DataFrame object&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">total_profile</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;total_profile must be a pandas.Series object&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">==</span> <span class="n">val</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">total_profile</span><span class="p">]):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">total_profile</span><span class="p">,</span> <span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;total_profile must be a pandas.Series object or list&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">))</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">total_profile</span><span class="p">]):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;total_profile must be all numbers&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="s2">&quot;Pmax&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">plant_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Pmax must be one of the columns of plant_df&quot;</span><span class="p">)</span>
@@ -114,6 +116,28 @@
         <span class="n">plant_profile</span> <span class="o">=</span> <span class="p">[</span><span class="n">val</span> <span class="o">*</span> <span class="n">factor</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">total_profile</span><span class="p">]</span>
         <span class="n">res_profile</span><span class="p">[</span><span class="n">plantid</span><span class="p">]</span> <span class="o">=</span> <span class="n">plant_profile</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">res_profile</span></div>
+
+
+<div class="viewcode-block" id="get_normalized_profile"><a class="viewcode-back" href="../../../../../prereise.gather.hydrodata.eia.html#prereise.gather.hydrodata.eia.decompose_profile.get_normalized_profile">[docs]</a><span class="k">def</span> <span class="nf">get_normalized_profile</span><span class="p">(</span><span class="n">plant_df</span><span class="p">,</span> <span class="n">plant_profile</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Normalize plant level profile by Pmax of the corresponding plant</span>
+
+<span class="sd">    :param pandas.DataFrame plant_df: plant dataframe contains generator capacity as</span>
+<span class="sd">        &#39;Pmax&#39; for each entry.</span>
+<span class="sd">    :param pandas.DataFrame plant_profile: plant level profile with values of generation</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- normalized plant level profile</span>
+<span class="sd">    :raises TypeError: if plant_df and/or plant_profile is not a pandas.Dataframe</span>
+<span class="sd">    :raises ValueError: if plant_df does not contain &#39;Pmax&#39; as a column and/or</span>
+<span class="sd">        plants in plant_df don&#39;t match the ones in plant_profile</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plant_df</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;plant_df must be a pandas.DataFrame object&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plant_profile</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;plant_profile must be a pandas.DataFrame object&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;Pmax&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">plant_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Pmax must be one of the columns of plant_df&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">plant_df</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">plant_profile</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;plant_df and plant_profile must contain same plants&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">plant_profile</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">plant_df</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

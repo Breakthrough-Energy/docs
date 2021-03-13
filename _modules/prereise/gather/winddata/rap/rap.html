@@ -53,16 +53,16 @@
 <div class="viewcode-block" id="retrieve_data"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.rap.retrieve_data">[docs]</a><span class="k">def</span> <span class="nf">retrieve_data</span><span class="p">(</span><span class="n">wind_farm</span><span class="p">,</span> <span class="n">start_date</span><span class="o">=</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">end_date</span><span class="o">=</span><span class="s2">&quot;2016-12-31&quot;</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Retrieve wind speed data from NOAA&#39;s server.</span>
 
-<span class="sd">    :param pandas.DataFrame wind_farm: data frame with *&#39;lat&#39;*, *&#39;lon&#39;*,</span>
-<span class="sd">        *&#39;Pmax&#39;*, *&#39;type&#39;* and *&#39;zone_id&#39;* as columns and *&#39;plant_id&#39;* as index.</span>
+<span class="sd">    :param pandas.DataFrame wind_farm: plant data frame.</span>
 <span class="sd">    :param str start_date: start date.</span>
 <span class="sd">    :param str end_date: end date (inclusive).</span>
 <span class="sd">    :return: (*tuple*) -- First element is a pandas data frame with</span>
 <span class="sd">        *&#39;plant_id&#39;*, *&#39;U&#39;*, *&#39;V&#39;*, *&#39;Pout&#39;*, *&#39;ts&#39;* and *&#39;ts_id&#39;* as columns.</span>
-<span class="sd">        The power output is in MWh and the U and V component of the wind speed</span>
-<span class="sd">        80-m above ground level are in m/s. Second element is a list of missing</span>
-<span class="sd">        files.</span>
+<span class="sd">        The power output is given for a 1MW generator and the U and V component of</span>
+<span class="sd">        the wind speed 80-m above ground level are in m/s. Second element is a list</span>
+<span class="sd">        of missing files.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="c1"># Define query box boundaries using the most northern, southern, eastern</span>
     <span class="c1"># and western. Add 1deg in each direction</span>
     <span class="n">north_box</span> <span class="o">=</span> <span class="n">wind_farm</span><span class="o">.</span><span class="n">lat</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span>
@@ -80,7 +80,6 @@
     <span class="n">lon_target</span> <span class="o">=</span> <span class="n">wind_farm</span><span class="o">.</span><span class="n">lon</span><span class="o">.</span><span class="n">values</span>
     <span class="n">lat_target</span> <span class="o">=</span> <span class="n">wind_farm</span><span class="o">.</span><span class="n">lat</span><span class="o">.</span><span class="n">values</span>
     <span class="n">id_target</span> <span class="o">=</span> <span class="n">wind_farm</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span>
-    <span class="n">capacity_target</span> <span class="o">=</span> <span class="n">wind_farm</span><span class="o">.</span><span class="n">Pmax</span><span class="o">.</span><span class="n">values</span>
     <span class="n">state_target</span> <span class="o">=</span> <span class="p">[</span>
         <span class="s2">&quot;Offshore&quot;</span>
         <span class="k">if</span> <span class="n">wind_farm</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;wind_offshore&quot;</span>
@@ -140,6 +139,7 @@
 
         <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># see demo notebook to understand file structure</span>
                 <span class="n">tmp</span> <span class="o">=</span> <span class="n">Dataset</span><span class="p">(</span><span class="s2">&quot;tmp.nc&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">memory</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
                 <span class="n">lon_grid</span> <span class="o">=</span> <span class="n">tmp</span><span class="o">.</span><span class="n">variables</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">][:]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
                 <span class="n">lat_grid</span> <span class="o">=</span> <span class="n">tmp</span><span class="o">.</span><span class="n">variables</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">][:]</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
@@ -160,8 +160,7 @@
                 <span class="p">]</span>
                 <span class="n">wspd_target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">pow</span><span class="p">(</span><span class="n">data_tmp</span><span class="p">[</span><span class="s2">&quot;U&quot;</span><span class="p">],</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="nb">pow</span><span class="p">(</span><span class="n">data_tmp</span><span class="p">[</span><span class="s2">&quot;V&quot;</span><span class="p">],</span> <span class="mi">2</span><span class="p">))</span>
                 <span class="n">power</span> <span class="o">=</span> <span class="p">[</span>
-                    <span class="n">capacity_target</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
-                    <span class="o">*</span> <span class="n">get_power</span><span class="p">(</span><span class="n">tpc</span><span class="p">,</span> <span class="n">spc</span><span class="p">,</span> <span class="n">wspd_target</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">state_target</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+                    <span class="n">get_power</span><span class="p">(</span><span class="n">tpc</span><span class="p">,</span> <span class="n">spc</span><span class="p">,</span> <span class="n">wspd_target</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">state_target</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
                     <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_target</span><span class="p">)</span>
                 <span class="p">]</span>
                 <span class="n">data_tmp</span><span class="p">[</span><span class="s2">&quot;Pout&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">power</span>

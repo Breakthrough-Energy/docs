@@ -40,7 +40,7 @@
 <span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span> <span class="nn">prereise.gather.solardata.ga_wind.helpers</span> <span class="kn">import</span> <span class="n">ll2ij</span><span class="p">,</span> <span class="n">proj_string</span>
-<span class="kn">from</span> <span class="nn">prereise.gather.solardata.helpers</span> <span class="kn">import</span> <span class="n">get_plant_info_unique_location</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.solardata.helpers</span> <span class="kn">import</span> <span class="n">get_plant_id_unique_location</span>
 
 
 <div class="viewcode-block" id="retrieve_data"><a class="viewcode-back" href="../../../../../prereise.gather.solardata.ga_wind.html#prereise.gather.solardata.ga_wind.ga_wind.retrieve_data">[docs]</a><span class="k">def</span> <span class="nf">retrieve_data</span><span class="p">(</span>
@@ -49,31 +49,41 @@
     <span class="sd">&quot;&quot;&quot;Retrieves irradiance data from Gridded Atmospheric Wind Integration</span>
 <span class="sd">    National dataset.</span>
 
-<span class="sd">    :param pandas.DataFrame solar_plant: data frame with *&#39;lat&#39;*, *&#39;lon&#39;* and</span>
-<span class="sd">        *&#39;Pmax&#39;* as columns and *&#39;plant_id&#39;* as indices.</span>
+<span class="sd">    :param pandas.DataFrame solar_plant: plant data frame.</span>
 <span class="sd">    :param str hs_api_key: API key.</span>
 <span class="sd">    :param str start_date: start date.</span>
 <span class="sd">    :param str end_date: end date.</span>
-<span class="sd">    :return: (*pandas.DataFrame*) -- data frame with *&#39;Pout&#39;*, *&#39;plant_id&#39;*,</span>
-<span class="sd">        *&#39;ts&#39;* and *&#39;ts_id&#39;* as columns. The power output is in MWh.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- data frame with *&#39;Pout&#39;*, *&#39;plant_id&#39;*, *&#39;ts&#39;* and</span>
+<span class="sd">        *&#39;ts_id&#39;* as columns. Values are power output for a 1MW generator.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># Identify unique location</span>
-    <span class="n">coord</span> <span class="o">=</span> <span class="n">get_plant_info_unique_location</span><span class="p">(</span><span class="n">solar_plant</span><span class="p">)</span>
+    <span class="n">coord</span> <span class="o">=</span> <span class="n">get_plant_id_unique_location</span><span class="p">(</span><span class="n">solar_plant</span><span class="p">)</span>
 
     <span class="c1"># Build query</span>
-    <span class="n">hs_endpoint</span> <span class="o">=</span> <span class="s2">&quot;https://developer.nrel.gov/api/hsds/&quot;</span>
+    <span class="n">hs_endpoint</span> <span class="o">=</span> <span class="s2">&quot;https://developer.nrel.gov/api/hsds&quot;</span>
+    <span class="n">hs_endpoint_fallback</span> <span class="o">=</span> <span class="s2">&quot;https://developer.nrel.gov/api/hsds/&quot;</span>
     <span class="n">hs_username</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">hs_password</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="n">f</span> <span class="o">=</span> <span class="n">h5pyd</span><span class="o">.</span><span class="n">File</span><span class="p">(</span>
-        <span class="s2">&quot;/nrel/wtk-us.h5&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;r&quot;</span><span class="p">,</span>
-        <span class="n">username</span><span class="o">=</span><span class="n">hs_username</span><span class="p">,</span>
-        <span class="n">password</span><span class="o">=</span><span class="n">hs_password</span><span class="p">,</span>
-        <span class="n">endpoint</span><span class="o">=</span><span class="n">hs_endpoint</span><span class="p">,</span>
-        <span class="n">api_key</span><span class="o">=</span><span class="n">hs_api_key</span><span class="p">,</span>
-    <span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">h5pyd</span><span class="o">.</span><span class="n">File</span><span class="p">(</span>
+            <span class="s2">&quot;/nrel/wtk-us.h5&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;r&quot;</span><span class="p">,</span>
+            <span class="n">username</span><span class="o">=</span><span class="n">hs_username</span><span class="p">,</span>
+            <span class="n">password</span><span class="o">=</span><span class="n">hs_password</span><span class="p">,</span>
+            <span class="n">endpoint</span><span class="o">=</span><span class="n">hs_endpoint</span><span class="p">,</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">hs_api_key</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">h5pyd</span><span class="o">.</span><span class="n">File</span><span class="p">(</span>
+            <span class="s2">&quot;/nrel/wtk-us.h5&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;r&quot;</span><span class="p">,</span>
+            <span class="n">username</span><span class="o">=</span><span class="n">hs_username</span><span class="p">,</span>
+            <span class="n">password</span><span class="o">=</span><span class="n">hs_password</span><span class="p">,</span>
+            <span class="n">endpoint</span><span class="o">=</span><span class="n">hs_endpoint_fallback</span><span class="p">,</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">hs_api_key</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="c1"># Get coordinates of nearest location</span>
     <span class="n">lat_origin</span><span class="p">,</span> <span class="n">lon_origin</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="s2">&quot;coordinates&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
@@ -98,8 +108,7 @@
 
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">coord</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
             <span class="n">data_site</span> <span class="o">=</span> <span class="n">data_loc</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-            <span class="n">data_site</span><span class="p">[</span><span class="s2">&quot;Pout&quot;</span><span class="p">]</span> <span class="o">*=</span> <span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-            <span class="n">data_site</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">data_site</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
 
             <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_site</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 

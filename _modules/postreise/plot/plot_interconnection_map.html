@@ -37,7 +37,7 @@
 <span class="kn">from</span> <span class="nn">bokeh.models</span> <span class="kn">import</span> <span class="n">ColumnDataSource</span><span class="p">,</span> <span class="n">HoverTool</span>
 <span class="kn">from</span> <span class="nn">bokeh.plotting</span> <span class="kn">import</span> <span class="n">figure</span>
 <span class="kn">from</span> <span class="nn">bokeh.tile_providers</span> <span class="kn">import</span> <span class="n">Vendors</span><span class="p">,</span> <span class="n">get_provider</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants</span> <span class="kn">import</span> <span class="n">zones</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">distance</span>
 
 <span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">get_state_borders</span>
@@ -45,13 +45,13 @@
 
 
 <div class="viewcode-block" id="count_nodes_per_state"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_interconnection_map.count_nodes_per_state">[docs]</a><span class="k">def</span> <span class="nf">count_nodes_per_state</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    count nodes per state to add as hover-over info in map_interconnections</span>
+    <span class="sd">&quot;&quot;&quot;Count nodes per state to add as hover-over info in :func`map_interconnections`</span>
 
-<span class="sd">    :param powersimdata.input.grid.Grid grid: grid object</span>
-<span class="sd">    :return:  -- dataframe containing state names and count of nodes per state</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid object.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- dataframe containing state names and count of nodes per state.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">zones</span><span class="o">.</span><span class="n">id2state</span><span class="p">)</span>
+    <span class="n">id2state</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">get_grid_model</span><span class="p">())</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;id2abv&quot;</span><span class="p">]</span>
+    <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">id2state</span><span class="p">)</span>
     <span class="n">liststates</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span>
     <span class="n">state_counts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">liststates</span><span class="p">)</span>
     <span class="n">state_counts</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -63,16 +63,17 @@
 <div class="viewcode-block" id="map_interconnections"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_interconnection_map.map_interconnections">[docs]</a><span class="k">def</span> <span class="nf">map_interconnections</span><span class="p">(</span>
     <span class="n">grid</span><span class="p">,</span> <span class="n">state_counts</span><span class="p">,</span> <span class="n">hover_choice</span><span class="p">,</span> <span class="n">hvdc_width</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">us_states_dat</span><span class="o">=</span><span class="kc">None</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Maps transmission lines color coded by interconnection</span>
+    <span class="sd">&quot;&quot;&quot;Maps transmission lines color coded by interconnection.</span>
 
-<span class="sd">    :param powersimdata.input.grid.Grid grid: grid object</span>
-<span class="sd">    :param pandas.DataFrame state_counts: state names and node counts, created by count_nodes_per_state</span>
-<span class="sd">    :param str hover_choice: &quot;nodes&quot; for state_counts nodes per state, otherwise hvdc</span>
-<span class="sd">        capacity in hover over tool tips for hvdc lines only</span>
-<span class="sd">    :param float hvdc_width: adjust width of HVDC lines on map</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid object.</span>
+<span class="sd">    :param pandas.DataFrame state_counts: state names and node counts, created by</span>
+<span class="sd">        :func:`count_nodes_per_state`.</span>
+<span class="sd">    :param str hover_choice: &quot;nodes&quot; for state_counts nodes per state, otherwise HVDC</span>
+<span class="sd">        capacity in hover over tool tips for hvdc lines only.</span>
+<span class="sd">    :param float hvdc_width: adjust width of HVDC lines on map.</span>
 <span class="sd">    :param dict us_states_dat: dictionary of state border lats/lons. If None, get</span>
 <span class="sd">        from :func:`postreise.plot.plot_states.get_state_borders`.</span>
-<span class="sd">    :return:  -- map of transmission lines</span>
+<span class="sd">    :return: (*bokeh.plotting.figure*) -- map of transmission lines.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">us_states_dat</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">us_states_dat</span> <span class="o">=</span> <span class="n">get_state_borders</span><span class="p">()</span>

@@ -35,16 +35,11 @@
 <span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">from</span> <span class="nn">numpy.polynomial.polynomial</span> <span class="kn">import</span> <span class="n">polyval</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants.plants</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">carbon_per_mmbtu</span><span class="p">,</span>
-    <span class="n">carbon_per_mwh</span><span class="p">,</span>
-    <span class="n">carbon_resources</span><span class="p">,</span>
-    <span class="n">nox_per_mwh</span><span class="p">,</span>
-    <span class="n">so2_per_mwh</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
 
 <span class="kn">from</span> <span class="nn">postreise.analyze.check</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">_check_gencost</span><span class="p">,</span>
+    <span class="n">_check_grid</span><span class="p">,</span>
     <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">,</span>
     <span class="n">_check_time_series</span><span class="p">,</span>
 <span class="p">)</span>
@@ -63,16 +58,16 @@
 <span class="sd">    :return: (*pandas.DataFrame*) -- emissions data frame.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
-
+    <span class="n">mi</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">])</span>
     <span class="n">allowed_methods</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;carbon&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;simple&quot;</span><span class="p">,</span> <span class="s2">&quot;always-on&quot;</span><span class="p">,</span> <span class="s2">&quot;decommit&quot;</span><span class="p">},</span>
         <span class="s2">&quot;nox&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;simple&quot;</span><span class="p">},</span>
         <span class="s2">&quot;so2&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;simple&quot;</span><span class="p">},</span>
     <span class="p">}</span>
     <span class="n">emissions_per_mwh</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;carbon&quot;</span><span class="p">:</span> <span class="n">carbon_per_mwh</span><span class="p">,</span>
-        <span class="s2">&quot;nox&quot;</span><span class="p">:</span> <span class="n">nox_per_mwh</span><span class="p">,</span>
-        <span class="s2">&quot;so2&quot;</span><span class="p">:</span> <span class="n">so2_per_mwh</span><span class="p">,</span>
+        <span class="s2">&quot;carbon&quot;</span><span class="p">:</span> <span class="n">mi</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;carbon_per_mwh&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;nox&quot;</span><span class="p">:</span> <span class="n">mi</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;nox_per_mwh&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;so2&quot;</span><span class="p">:</span> <span class="n">mi</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;so2_per_mwh&quot;</span><span class="p">],</span>
     <span class="p">}</span>
 
     <span class="k">if</span> <span class="n">pollutant</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed_methods</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
@@ -97,7 +92,7 @@
         <span class="n">costs</span> <span class="o">=</span> <span class="n">calc_costs</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">],</span> <span class="n">decommit</span><span class="o">=</span><span class="n">decommit</span><span class="p">)</span>
         <span class="n">heat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">costs</span><span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">fuel</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">carbon_per_mmbtu</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">fuel</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">mi</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;carbon_per_mmbtu&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="n">indices</span> <span class="o">=</span> <span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">fuel</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
             <span class="n">heat</span><span class="p">[:,</span> <span class="n">indices</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="n">costs</span><span class="p">[:,</span> <span class="n">indices</span><span class="p">]</span> <span class="o">/</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;GenFuelCost&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
@@ -109,34 +104,40 @@
     <span class="k">return</span> <span class="n">emissions</span></div>
 
 
-<div class="viewcode-block" id="summarize_emissions_by_bus"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.emissions.summarize_emissions_by_bus">[docs]</a><span class="k">def</span> <span class="nf">summarize_emissions_by_bus</span><span class="p">(</span><span class="n">emissions</span><span class="p">,</span> <span class="n">plant</span><span class="p">):</span>
+<div class="viewcode-block" id="summarize_emissions_by_bus"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.emissions.summarize_emissions_by_bus">[docs]</a><span class="k">def</span> <span class="nf">summarize_emissions_by_bus</span><span class="p">(</span><span class="n">emissions</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Summarize time series emissions dataframe by type and bus.</span>
 
-<span class="sd">    :param pandas.DataFrame emissions: Hourly emissions by generator.</span>
-<span class="sd">    :param pandas.DataFrame plant: Generator specification table.</span>
-<span class="sd">    :return: (*dict*) -- Annual emissions by fuel and bus.</span>
+<span class="sd">    :param pandas.DataFrame emissions: hourly emissions by generator.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid object.</span>
+<span class="sd">    :return: (*dict*) -- annual emissions by fuel and bus.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">_check_time_series</span><span class="p">(</span><span class="n">emissions</span><span class="p">,</span> <span class="s2">&quot;emissions&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">emissions</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mf">1e-3</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;emissions must be non-negative&quot;</span><span class="p">)</span>
 
+    <span class="n">_check_grid</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+
     <span class="c1"># sum by generator</span>
     <span class="n">plant_totals</span> <span class="o">=</span> <span class="n">emissions</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
     <span class="c1"># set up output data structure</span>
     <span class="n">plant_buses</span> <span class="o">=</span> <span class="n">plant</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
-    <span class="n">bus_totals_by_type</span> <span class="o">=</span> <span class="p">{</span><span class="n">f</span><span class="p">:</span> <span class="p">{</span><span class="n">b</span><span class="p">:</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">plant_buses</span><span class="p">}</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">carbon_resources</span><span class="p">}</span>
+    <span class="n">bus_totals_by_type</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">f</span><span class="p">:</span> <span class="p">{</span><span class="n">b</span><span class="p">:</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">plant_buses</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;carbon_resources&quot;</span><span class="p">]</span>
+    <span class="p">}</span>
     <span class="c1"># sum by fuel by bus</span>
     <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">plant_totals</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
         <span class="n">plant_type</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">p</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">plant_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">carbon_resources</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">plant_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;carbon_resources&quot;</span><span class="p">]:</span>
             <span class="k">continue</span>
         <span class="n">plant_bus</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">p</span><span class="p">,</span> <span class="s2">&quot;bus_id&quot;</span><span class="p">]</span>
         <span class="n">bus_totals_by_type</span><span class="p">[</span><span class="n">plant_type</span><span class="p">][</span><span class="n">plant_bus</span><span class="p">]</span> <span class="o">+=</span> <span class="n">plant_totals</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>
     <span class="c1"># filter out buses whose emissions are zero</span>
     <span class="n">bus_totals_by_type</span> <span class="o">=</span> <span class="p">{</span>
         <span class="n">r</span><span class="p">:</span> <span class="p">{</span><span class="n">b</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">bus_totals_by_type</span><span class="p">[</span><span class="n">r</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">v</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">}</span>
-        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">carbon_resources</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;carbon_resources&quot;</span><span class="p">]</span>
     <span class="p">}</span>
 
     <span class="k">return</span> <span class="n">bus_totals_by_type</span></div>

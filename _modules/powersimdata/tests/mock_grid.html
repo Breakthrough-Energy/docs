@@ -35,6 +35,7 @@
 <span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
 
 <span class="c1"># The index name of each data frame attribute</span>
 <span class="n">indices</span> <span class="o">=</span> <span class="p">{</span>
@@ -188,7 +189,7 @@
 
 
 <div class="viewcode-block" id="MockGrid"><a class="viewcode-back" href="../../../powersimdata.tests.html#powersimdata.tests.mock_grid.MockGrid">[docs]</a><span class="k">class</span> <span class="nc">MockGrid</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_attrs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_attrs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param dict grid_attrs: dictionary of {*field_name*, *data_dict*} pairs</span>
@@ -196,6 +197,8 @@
 <span class="sd">            branch, bus, dcline, gencost or plant) and *data_dict* a dictionary</span>
 <span class="sd">            in which the keys are the column name of the data frame associated</span>
 <span class="sd">            to *field_name* and the values are a list of values.</span>
+<span class="sd">        :param str model: grid model. Use to access geographical information such</span>
+<span class="sd">            as loadzones, interconnections, etc.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">grid_attrs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">grid_attrs</span> <span class="o">=</span> <span class="p">{}</span>
@@ -211,6 +214,8 @@
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">extra_keys</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Got unknown key(s):&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">extra_keys</span><span class="p">))</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_immutables</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+
         <span class="n">cols</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;sub&quot;</span><span class="p">:</span> <span class="n">sub_columns</span><span class="p">,</span>
             <span class="s2">&quot;bus2sub&quot;</span><span class="p">:</span> <span class="n">bus2sub_columns</span><span class="p">,</span>
@@ -222,9 +227,8 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;zone1&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;zone2&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="s2">&quot;zone1&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="s2">&quot;zone2&quot;</span><span class="p">}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">type2color</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="p">{}</span>
 
         <span class="c1"># Loop through names for grid data frames, add (maybe empty) data</span>
         <span class="c1"># frames.</span>

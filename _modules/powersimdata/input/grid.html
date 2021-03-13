@@ -34,9 +34,12 @@
   <h1>Source code for powersimdata.input.grid</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">os</span>
 
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.context</span> <span class="kn">import</span> <span class="n">Context</span>
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.scenario_list</span> <span class="kn">import</span> <span class="n">ScenarioListManager</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.scenario_grid</span> <span class="kn">import</span> <span class="n">FromREISE</span><span class="p">,</span> <span class="n">FromREISEjl</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants</span> <span class="kn">import</span> <span class="n">storage</span> <span class="k">as</span> <span class="n">tamu_storage</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.usa_tamu_model</span> <span class="kn">import</span> <span class="n">TAMU</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.model</span> <span class="kn">import</span> <span class="n">TAMU</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.helpers</span> <span class="kn">import</span> <span class="n">MemoryCache</span><span class="p">,</span> <span class="n">cache_key</span>
 
 <span class="n">_cache</span> <span class="o">=</span> <span class="n">MemoryCache</span><span class="p">()</span>
@@ -49,21 +52,24 @@
 <span class="sd">    :param str source: model used to build the network.</span>
 <span class="sd">    :param str engine: engine used to run scenario, if using ScenarioGrid.</span>
 <span class="sd">    :raises TypeError: if source and engine are not both strings.</span>
-<span class="sd">    :raises ValueError: if model or engine does not exist.</span>
+<span class="sd">    :raises ValueError: if source or engine does not exist.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;REISE&quot;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;source must be a string&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;source must be a str&quot;</span><span class="p">)</span>
         <span class="n">supported_engines</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;REISE&quot;</span><span class="p">,</span> <span class="s2">&quot;REISE.jl&quot;</span><span class="p">}</span>
         <span class="k">if</span> <span class="n">engine</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">supported_engines</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Engine must be one of </span><span class="si">{</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">supported_engines</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="n">interconnect</span><span class="p">]</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;interconnect must be a str of list of str&quot;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_immutables</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_immutables</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span>
+                <span class="n">_get_grid_model_from_scenario_list</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+            <span class="p">)</span>
+
         <span class="n">key</span> <span class="o">=</span> <span class="n">cache_key</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>
         <span class="n">cached</span> <span class="o">=</span> <span class="n">_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -75,8 +81,6 @@
                 <span class="n">data</span> <span class="o">=</span> <span class="n">FromREISE</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">engine</span> <span class="o">==</span> <span class="s2">&quot;REISE.jl&quot;</span><span class="p">:</span>
                 <span class="n">data</span> <span class="o">=</span> <span class="n">FromREISEjl</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not implemented&quot;</span> <span class="o">%</span> <span class="n">source</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">data_loc</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">interconnect</span>
@@ -92,6 +96,16 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">storage</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">storage</span>
 
         <span class="n">_cache</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Grid.get_grid_model"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.grid.Grid.get_grid_model">[docs]</a>    <span class="k">def</span> <span class="nf">get_grid_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the grid model.</span>
+
+<span class="sd">        :return: (*str*).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">_get_grid_model_from_scenario_list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">)[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span></div>
 
     <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Used when &#39;self == other&#39; is evaluated.</span>
@@ -172,6 +186,17 @@
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;non-matching entries: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">nonmatching_entries</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">False</span>
         <span class="k">return</span> <span class="kc">True</span></div>
+
+
+<span class="k">def</span> <span class="nf">_get_grid_model_from_scenario_list</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get grid model for a scenario listed in the scenario list.</span>
+
+<span class="sd">    :param str source: path to MAT-file enclosing the grid data.</span>
+<span class="sd">    :return: (*str*) -- the grid model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">scenario_number</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">source</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">slm</span> <span class="o">=</span> <span class="n">ScenarioListManager</span><span class="p">(</span><span class="n">Context</span><span class="o">.</span><span class="n">get_data_access</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">slm</span><span class="o">.</span><span class="n">get_scenario</span><span class="p">(</span><span class="n">scenario_number</span><span class="p">)[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
 </pre></div>
 
           </div>

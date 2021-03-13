@@ -43,7 +43,6 @@
 <span class="kn">from</span> <span class="nn">powersimdata.input.input_data</span> <span class="kn">import</span> <span class="n">InputData</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_profile</span> <span class="kn">import</span> <span class="n">TransformProfile</span>
-<span class="kn">from</span> <span class="nn">powersimdata.scenario.helpers</span> <span class="kn">import</span> <span class="n">interconnect2name</span>
 <span class="kn">from</span> <span class="nn">powersimdata.scenario.state</span> <span class="kn">import</span> <span class="n">State</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.server_setup</span> <span class="kn">import</span> <span class="n">DeploymentMode</span><span class="p">,</span> <span class="n">get_deployment_mode</span>
@@ -75,7 +74,10 @@
 
     <span class="k">def</span> <span class="nf">_set_ct_and_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Sets change table and grid.&quot;&quot;&quot;</span>
-        <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span>
+        <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">),</span>
+            <span class="n">source</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;change_table&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Yes&quot;</span><span class="p">:</span>
             <span class="n">input_data</span> <span class="o">=</span> <span class="n">InputData</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="n">input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="s2">&quot;ct&quot;</span><span class="p">)</span>
@@ -389,15 +391,17 @@
 <span class="sd">        :param int/str/None profile_as: if given, copy profile from this scenario.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">profile_as</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">profile</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span>
-            <span class="k">if</span> <span class="s2">&quot;new_plant&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="n">new_plant_types</span> <span class="o">=</span> <span class="p">{</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">plant</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_plant&quot;</span><span class="p">]}</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">new_plant_types</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-            <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="n">profile</span><span class="o">.</span><span class="n">scale_keys</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">new_plant_types</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">()))):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_transformed_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">profile</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_create_link_to_base_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
+            <span class="n">tp</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span>
+            <span class="n">profile</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Writing scaled </span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2"> profile in </span><span class="si">{</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="si">}</span><span class="s2"> on local machine&quot;</span>
+            <span class="p">)</span>
+            <span class="n">file_name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_</span><span class="si">%s</span><span class="s2">.csv&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="n">kind</span><span class="p">)</span>
+            <span class="n">profile</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">file_name</span><span class="p">))</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">move_to</span><span class="p">(</span>
+                <span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">.csv&quot;</span>
+            <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">from_dir</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">server_config</span><span class="o">.</span><span class="n">execute_dir</span><span class="p">(),</span>
@@ -408,47 +412,7 @@
             <span class="p">)</span>
             <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">from_dir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">,</span> <span class="n">to_dir</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to copy </span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">.csv on server&quot;</span><span class="p">)</span></div>
-
-    <span class="k">def</span> <span class="nf">_create_link_to_base_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Creates link to base profile in temporary directory on server.</span>
-
-<span class="sd">        :param str kind: one of *demand*, *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
-<span class="sd">        :raises IOError: if link cannot be created.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Creating link to </span><span class="si">%s</span><span class="s2"> base profile into temporary folder&quot;</span> <span class="o">%</span> <span class="n">kind</span><span class="p">)</span>
-
-        <span class="n">interconnect</span> <span class="o">=</span> <span class="n">interconnect2name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span>
-        <span class="n">version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;base_&quot;</span> <span class="o">+</span> <span class="n">kind</span><span class="p">]</span>
-        <span class="n">source</span> <span class="o">=</span> <span class="n">interconnect</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">kind</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">version</span> <span class="o">+</span> <span class="s2">&quot;.csv&quot;</span>
-        <span class="n">target</span> <span class="o">=</span> <span class="n">kind</span> <span class="o">+</span> <span class="s2">&quot;.csv&quot;</span>
-
-        <span class="n">command</span> <span class="o">=</span> <span class="s2">&quot;ln -s </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span>
-            <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;../../raw&quot;</span><span class="p">,</span> <span class="n">source</span><span class="p">),</span>
-            <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">TMP_DIR</span><span class="p">,</span> <span class="n">target</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="n">stdin</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;Failed to create link to </span><span class="si">%s</span><span class="s2"> profile.&quot;</span> <span class="o">%</span> <span class="n">kind</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_prepare_transformed_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">profile</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Loads, scales and writes on local machine a base profile.</span>
-
-<span class="sd">        :param powersimdata.input.transform_profile.TransformProfile profile: a</span>
-<span class="sd">            TransformProfile object.</span>
-<span class="sd">        :param str kind: one of *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;* or *&#39;demand&#39;*.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">profile</span> <span class="o">=</span> <span class="n">profile</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
-
-        <span class="nb">print</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Writing scaled </span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2"> profile in </span><span class="si">{</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="si">}</span><span class="s2"> on local machine&quot;</span>
-        <span class="p">)</span>
-        <span class="n">file_name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_</span><span class="si">%s</span><span class="s2">.csv&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span> <span class="n">kind</span><span class="p">)</span>
-        <span class="n">profile</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">file_name</span><span class="p">))</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">move_to</span><span class="p">(</span>
-            <span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">.csv&quot;</span>
-        <span class="p">)</span></div>
+                <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to copy </span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">.csv on server&quot;</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>

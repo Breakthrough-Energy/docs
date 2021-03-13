@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>powersimdata.network.usa_tamu.usa_tamu_model &#8212; documentation</title>
+    <title>powersimdata.network.usa_tamu.model &#8212; documentation</title>
     <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
     <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
@@ -31,7 +31,7 @@
 
           <div class="body" role="main">
             
-  <h1>Source code for powersimdata.network.usa_tamu.usa_tamu_model</h1><div class="highlight"><pre>
+  <h1>Source code for powersimdata.network.usa_tamu.model</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">os</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.input.abstract_grid</span> <span class="kn">import</span> <span class="n">AbstractGrid</span>
@@ -42,17 +42,12 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.csv_reader</span> <span class="kn">import</span> <span class="n">CSVReader</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants.storage</span> <span class="kn">import</span> <span class="n">defaults</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants.zones</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">abv2state</span><span class="p">,</span>
-    <span class="n">interconnect2loadzone</span><span class="p">,</span>
-    <span class="n">state2loadzone</span><span class="p">,</span>
-<span class="p">)</span>
 
 
-<div class="viewcode-block" id="TAMU"><a class="viewcode-back" href="../../../../powersimdata.network.usa_tamu.html#powersimdata.network.usa_tamu.usa_tamu_model.TAMU">[docs]</a><span class="k">class</span> <span class="nc">TAMU</span><span class="p">(</span><span class="n">AbstractGrid</span><span class="p">):</span>
+<div class="viewcode-block" id="TAMU"><a class="viewcode-back" href="../../../../powersimdata.network.usa_tamu.html#powersimdata.network.usa_tamu.model.TAMU">[docs]</a><span class="k">class</span> <span class="nc">TAMU</span><span class="p">(</span><span class="n">AbstractGrid</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;TAMU network.</span>
 
-<span class="sd">    :param list interconnect: interconnect name(s).</span>
+<span class="sd">    :param str/list interconnect: interconnect name(s).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">):</span>
@@ -60,9 +55,8 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_data_loc</span><span class="p">()</span>
 
-        <span class="k">if</span> <span class="n">check_interconnect</span><span class="p">(</span><span class="n">interconnect</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="n">interconnect</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_build_network</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="n">check_and_format_interconnect</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_build_network</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">_set_data_loc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Sets data location.</span>
@@ -114,19 +108,21 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="n">value</span><span class="p">:</span> <span class="n">key</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span></div>
 
 
-<div class="viewcode-block" id="check_interconnect"><a class="viewcode-back" href="../../../../powersimdata.network.usa_tamu.html#powersimdata.network.usa_tamu.usa_tamu_model.check_interconnect">[docs]</a><span class="k">def</span> <span class="nf">check_interconnect</span><span class="p">(</span><span class="n">interconnect</span><span class="p">):</span>
+<div class="viewcode-block" id="check_and_format_interconnect"><a class="viewcode-back" href="../../../../powersimdata.network.usa_tamu.html#powersimdata.network.usa_tamu.model.check_and_format_interconnect">[docs]</a><span class="k">def</span> <span class="nf">check_and_format_interconnect</span><span class="p">(</span><span class="n">interconnect</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Checks interconnect.</span>
 
-<span class="sd">    :param list interconnect: interconnect name(s).</span>
+<span class="sd">    :param str/list interconnect: interconnect name(s).</span>
+<span class="sd">    :return: (*list*) -- interconnect(s)</span>
 <span class="sd">    :raises TypeError: if parameter has wrong type.</span>
-<span class="sd">    :raises Exception: if interconnect not found or combination of</span>
-<span class="sd">        interconnect is not appropriate.</span>
-<span class="sd">    :return: (*bool*) -- if valid</span>
+<span class="sd">    :raises ValueError: if interconnect not found or combination of interconnect is not</span>
+<span class="sd">        appropriate.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">possible</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Eastern&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;USA&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="n">interconnect</span><span class="p">]</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;List of string(s) is expected for interconnect&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;interconnect must be a str or list of str&quot;</span><span class="p">)</span>
 
+    <span class="n">possible</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Eastern&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;USA&quot;</span><span class="p">]</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">interconnect</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -136,12 +132,22 @@
     <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;List of interconnects contains duplicate values&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="s2">&quot;USA&quot;</span> <span class="ow">in</span> <span class="n">interconnect</span> <span class="ow">and</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;USA interconnect cannot be paired&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;USA cannot be paired&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Use USA instead&quot;</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="kc">True</span></div>
+    <span class="k">return</span> <span class="n">interconnect</span></div>
 
 
-<div class="viewcode-block" id="add_information_to_model"><a class="viewcode-back" href="../../../../powersimdata.network.usa_tamu.html#powersimdata.network.usa_tamu.usa_tamu_model.add_information_to_model">[docs]</a><span class="k">def</span> <span class="nf">add_information_to_model</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+<div class="viewcode-block" id="interconnect_to_name"><a class="viewcode-back" href="../../../../powersimdata.network.usa_tamu.html#powersimdata.network.usa_tamu.model.interconnect_to_name">[docs]</a><span class="k">def</span> <span class="nf">interconnect_to_name</span><span class="p">(</span><span class="n">interconnect</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return name of interconnect or collection of interconnects..</span>
+
+<span class="sd">    :param list interconnect: interconnect name(s).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">check_and_format_interconnect</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)))</span></div>
+
+
+<div class="viewcode-block" id="add_information_to_model"><a class="viewcode-back" href="../../../../powersimdata.network.usa_tamu.html#powersimdata.network.usa_tamu.model.add_information_to_model">[docs]</a><span class="k">def</span> <span class="nf">add_information_to_model</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Adds information to TAMU model. This is done inplace.</span>
 
 <span class="sd">    :param powersimdata.input.TAMU model: TAMU instance.</span>
@@ -153,72 +159,6 @@
 
     <span class="n">add_zone_to_grid_data_frames</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
     <span class="n">add_coord_to_grid_data_frames</span><span class="p">(</span><span class="n">model</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="area_to_loadzone"><a class="viewcode-back" href="../../../../powersimdata.network.usa_tamu.html#powersimdata.network.usa_tamu.usa_tamu_model.area_to_loadzone">[docs]</a><span class="k">def</span> <span class="nf">area_to_loadzone</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Map the query area to a list of loadzones</span>
-
-<span class="sd">    :param powersimdata.input.grid.Grid grid: grid to use for mapping.</span>
-<span class="sd">    :param str area: one of: *loadzone*, *state*, *state abbreviation*,</span>
-<span class="sd">        *interconnect*, *&#39;all&#39;*</span>
-<span class="sd">    :param str area_type: one of: *&#39;loadzone&#39;*, *&#39;state&#39;*,</span>
-<span class="sd">        *&#39;state_abbr&#39;*, *&#39;interconnect&#39;*</span>
-<span class="sd">    :return: (*set*) -- set of loadzone names associated with the query area.</span>
-<span class="sd">    :raise TypeError: if area is not None or str</span>
-<span class="sd">    :raise ValueError: if area is invalid or the combination of area and area_type is invalid</span>
-
-<span class="sd">    .. note:: if area_type is not specified, the function will check the</span>
-<span class="sd">        area in the order of &#39;state&#39;, &#39;loadzone&#39;, &#39;state abbreviation&#39;,</span>
-<span class="sd">        &#39;interconnect&#39; and &#39;all&#39;.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="k">def</span> <span class="nf">raise_invalid_area</span><span class="p">(</span><span class="n">area_type</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid area for area_type=</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">area_type</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">area_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">area_type</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;&#39;area_type&#39; should be either None or str.&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">area_type</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">area_type</span> <span class="o">==</span> <span class="s2">&quot;loadzone&quot;</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">area</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">:</span>
-                <span class="n">loadzone_set</span> <span class="o">=</span> <span class="p">{</span><span class="n">area</span><span class="p">}</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">raise_invalid_area</span><span class="p">(</span><span class="n">area_type</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">area_type</span> <span class="o">==</span> <span class="s2">&quot;state&quot;</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">area</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">abv2state</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
-                <span class="n">loadzone_set</span> <span class="o">=</span> <span class="n">state2loadzone</span><span class="p">[</span><span class="n">area</span><span class="p">]</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">raise_invalid_area</span><span class="p">(</span><span class="n">area_type</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">area_type</span> <span class="o">==</span> <span class="s2">&quot;state_abbr&quot;</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">area</span> <span class="ow">in</span> <span class="n">abv2state</span><span class="p">:</span>
-                <span class="n">loadzone_set</span> <span class="o">=</span> <span class="n">state2loadzone</span><span class="p">[</span><span class="n">abv2state</span><span class="p">[</span><span class="n">area</span><span class="p">]]</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">raise_invalid_area</span><span class="p">(</span><span class="n">area_type</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">area_type</span> <span class="o">==</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">area</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">}:</span>
-                <span class="n">loadzone_set</span> <span class="o">=</span> <span class="n">interconnect2loadzone</span><span class="p">[</span><span class="n">area</span><span class="p">]</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">raise_invalid_area</span><span class="p">(</span><span class="n">area_type</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span>
-                <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> is incorrect. Available area_types are &#39;loadzone&#39;,&quot;</span>
-                <span class="s2">&quot;&#39;state&#39;, &#39;state_abbr&#39;, &#39;interconnect&#39;.&quot;</span> <span class="o">%</span> <span class="n">area_type</span>
-            <span class="p">)</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid area_type&quot;</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">area</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">abv2state</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
-            <span class="n">loadzone_set</span> <span class="o">=</span> <span class="n">state2loadzone</span><span class="p">[</span><span class="n">area</span><span class="p">]</span>
-        <span class="k">elif</span> <span class="n">area</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">:</span>
-            <span class="n">loadzone_set</span> <span class="o">=</span> <span class="p">{</span><span class="n">area</span><span class="p">}</span>
-        <span class="k">elif</span> <span class="n">area</span> <span class="ow">in</span> <span class="n">abv2state</span><span class="p">:</span>
-            <span class="n">loadzone_set</span> <span class="o">=</span> <span class="n">state2loadzone</span><span class="p">[</span><span class="n">abv2state</span><span class="p">[</span><span class="n">area</span><span class="p">]]</span>
-        <span class="k">elif</span> <span class="n">area</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">}:</span>
-            <span class="n">loadzone_set</span> <span class="o">=</span> <span class="n">interconnect2loadzone</span><span class="p">[</span><span class="n">area</span><span class="p">]</span>
-        <span class="k">elif</span> <span class="n">area</span> <span class="o">==</span> <span class="s2">&quot;all&quot;</span><span class="p">:</span>
-            <span class="n">loadzone_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> is incorrect.&quot;</span> <span class="o">%</span> <span class="n">area</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid area&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">loadzone_set</span></div>
 </pre></div>
 
           </div>

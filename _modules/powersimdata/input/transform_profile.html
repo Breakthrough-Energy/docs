@@ -34,112 +34,110 @@
   <h1>Source code for powersimdata.input.transform_profile</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">copy</span>
 
-<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.input_data</span> <span class="kn">import</span> <span class="n">InputData</span>
 
 
 <div class="viewcode-block" id="TransformProfile"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.transform_profile.TransformProfile">[docs]</a><span class="k">class</span> <span class="nc">TransformProfile</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Transforms profile according to operations listed in change table.&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;Transform profile according to operations listed in change table.&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_info</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Constructor</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
 <span class="sd">        :param dict scenario_info: scenario information.</span>
-<span class="sd">        :param powersimdata.input.grid.Grid grid: a Grid object.</span>
+<span class="sd">        :param powersimdata.input.grid.Grid grid: a Grid object previously</span>
+<span class="sd">            transformed.</span>
 <span class="sd">        :param dict ct: change table.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_input_data</span> <span class="o">=</span> <span class="n">InputData</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span> <span class="o">=</span> <span class="n">scenario_info</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">ct</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">scale_keys</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;wind_offshore&quot;</span><span class="p">},</span>
             <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;solar&quot;</span><span class="p">},</span>
             <span class="s2">&quot;hydro&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;hydro&quot;</span><span class="p">},</span>
             <span class="s2">&quot;demand&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;demand&quot;</span><span class="p">},</span>
         <span class="p">}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">n_new_plant</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="mi">0</span> <span class="k">if</span> <span class="s2">&quot;new_plant&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_plant&quot;</span><span class="p">])</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">base_plant</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span><span class="p">)</span><span class="o">.</span><span class="n">plant</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_new_plant</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_new_clean_plant</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_number_of_new_plant</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_get_number_of_new_plant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the total number of new plant and new plant with profiles.</span>
+
+<span class="sd">        :return: (*tuple*) -- first element is the total number of new plant and second</span>
+<span class="sd">            element is the total number of new clean plant (*hydro*, *solar*,</span>
+<span class="sd">            *onshore wind* and *offshore wind*).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">n_plant</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;new_plant&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_plant&quot;</span><span class="p">]:</span>
+                <span class="n">n_plant</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="n">p</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_keys</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+                    <span class="n">n_plant</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">n_plant</span>
 
     <span class="k">def</span> <span class="nf">_get_renewable_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns the transformed grid.</span>
+        <span class="sd">&quot;&quot;&quot;Return the transformed profile.</span>
 
 <span class="sd">        :param str resource: *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
-<span class="sd">        :return: (*pandas.DataFrame*) -- power output for generators of</span>
-<span class="sd">            specified type with plant identification number  as columns and</span>
-<span class="sd">            UTC timestamp as index.</span>
+<span class="sd">        :return: (*pandas.DataFrame*) -- power output for generators of specified type</span>
+<span class="sd">            with plant identification number as columns and UTC timestamp as indices.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">power_output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="p">,</span> <span class="n">resource</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">power_output</span>
+        <span class="n">plant_id</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_new_plant</span><span class="p">]</span>
+            <span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_keys</span><span class="p">[</span><span class="n">resource</span><span class="p">])</span>
+            <span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;type == True&quot;</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">index</span>
+        <span class="p">)</span>
+
+        <span class="n">profile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="p">,</span> <span class="n">resource</span><span class="p">)[</span><span class="n">plant_id</span><span class="p">]</span>
+        <span class="n">scaled_profile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scale_plant_profile</span><span class="p">(</span><span class="n">profile</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_new_clean_plant</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">new_profile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_plant_profile</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">resource</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">scaled_profile</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">new_profile</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_new_plant</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">power_output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_plant_profile</span><span class="p">(</span><span class="n">power_output</span><span class="p">,</span> <span class="n">resource</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">resource</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="n">power_output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scale_plant_profile</span><span class="p">(</span><span class="n">power_output</span><span class="p">,</span> <span class="n">resource</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">power_output</span>
+            <span class="k">return</span> <span class="n">scaled_profile</span>
+
+    <span class="k">def</span> <span class="nf">_scale_plant_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">profile</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Scale profile.</span>
+
+<span class="sd">        :param pandas.DataFrame profile: profile with plant identification number as</span>
+<span class="sd">            columns and UTC timestamp as indices. Values are for 1-W generators.</span>
+<span class="sd">        :return: (*pandas.DataFrame*) -- scaled power output profile.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">plant_id</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">profile</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">profile</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">_add_plant_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">profile</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Add power output profile for plants added via the change table.</span>
+        <span class="sd">&quot;&quot;&quot;Add profile for plants added via the change table.</span>
 
-<span class="sd">        :param pandas.DataFrame profile: power output profile with plant</span>
-<span class="sd">            identification number as columns and UTC timestamp as index.</span>
+<span class="sd">        :param pandas.DataFrame profile: profile with plant identification number as</span>
+<span class="sd">            columns and UTC timestamp as indices.</span>
 <span class="sd">        :param resource: fuel type.</span>
-<span class="sd">        :return: (*pandas.DataFrame*) -- power output profile with additional</span>
-<span class="sd">            columns corresponding to new generators inserted to the grid via</span>
-<span class="sd">            the change table.</span>
+<span class="sd">        :return: (*pandas.DataFrame*) -- profile with additional columns corresponding</span>
+<span class="sd">            to new generators inserted to the grid via the change table.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">new_plant_ids</span><span class="p">,</span> <span class="n">neighbor_ids</span><span class="p">,</span> <span class="n">scaling</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_plant&quot;</span><span class="p">]):</span>
             <span class="k">if</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale_keys</span><span class="p">[</span><span class="n">resource</span><span class="p">]:</span>
-                <span class="n">new_plant_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">n_new_plant</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span>
-                <span class="n">new_plant_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_plant_id</span><span class="p">)</span>
-                <span class="n">neighbor_id</span> <span class="o">=</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;plant_id_neighbor&quot;</span><span class="p">]</span>
-                <span class="n">neighbor_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">neighbor_id</span><span class="p">)</span>
-                <span class="n">scaling</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">neighbor_id</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">])</span>
+                <span class="n">new_plant_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">n_new_plant</span> <span class="o">+</span> <span class="n">i</span><span class="p">])</span>
+                <span class="n">neighbor_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">&quot;plant_id_neighbor&quot;</span><span class="p">])</span>
+                <span class="n">scaling</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">])</span>
 
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_plant_ids</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">neighbor_profiles</span> <span class="o">=</span> <span class="n">profile</span><span class="p">[</span><span class="n">neighbor_ids</span><span class="p">]</span>
-            <span class="n">new_profiles</span> <span class="o">=</span> <span class="n">neighbor_profiles</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">scaling</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-            <span class="n">new_profiles</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">new_plant_ids</span>
-            <span class="n">joined_profiles</span> <span class="o">=</span> <span class="n">profile</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">new_profiles</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">joined_profiles</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">profile</span>
-
-    <span class="k">def</span> <span class="nf">_scale_plant_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">profile</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Scales power output according to change table.</span>
-
-<span class="sd">        :param pandas.DataFrame profile: power output profile with plant</span>
-<span class="sd">            identification number as columns and UTC timestamp as index.</span>
-<span class="sd">        :param resource: fuel type.</span>
-<span class="sd">        :return: (*pandas.DataFrame*) -- scaled power output profile.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale_keys</span><span class="p">[</span><span class="n">resource</span><span class="p">]:</span>
-            <span class="k">if</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="ow">and</span> <span class="s2">&quot;zone_id&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">r</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_new_plant</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">type_in_zone</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[:</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">n_new_plant</span><span class="p">]</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span>
-                        <span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span>
-                    <span class="p">)</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">type_in_zone</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;zone_id&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">])</span>
-                <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="n">plant_id</span> <span class="o">=</span> <span class="n">type_in_zone</span><span class="o">.</span><span class="n">get_group</span><span class="p">((</span><span class="n">z</span><span class="p">,</span> <span class="n">r</span><span class="p">))</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-                    <span class="n">profile</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">plant_id</span><span class="p">]</span> <span class="o">*=</span> <span class="n">f</span>
-            <span class="k">if</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="ow">and</span> <span class="s2">&quot;plant_id&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">r</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="n">profile</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">*=</span> <span class="n">f</span>
-
-        <span class="k">return</span> <span class="n">profile</span>
+        <span class="n">neighbor_profile</span> <span class="o">=</span> <span class="n">profile</span><span class="p">[</span><span class="n">neighbor_ids</span><span class="p">]</span>
+        <span class="n">new_profile</span> <span class="o">=</span> <span class="n">neighbor_profile</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">scaling</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">new_profile</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">new_plant_ids</span>
+        <span class="k">return</span> <span class="n">new_profile</span>
 
     <span class="k">def</span> <span class="nf">_get_demand_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns scaled demand profile.</span>
+        <span class="sd">&quot;&quot;&quot;Return scaled demand profile.</span>
 
 <span class="sd">        :return: (*pandas.DataFrame*) -- data frame of demand.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">demand</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="p">,</span> <span class="s2">&quot;demand&quot;</span><span class="p">)</span>
+        <span class="n">zone_id</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">zone_id</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+        <span class="n">demand</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="p">,</span> <span class="s2">&quot;demand&quot;</span><span class="p">)[</span><span class="n">zone_id</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;demand&quot;</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
             <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="nb">print</span><span class="p">(</span>
@@ -150,7 +148,7 @@
         <span class="k">return</span> <span class="n">demand</span>
 
 <div class="viewcode-block" id="TransformProfile.get_profile"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.transform_profile.TransformProfile.get_profile">[docs]</a>    <span class="k">def</span> <span class="nf">get_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns profile.</span>
+        <span class="sd">&quot;&quot;&quot;Return profile.</span>
 
 <span class="sd">        :param str name: either *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*.</span>
 <span class="sd">        :return: (*pandas.DataFrame*) -- profile.</span>

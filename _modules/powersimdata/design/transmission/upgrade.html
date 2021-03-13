@@ -35,7 +35,7 @@
 <span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.usa_tamu_model</span> <span class="kn">import</span> <span class="n">area_to_loadzone</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">area_to_loadzone</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.distance</span> <span class="kn">import</span> <span class="n">haversine</span>
 
 
@@ -184,7 +184,7 @@
 
 <span class="sd">    :param powersimdata.input.grid.Grid grid: Grid to query for topology.</span>
 <span class="sd">    :param list/set/tuple area_names: an iterable of area names, used to look</span>
-<span class="sd">        up zone names via powersimdata.design.scenario_info.area_to_loadzone.</span>
+<span class="sd">        up zone names via :func:`powersimdata.network.model.area_to_loadzone`.</span>
 <span class="sd">    :param str method: whether to include branches which span zones. Options:</span>
 <span class="sd">        - &#39;internal&#39;: only select branches which are to/from the same area.</span>
 <span class="sd">        - &#39;bridging&#39;: only select branches which connect area to another.</span>
@@ -209,8 +209,9 @@
 
     <span class="n">branch</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span>
     <span class="n">selected_branches</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="n">grid_model</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">get_grid_model</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">area_names</span><span class="p">:</span>
-        <span class="n">load_zone_names</span> <span class="o">=</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
+        <span class="n">load_zone_names</span> <span class="o">=</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
         <span class="n">to_bus_in_area</span> <span class="o">=</span> <span class="n">branch</span><span class="o">.</span><span class="n">to_zone_name</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">load_zone_names</span><span class="p">)</span>
         <span class="n">from_bus_in_area</span> <span class="o">=</span> <span class="n">branch</span><span class="o">.</span><span class="n">from_zone_name</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">load_zone_names</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;internal&quot;</span><span class="p">,</span> <span class="s2">&quot;either&quot;</span><span class="p">):</span>

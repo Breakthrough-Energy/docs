@@ -1,0 +1,348 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>postreise.plot.plot_bar_shortfall &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for postreise.plot.plot_bar_shortfall</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">powersimdata.design.generation.clean_capacity_scaling</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">add_demand_to_targets</span><span class="p">,</span>
+    <span class="n">add_resource_data_to_targets</span><span class="p">,</span>
+    <span class="n">add_shortfall_to_targets</span><span class="p">,</span>
+    <span class="n">calculate_overall_shortfall</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.scenario</span> <span class="kn">import</span> <span class="n">Scenario</span>
+
+
+<div class="viewcode-block" id="plot_bar_shortfall"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_bar_shortfall.plot_bar_shortfall">[docs]</a><span class="k">def</span> <span class="nf">plot_bar_shortfall</span><span class="p">(</span>
+    <span class="n">areas</span><span class="p">,</span>
+    <span class="n">scenario_ids</span><span class="p">,</span>
+    <span class="n">target_df</span><span class="p">,</span>
+    <span class="n">strategy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">scenario_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">baseline_scenario</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">baseline_scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Plot a stacked bar chart of generation shortfall based on given targets for</span>
+<span class="sd">        any number of scenarios.</span>
+
+<span class="sd">    :param list/str areas: list of area(s) to show shortfall bar plots. If the target of</span>
+<span class="sd">        an area is not defined in target_df, it will be ignored.</span>
+<span class="sd">    :param int/list/str scenario_ids: list of scenario id(s).</span>
+<span class="sd">    :param pandas.DataFrame target_df: target data frame, which defines the clean</span>
+<span class="sd">        energy target fraction, allowed resources and external historical amount of</span>
+<span class="sd">        qualified energy for each area.</span>
+<span class="sd">    :param dict strategy: a dictionary with keys being scenario ids and values being</span>
+<span class="sd">        strategies, either *&quot;collaborative&quot;* or *&quot;independent&quot;*. *&quot;collaborative&quot;* is</span>
+<span class="sd">        used if None.</span>
+<span class="sd">    :param list/str scenario_names: list of scenario name(s) of same len as scenario</span>
+<span class="sd">        ids, defaults to None.</span>
+<span class="sd">    :param str/int baseline_scenario: scenario id that serves as a baseline in the</span>
+<span class="sd">        bar chart, default to None.</span>
+<span class="sd">    :param str baseline_scenario_name: specify the label of the baseline scenario</span>
+<span class="sd">        shown in the bar chart, default to None, in which case the name of the</span>
+<span class="sd">        scenario will be used.</span>
+<span class="sd">    :raises ValueError:</span>
+<span class="sd">        if length of scenario_names and scenario_ids is different.</span>
+<span class="sd">    :raises TypeError:</span>
+<span class="sd">        if target_df is not a pandas.DataFrame and/or</span>
+<span class="sd">        if strategy is provided but not in a dictionary format and/or</span>
+<span class="sd">        if baseline_scenario is provided but not in a str/int format and/or</span>
+<span class="sd">        if baseline_scenario_name is provided but not in a str format.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">areas</span> <span class="o">=</span> <span class="p">[</span><span class="n">areas</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scenario_ids</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
+        <span class="n">scenario_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">scenario_ids</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target_df</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;ERROR: target_df must be a pandas.DataFrame&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">strategy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">strategy</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;ERROR: strategy must be a dictionary&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scenario_names</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">scenario_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">scenario_names</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">scenario_names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">scenario_names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">scenario_ids</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;ERROR: if scenario names are provided, number of scenario names must match number of scenario ids&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">baseline_scenario</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">baseline_scenario</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;ERROR: baseline_scenario must be a string or integer&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">baseline_scenario_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
+        <span class="n">baseline_scenario_name</span><span class="p">,</span> <span class="nb">str</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;ERROR: baseline_scenario_name must be a string&quot;</span><span class="p">)</span>
+
+    <span class="n">scenarios</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="n">all_sids</span> <span class="o">=</span> <span class="n">scenario_ids</span> <span class="o">+</span> <span class="p">[</span><span class="n">baseline_scenario</span><span class="p">]</span> <span class="k">if</span> <span class="n">baseline_scenario</span> <span class="k">else</span> <span class="n">scenario_ids</span>
+    <span class="k">for</span> <span class="n">sid</span> <span class="ow">in</span> <span class="n">all_sids</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="n">sid</span><span class="p">)</span>
+        <span class="n">tmp_df</span> <span class="o">=</span> <span class="n">target_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">tmp_df</span> <span class="o">=</span> <span class="n">add_resource_data_to_targets</span><span class="p">(</span><span class="n">tmp_df</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+        <span class="n">tmp_df</span> <span class="o">=</span> <span class="n">add_demand_to_targets</span><span class="p">(</span><span class="n">tmp_df</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+        <span class="n">tmp_df</span> <span class="o">=</span> <span class="n">add_shortfall_to_targets</span><span class="p">(</span><span class="n">tmp_df</span><span class="p">)</span>
+        <span class="n">scenarios</span><span class="p">[</span><span class="n">sid</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span>
+        <span class="n">targets</span><span class="p">[</span><span class="n">sid</span><span class="p">]</span> <span class="o">=</span> <span class="n">tmp_df</span>
+    <span class="k">for</span> <span class="n">area</span> <span class="ow">in</span> <span class="n">areas</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">area</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">target_df</span><span class="o">.</span><span class="n">index</span> <span class="ow">and</span> <span class="n">area</span> <span class="o">!=</span> <span class="s2">&quot;all&quot;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">area</span><span class="si">}</span><span class="s2"> is skipped due to lack of target information in target_df!&quot;</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="n">ax_data</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">sid</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">scenario_ids</span><span class="p">):</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">scenario_names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">scenario_names</span> <span class="k">else</span> <span class="n">scenarios</span><span class="p">[</span><span class="n">sid</span><span class="p">]</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">area</span> <span class="o">==</span> <span class="s2">&quot;all&quot;</span><span class="p">:</span>
+                <span class="n">demand</span> <span class="o">=</span> <span class="n">targets</span><span class="p">[</span><span class="n">sid</span><span class="p">][</span><span class="s2">&quot;demand&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                <span class="n">shortfall</span> <span class="o">=</span> <span class="n">calculate_overall_shortfall</span><span class="p">(</span>
+                    <span class="n">targets</span><span class="p">[</span><span class="n">sid</span><span class="p">],</span> <span class="n">method</span><span class="o">=</span><span class="n">strategy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">sid</span><span class="p">,</span> <span class="s2">&quot;collaborative&quot;</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">ce_generated</span> <span class="o">=</span> <span class="n">targets</span><span class="p">[</span><span class="n">sid</span><span class="p">][</span><span class="s2">&quot;ce_target&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">-</span> <span class="n">shortfall</span>
+                <span class="k">if</span> <span class="n">baseline_scenario</span><span class="p">:</span>
+                    <span class="n">baseline_shortfall</span> <span class="o">=</span> <span class="n">calculate_overall_shortfall</span><span class="p">(</span>
+                        <span class="n">targets</span><span class="p">[</span><span class="n">baseline_scenario</span><span class="p">],</span>
+                        <span class="n">method</span><span class="o">=</span><span class="n">strategy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">baseline_scenario</span><span class="p">,</span> <span class="s2">&quot;collaborative&quot;</span><span class="p">),</span>
+                    <span class="p">)</span>
+                    <span class="n">baseline</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">targets</span><span class="p">[</span><span class="n">baseline_scenario</span><span class="p">][</span><span class="s2">&quot;ce_target&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                        <span class="o">-</span> <span class="n">baseline_shortfall</span>
+                    <span class="p">)</span>
+                <span class="n">shortfall</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">shortfall</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">demand</span> <span class="o">=</span> <span class="n">targets</span><span class="p">[</span><span class="n">sid</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">area</span><span class="p">,</span> <span class="s2">&quot;demand&quot;</span><span class="p">]</span>
+                <span class="n">shortfall</span> <span class="o">=</span> <span class="n">targets</span><span class="p">[</span><span class="n">sid</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">area</span><span class="p">,</span> <span class="s2">&quot;ce_shortfall&quot;</span><span class="p">]</span>
+                <span class="n">ce_generated</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">targets</span><span class="p">[</span><span class="n">sid</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">area</span><span class="p">,</span> <span class="s2">&quot;prev_ce_generation&quot;</span><span class="p">]</span>
+                    <span class="o">+</span> <span class="n">targets</span><span class="p">[</span><span class="n">sid</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">area</span><span class="p">,</span> <span class="s2">&quot;external_ce_addl_historical_amount&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">baseline_scenario</span><span class="p">:</span>
+                    <span class="n">baseline</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">targets</span><span class="p">[</span><span class="n">baseline_scenario</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">area</span><span class="p">,</span> <span class="s2">&quot;prev_ce_generation&quot;</span><span class="p">]</span>
+                        <span class="o">+</span> <span class="n">targets</span><span class="p">[</span><span class="n">baseline_scenario</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+                            <span class="n">area</span><span class="p">,</span> <span class="s2">&quot;external_ce_addl_historical_amount&quot;</span>
+                        <span class="p">]</span>
+                    <span class="p">)</span>
+            <span class="k">if</span> <span class="n">baseline_scenario</span><span class="p">:</span>
+                <span class="n">ax_data</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="n">label</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="n">baseline_scenario_name</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">baseline</span> <span class="o">/</span> <span class="n">demand</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+                            <span class="s2">&quot;Increment from baseline&quot;</span><span class="p">:</span> <span class="nb">max</span><span class="p">(</span>
+                                <span class="mi">0</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="p">(</span><span class="n">ce_generated</span> <span class="o">-</span> <span class="n">baseline</span><span class="p">)</span> <span class="o">/</span> <span class="n">demand</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+                            <span class="p">),</span>
+                            <span class="s2">&quot;Missed target&quot;</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">shortfall</span> <span class="o">/</span> <span class="n">demand</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+                        <span class="p">}</span>
+                    <span class="p">}</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ax_data</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="n">label</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="s2">&quot;Qualified clean energy&quot;</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span>
+                                <span class="mi">100</span> <span class="o">*</span> <span class="n">ce_generated</span> <span class="o">/</span> <span class="n">demand</span><span class="p">,</span> <span class="mi">2</span>
+                            <span class="p">),</span>
+                            <span class="s2">&quot;Missed target&quot;</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">shortfall</span> <span class="o">/</span> <span class="n">demand</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+                        <span class="p">}</span>
+                    <span class="p">}</span>
+                <span class="p">)</span>
+        <span class="k">if</span> <span class="n">area</span> <span class="o">!=</span> <span class="s2">&quot;all&quot;</span><span class="p">:</span>
+            <span class="n">target_pct</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">target_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">area</span><span class="p">,</span> <span class="s2">&quot;ce_target_fraction&quot;</span><span class="p">],</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># The overall target percentage is different among scenarios given the</span>
+            <span class="c1"># demand might be different. Here we pick the first scenario in scenario_ids</span>
+            <span class="c1"># to calculate the overall target percentage</span>
+            <span class="n">target_demand</span> <span class="o">=</span> <span class="n">targets</span><span class="p">[</span><span class="n">scenario_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="s2">&quot;demand&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="n">target_generation</span> <span class="o">=</span> <span class="n">targets</span><span class="p">[</span><span class="n">scenario_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="s2">&quot;ce_target&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+            <span class="n">target_pct</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">target_generation</span> <span class="o">/</span> <span class="n">target_demand</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">baseline_scenario</span><span class="p">:</span>
+            <span class="n">_construct_shortfall_visuals</span><span class="p">(</span>
+                <span class="n">area</span><span class="p">,</span>
+                <span class="n">ax_data</span><span class="p">,</span>
+                <span class="n">target_pct</span><span class="p">,</span>
+                <span class="n">baseline</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">baseline_scenario_name</span><span class="o">=</span><span class="n">baseline_scenario_name</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_construct_shortfall_visuals</span><span class="p">(</span>
+                <span class="n">area</span><span class="p">,</span>
+                <span class="n">ax_data</span><span class="p">,</span>
+                <span class="n">target_pct</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_construct_shortfall_visuals</span><span class="p">(</span>
+    <span class="n">zone</span><span class="p">,</span> <span class="n">ax_data</span><span class="p">,</span> <span class="n">target_pct</span><span class="p">,</span> <span class="n">baseline</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">baseline_scenario_name</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Plot formatted data.</span>
+
+<span class="sd">    :param str zone: the zone name.</span>
+<span class="sd">    :param dict ax_data: nested dictionary with keys on the top layer being scenario</span>
+<span class="sd">        names and values are dictionaries with keys being the categories of the bar</span>
+<span class="sd">        chart data and values being the numbers in percentage.</span>
+<span class="sd">    :param float target_pct: target in terms of percentage of demand.</span>
+<span class="sd">    :param bool baseline: a boolean indicator indicates whether there is a baseline</span>
+<span class="sd">        scenario specified.</span>
+<span class="sd">    :param str baseline_scenario_name: name of the baseline scenario.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">ax_data</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+    <span class="k">if</span> <span class="n">baseline</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[[</span><span class="n">baseline_scenario_name</span><span class="p">,</span> <span class="s2">&quot;Increment from baseline&quot;</span><span class="p">,</span> <span class="s2">&quot;Missed target&quot;</span><span class="p">]]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[[</span><span class="s2">&quot;Qualified clean energy&quot;</span><span class="p">,</span> <span class="s2">&quot;Missed target&quot;</span><span class="p">]]</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span>
+        <span class="n">stacked</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;darkgreen&quot;</span><span class="p">,</span> <span class="s2">&quot;yellowgreen&quot;</span><span class="p">,</span> <span class="s2">&quot;salmon&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">baseline</span>
+        <span class="k">else</span> <span class="p">[</span><span class="s2">&quot;yellowgreen&quot;</span><span class="p">,</span> <span class="s2">&quot;salmon&quot;</span><span class="p">],</span>
+        <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+        <span class="n">fontsize</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">zone</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">26</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">top</span><span class="o">=</span><span class="mf">1.33</span> <span class="o">*</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">ax</span><span class="o">.</span><span class="n">get_xticklabels</span><span class="p">(),</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">45</span><span class="p">,</span> <span class="n">horizontalalignment</span><span class="o">=</span><span class="s2">&quot;right&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Legend</span>
+    <span class="n">handles</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_legend_handles_labels</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span>
+        <span class="nb">reversed</span><span class="p">(</span><span class="n">handles</span><span class="p">),</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">labels</span><span class="p">),</span> <span class="n">bbox_to_anchor</span><span class="o">=</span><span class="p">(</span><span class="mf">1.556</span><span class="p">,</span> <span class="mf">1.015</span><span class="p">),</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Add target line</span>
+    <span class="k">if</span> <span class="n">target_pct</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">ax_text</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Target </span><span class="si">{</span><span class="n">target_pct</span><span class="si">:}</span><span class="s2">% of demand&quot;</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+            <span class="mf">1.01</span><span class="p">,</span>
+            <span class="n">target_pct</span><span class="p">,</span>
+            <span class="n">ax_text</span><span class="p">,</span>
+            <span class="n">transform</span><span class="o">=</span><span class="n">ax</span><span class="o">.</span><span class="n">get_yaxis_transform</span><span class="p">(),</span>
+            <span class="n">fontsize</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+            <span class="n">verticalalignment</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="n">target_pct</span><span class="p">,</span> <span class="n">dashes</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Percent numbers</span>
+    <span class="n">patch_indices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ax_data</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">+</span> <span class="n">baseline</span><span class="p">)))[</span><span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">ax_data</span><span class="p">)</span> <span class="p">:]</span>
+    <span class="n">ax_data_value</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ax_data</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ind</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">patch_indices</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">ax_data_value</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;Missed target&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">patches</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span><span class="o">.</span><span class="n">get_bbox</span><span class="p">()</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">annotate</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ax_data_value</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s1">&#39;Missed target&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">%</span><span class="se">\n</span><span class="s2">shortfall&quot;</span><span class="p">,</span>
+                <span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">x1</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">b</span><span class="o">.</span><span class="n">y1</span> <span class="o">*</span> <span class="mf">1.02</span><span class="p">),</span>
+                <span class="n">fontsize</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+            <span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reisejl_package.html">REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.5.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -32,11 +32,29 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.data_access.csv_store</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span></span><span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
+
+
+<div class="viewcode-block" id="verify_hash"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.csv_store.verify_hash">[docs]</a><span class="k">def</span> <span class="nf">verify_hash</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Utility function which verifies the sha1sum of the file before writing</span>
+<span class="sd">    it on the server. Operates on methods that return an updated scenario or</span>
+<span class="sd">    execute list.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">checksum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">checksum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_FILE_NAME</span><span class="p">)</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">commit</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">checksum</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">table</span>
+
+    <span class="k">return</span> <span class="n">wrapper</span></div>
 
 
 <div class="viewcode-block" id="CsvStore"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.csv_store.CsvStore">[docs]</a><span class="k">class</span> <span class="nc">CsvStore</span><span class="p">:</span>
@@ -50,12 +68,13 @@
         <span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span> <span class="o">=</span> <span class="n">data_access</span>
 
-<div class="viewcode-block" id="CsvStore.get_table"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.csv_store.CsvStore.get_table">[docs]</a>    <span class="k">def</span> <span class="nf">get_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+<div class="viewcode-block" id="CsvStore.get_table"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.csv_store.CsvStore.get_table">[docs]</a>    <span class="k">def</span> <span class="nf">get_table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Read the given file from the server, falling back to local copy if</span>
 <span class="sd">        unable to connect.</span>
 
 <span class="sd">        :return: (*pandas.DataFrame*) -- the specified table as a data frame.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_FILE_NAME</span>
         <span class="n">local_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
@@ -81,25 +100,14 @@
         <span class="n">table</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">table</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_execute_and_check_err</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">,</span> <span class="n">err_message</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Executes command and checks for error.</span>
+<div class="viewcode-block" id="CsvStore.commit"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.csv_store.CsvStore.commit">[docs]</a>    <span class="k">def</span> <span class="nf">commit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="n">checksum</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Save to local directory and upload if needed</span>
 
-<span class="sd">        :param str command: command to execute over ssh.</span>
-<span class="sd">        :param str err_message: error message to be raised.</span>
-<span class="sd">        :raises IOError: if command is not successfully executed.</span>
-<span class="sd">        :return: (*list*) -- list of command output.</span>
+<span class="sd">        :param pandas.DataFrame table: the data frame to save</span>
+<span class="sd">        :param str checksum: the checksum prior to download</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">stdin</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
-        <span class="n">command_output</span> <span class="o">=</span> <span class="n">stdout</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
-        <span class="n">command_error</span> <span class="o">=</span> <span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">command_error</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">command_error</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">i</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">command_error</span>
-            <span class="p">]</span>
-            <span class="k">for</span> <span class="n">ce</span> <span class="ow">in</span> <span class="n">command_error</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="n">ce</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="n">err_message</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">command_output</span></div>
+        <span class="n">table</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_FILE_NAME</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_FILE_NAME</span><span class="p">,</span> <span class="n">checksum</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>

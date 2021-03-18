@@ -32,13 +32,18 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.data_access.tests.test_execute_csv</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">import</span> <span class="nn">pytest</span>
 <span class="kn">from</span> <span class="nn">numpy.testing</span> <span class="kn">import</span> <span class="n">assert_array_equal</span>
 <span class="kn">from</span> <span class="nn">pandas.testing</span> <span class="kn">import</span> <span class="n">assert_frame_equal</span>
 
-<span class="kn">from</span> <span class="nn">powersimdata.data_access.data_access</span> <span class="kn">import</span> <span class="n">SSHDataAccess</span>
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.data_access</span> <span class="kn">import</span> <span class="n">LocalDataAccess</span><span class="p">,</span> <span class="n">SSHDataAccess</span>
 <span class="kn">from</span> <span class="nn">powersimdata.data_access.execute_list</span> <span class="kn">import</span> <span class="n">ExecuteListManager</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span><span class="p">,</span> <span class="n">templates</span>
 
 
 <div class="viewcode-block" id="data_access"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_execute_csv.data_access">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
@@ -74,6 +79,74 @@
     <span class="n">header</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span>
     <span class="n">assert_array_equal</span><span class="p">(</span><span class="n">execute_table</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">header</span><span class="p">)</span>
     <span class="k">assert</span> <span class="s2">&quot;id&quot;</span> <span class="o">==</span> <span class="n">execute_table</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span></div>
+
+
+<div class="viewcode-block" id="clone_template"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_execute_csv.clone_template">[docs]</a><span class="k">def</span> <span class="nf">clone_template</span><span class="p">():</span>
+    <span class="n">orig</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">templates</span><span class="o">.</span><span class="n">__path__</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;ExecuteList.csv&quot;</span><span class="p">)</span>
+    <span class="n">dest</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="s2">&quot;ExecuteList.csv.test&quot;</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">orig</span><span class="p">,</span> <span class="n">dest</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dest</span></div>
+
+
+<div class="viewcode-block" id="manager"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_execute_csv.manager">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+<span class="k">def</span> <span class="nf">manager</span><span class="p">():</span>
+    <span class="n">test_csv</span> <span class="o">=</span> <span class="n">clone_template</span><span class="p">()</span>
+    <span class="n">data_access</span> <span class="o">=</span> <span class="n">LocalDataAccess</span><span class="p">()</span>
+    <span class="n">manager</span> <span class="o">=</span> <span class="n">ExecuteListManager</span><span class="p">(</span><span class="n">data_access</span><span class="p">)</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">_FILE_NAME</span> <span class="o">=</span> <span class="s2">&quot;ExecuteList.csv.test&quot;</span>
+    <span class="k">yield</span> <span class="n">manager</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">test_csv</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="mock_row"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_execute_csv.mock_row">[docs]</a><span class="k">def</span> <span class="nf">mock_row</span><span class="p">():</span>
+    <span class="k">return</span> <span class="n">OrderedDict</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">,</span> <span class="s2">&quot;create&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">),</span>
+        <span class="p">]</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_blank_csv_append"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_execute_csv.test_blank_csv_append">[docs]</a><span class="k">def</span> <span class="nf">test_blank_csv_append</span><span class="p">(</span><span class="n">manager</span><span class="p">):</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">mock_row</span><span class="p">())</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_execute_table</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">table</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_status</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;created&quot;</span></div>
+
+
+<div class="viewcode-block" id="test_set_status"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_execute_csv.test_set_status">[docs]</a><span class="k">def</span> <span class="nf">test_set_status</span><span class="p">(</span><span class="n">manager</span><span class="p">):</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">mock_row</span><span class="p">())</span>
+    <span class="n">asdf</span> <span class="o">=</span> <span class="s2">&quot;asdf&quot;</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">asdf</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">asdf</span>
+
+    <span class="n">foo</span> <span class="o">=</span> <span class="s2">&quot;foo&quot;</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="s2">&quot;1&quot;</span><span class="p">,</span> <span class="n">foo</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">foo</span></div>
+
+
+<div class="viewcode-block" id="test_get_status"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_execute_csv.test_get_status">[docs]</a><span class="k">def</span> <span class="nf">test_get_status</span><span class="p">(</span><span class="n">manager</span><span class="p">):</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">mock_row</span><span class="p">())</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_status</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;created&quot;</span>
+
+    <span class="n">status</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_status</span><span class="p">(</span><span class="s2">&quot;1&quot;</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;created&quot;</span></div>
+
+
+<div class="viewcode-block" id="test_delete"><a class="viewcode-back" href="../../../../powersimdata.data_access.tests.html#powersimdata.data_access.tests.test_execute_csv.test_delete">[docs]</a><span class="k">def</span> <span class="nf">test_delete</span><span class="p">(</span><span class="n">manager</span><span class="p">):</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">mock_row</span><span class="p">())</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_execute_table</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">table</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">table</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">delete_entry</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">table</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">table</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_execute_table</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">table</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

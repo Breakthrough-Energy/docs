@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>powersimdata.design.investment.inflation &#8212; documentation</title>
+    <title>powersimdata.input.tests.test_input_data &#8212; documentation</title>
     <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
     <script id="documentation_options" data-url_root="../../../../" src="../../../../_static/documentation_options.js"></script>
@@ -31,29 +31,27 @@
 
           <div class="body" role="main">
             
-  <h1>Source code for powersimdata.design.investment.inflation</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">powersimdata.design.investment.const</span> <span class="kn">import</span> <span class="n">inflation_rate_pct</span>
+  <h1>Source code for powersimdata.input.tests.test_input_data</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pytest</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.input.input_data</span> <span class="kn">import</span> <span class="n">InputHelper</span><span class="p">,</span> <span class="n">_check_field</span>
 
 
-<div class="viewcode-block" id="calculate_inflation"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.inflation.calculate_inflation">[docs]</a><span class="k">def</span> <span class="nf">calculate_inflation</span><span class="p">(</span><span class="n">start_year</span><span class="p">,</span> <span class="n">end_year</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Calculate the overall inflation between two years.</span>
+<div class="viewcode-block" id="test_get_file_components"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_input_data.test_get_file_components">[docs]</a><span class="k">def</span> <span class="nf">test_get_file_components</span><span class="p">():</span>
+    <span class="n">s_info</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;123&quot;</span><span class="p">}</span>
+    <span class="n">ct_file</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">InputHelper</span><span class="o">.</span><span class="n">get_file_components</span><span class="p">(</span><span class="n">s_info</span><span class="p">,</span> <span class="s2">&quot;ct&quot;</span><span class="p">)</span>
+    <span class="n">grid_file</span><span class="p">,</span> <span class="n">from_dir</span> <span class="o">=</span> <span class="n">InputHelper</span><span class="o">.</span><span class="n">get_file_components</span><span class="p">(</span><span class="n">s_info</span><span class="p">,</span> <span class="s2">&quot;grid&quot;</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="s2">&quot;123_ct.pkl&quot;</span> <span class="o">==</span> <span class="n">ct_file</span>
+    <span class="k">assert</span> <span class="s2">&quot;123_grid.mat&quot;</span> <span class="o">==</span> <span class="n">grid_file</span>
+    <span class="k">assert</span> <span class="s2">&quot;data/input&quot;</span> <span class="o">==</span> <span class="n">from_dir</span></div>
 
-<span class="sd">    :param int start_year: Year to start calculating inflation from.</span>
-<span class="sd">    :param int/None end_year: Year to calculate inflation to. Calculates using the</span>
-<span class="sd">        rates from [start_year, end_year), since we calculate _to_ end_year, not</span>
-<span class="sd">        _through_ end_year. If None, inflates to as recent as possible.</span>
-<span class="sd">    :return: (*float*) -- Inflation factor.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">start_year</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">inflation_rate_pct</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No inflation data for year </span><span class="si">{</span><span class="n">start_year</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">end_year</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">end_year</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">inflation_rate_pct</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">+</span> <span class="mi">1</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">end_year</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">inflation_rate_pct</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No inflation data for year </span><span class="si">{</span><span class="p">(</span><span class="n">end_year</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="n">factor</span> <span class="o">=</span> <span class="mi">1</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start_year</span><span class="p">,</span> <span class="n">end_year</span><span class="p">):</span>
-        <span class="n">factor</span> <span class="o">*=</span> <span class="mi">1</span> <span class="o">+</span> <span class="p">(</span><span class="n">inflation_rate_pct</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">/</span> <span class="mi">100</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">factor</span></div>
+
+<div class="viewcode-block" id="test_check_field"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_input_data.test_check_field">[docs]</a><span class="k">def</span> <span class="nf">test_check_field</span><span class="p">():</span>
+    <span class="n">_check_field</span><span class="p">(</span><span class="s2">&quot;demand&quot;</span><span class="p">)</span>
+    <span class="n">_check_field</span><span class="p">(</span><span class="s2">&quot;hydro&quot;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+        <span class="n">_check_field</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">)</span>
+        <span class="n">_check_field</span><span class="p">(</span><span class="s2">&quot;coal&quot;</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

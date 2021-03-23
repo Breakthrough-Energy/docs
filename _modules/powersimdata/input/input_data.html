@@ -33,17 +33,62 @@
             
   <h1>Source code for powersimdata.input.input_data</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">posixpath</span>
 
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.data_access.context</span> <span class="kn">import</span> <span class="n">Context</span>
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.profile_helper</span> <span class="kn">import</span> <span class="n">ProfileHelper</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.helpers</span> <span class="kn">import</span> <span class="n">MemoryCache</span><span class="p">,</span> <span class="n">cache_key</span>
 
 <span class="n">_cache</span> <span class="o">=</span> <span class="n">MemoryCache</span><span class="p">()</span>
 
 <span class="n">profile_kind</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">}</span>
+
+
+<span class="n">_file_extension</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="o">**</span><span class="p">{</span><span class="s2">&quot;ct&quot;</span><span class="p">:</span> <span class="s2">&quot;pkl&quot;</span><span class="p">,</span> <span class="s2">&quot;grid&quot;</span><span class="p">:</span> <span class="s2">&quot;mat&quot;</span><span class="p">},</span>
+    <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="s2">&quot;csv&quot;</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">profile_kind</span><span class="p">},</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="InputHelper"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.input_data.InputHelper">[docs]</a><span class="k">class</span> <span class="nc">InputHelper</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_access</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span> <span class="o">=</span> <span class="n">data_access</span>
+
+<div class="viewcode-block" id="InputHelper.get_file_components"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.input_data.InputHelper.get_file_components">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_file_components</span><span class="p">(</span><span class="n">scenario_info</span><span class="p">,</span> <span class="n">field_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the file name and relative path for either ct or grid</span>
+
+<span class="sd">        :param dict scenario_info: a ScenarioInfo instance</span>
+<span class="sd">        :param str field_name: the input file type</span>
+<span class="sd">        :return: (*tuple*) -- file name and path</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ext</span> <span class="o">=</span> <span class="n">_file_extension</span><span class="p">[</span><span class="n">field_name</span><span class="p">]</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">field_name</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">ext</span>
+        <span class="n">from_dir</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">INPUT_DIR</span>
+        <span class="k">return</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span></div>
+
+<div class="viewcode-block" id="InputHelper.download_file"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.input_data.InputHelper.download_file">[docs]</a>    <span class="k">def</span> <span class="nf">download_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Download the file if using server, otherwise no-op</span>
+
+<span class="sd">        :param str file_name: either grid or ct file name</span>
+<span class="sd">        :param str from_dir: the path relative to the root dir</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">copy_from</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">)</span></div></div>
+
+
+<span class="k">def</span> <span class="nf">_check_field</span><span class="p">(</span><span class="n">field_name</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Checks field name.</span>
+
+<span class="sd">    :param str field_name: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*,</span>
+<span class="sd">        *&#39;ct&#39;* or *&#39;grid&#39;*.</span>
+<span class="sd">    :raises ValueError: if not *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*</span>
+<span class="sd">        *&#39;ct&#39;* or *&#39;grid&#39;*</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">possible</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">_file_extension</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">field_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only </span><span class="si">%s</span><span class="s2"> data can be loaded&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">))</span>
 
 
 <div class="viewcode-block" id="InputData"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.input_data.InputData">[docs]</a><span class="k">class</span> <span class="nc">InputData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
@@ -56,24 +101,7 @@
         <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
         <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">file_extension</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="o">**</span><span class="p">{</span><span class="s2">&quot;ct&quot;</span><span class="p">:</span> <span class="s2">&quot;pkl&quot;</span><span class="p">,</span> <span class="s2">&quot;grid&quot;</span><span class="p">:</span> <span class="s2">&quot;mat&quot;</span><span class="p">},</span>
-            <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="s2">&quot;csv&quot;</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">profile_kind</span><span class="p">},</span>
-        <span class="p">}</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span> <span class="o">=</span> <span class="n">Context</span><span class="o">.</span><span class="n">get_data_access</span><span class="p">(</span><span class="n">data_loc</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_check_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field_name</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Checks field name.</span>
-
-<span class="sd">        :param str field_name: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*,</span>
-<span class="sd">            *&#39;ct&#39;* or *&#39;grid&#39;*.</span>
-<span class="sd">        :raises ValueError: if not *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*</span>
-<span class="sd">            *&#39;ct&#39;* or *&#39;grid&#39;*</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">possible</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">file_extension</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-        <span class="k">if</span> <span class="n">field_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only </span><span class="si">%s</span><span class="s2"> data can be loaded&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">))</span>
 
 <div class="viewcode-block" id="InputData.get_data"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.input_data.InputData.get_data">[docs]</a>    <span class="k">def</span> <span class="nf">get_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_info</span><span class="p">,</span> <span class="n">field_name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns data either from server or local directory.</span>
@@ -86,20 +114,15 @@
 <span class="sd">            dictionary, or the path to a matfile enclosing the grid data.</span>
 <span class="sd">        :raises FileNotFoundError: if file not found on local machine.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_field</span><span class="p">(</span><span class="n">field_name</span><span class="p">)</span>
-
+        <span class="n">_check_field</span><span class="p">(</span><span class="n">field_name</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Loading </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">field_name</span><span class="p">)</span>
-        <span class="n">ext</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_extension</span><span class="p">[</span><span class="n">field_name</span><span class="p">]</span>
 
         <span class="k">if</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="n">profile_kind</span><span class="p">:</span>
-            <span class="n">version</span> <span class="o">=</span> <span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;base_&quot;</span> <span class="o">+</span> <span class="n">field_name</span><span class="p">]</span>
-            <span class="n">file_name</span> <span class="o">=</span> <span class="n">field_name</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">version</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">ext</span>
-            <span class="n">from_dir</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-                <span class="n">server_setup</span><span class="o">.</span><span class="n">BASE_PROFILE_DIR</span><span class="p">,</span> <span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
-            <span class="p">)</span>
+            <span class="n">helper</span> <span class="o">=</span> <span class="n">ProfileHelper</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">file_name</span> <span class="o">=</span> <span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">field_name</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">ext</span>
-            <span class="n">from_dir</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">INPUT_DIR</span>
+            <span class="n">helper</span> <span class="o">=</span> <span class="n">InputHelper</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="p">)</span>
+
+        <span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span> <span class="o">=</span> <span class="n">helper</span><span class="o">.</span><span class="n">get_file_components</span><span class="p">(</span><span class="n">scenario_info</span><span class="p">,</span> <span class="n">field_name</span><span class="p">)</span>
 
         <span class="n">filepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">cache_key</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
@@ -113,37 +136,19 @@
                 <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not found in </span><span class="si">%s</span><span class="s2"> on local machine&quot;</span>
                 <span class="o">%</span> <span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">)</span>
             <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">copy_from</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">)</span>
+            <span class="n">helper</span><span class="o">.</span><span class="n">download_file</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">)</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">_read_data</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
         <span class="n">_cache</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">data</span></div>
 
 <div class="viewcode-block" id="InputData.get_profile_version"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.input_data.InputData.get_profile_version">[docs]</a>    <span class="k">def</span> <span class="nf">get_profile_version</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns available raw profile either from server or local directory.</span>
+        <span class="sd">&quot;&quot;&quot;Returns available raw profile from blob storage or local disk</span>
 
 <span class="sd">        :param str grid_model: grid model.</span>
 <span class="sd">        :param str kind: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
 <span class="sd">        :return: (*list*) -- available profile version.</span>
-<span class="sd">        :raises ValueError: if kind not one of *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;* or</span>
-<span class="sd">            *&#39;wind&#39;*.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">profile_kind</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;kind must be one of </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">profile_kind</span><span class="p">))</span>
-
-        <span class="n">query</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-            <span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span><span class="p">,</span>
-            <span class="n">server_setup</span><span class="o">.</span><span class="n">BASE_PROFILE_DIR</span><span class="p">,</span>
-            <span class="n">grid_model</span><span class="p">,</span>
-            <span class="n">kind</span> <span class="o">+</span> <span class="s2">&quot;_*&quot;</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">stdin</span><span class="p">,</span> <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="s2">&quot;ls &quot;</span> <span class="o">+</span> <span class="n">query</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No </span><span class="si">%s</span><span class="s2"> profiles available.&quot;</span> <span class="o">%</span> <span class="n">kind</span><span class="p">)</span>
-            <span class="n">version</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">filename</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">())</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">stdout</span><span class="o">.</span><span class="n">readlines</span><span class="p">()]</span>
-            <span class="n">version</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">rfind</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="o">-</span><span class="mi">4</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">filename</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">version</span></div></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">get_profile_version</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span></div></div>
 
 
 <span class="k">def</span> <span class="nf">_read_data</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
@@ -265,7 +270,7 @@
       &copy;2021, Breakthrough Energy Foundation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.5.2</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.5.3</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

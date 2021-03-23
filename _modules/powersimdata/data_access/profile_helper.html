@@ -1,0 +1,219 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.data_access.profile_helper &#8212; documentation</title>
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.data_access.profile_helper</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">from</span> <span class="nn">tqdm.auto</span> <span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
+
+
+<div class="viewcode-block" id="ProfileHelper"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.profile_helper.ProfileHelper">[docs]</a><span class="k">class</span> <span class="nc">ProfileHelper</span><span class="p">:</span>
+    <span class="n">BASE_URL</span> <span class="o">=</span> <span class="s2">&quot;https://bescienceswebsite.blob.core.windows.net/profiles&quot;</span>
+
+<div class="viewcode-block" id="ProfileHelper.get_file_components"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.profile_helper.ProfileHelper.get_file_components">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_file_components</span><span class="p">(</span><span class="n">scenario_info</span><span class="p">,</span> <span class="n">field_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the file name and relative path for the given profile and</span>
+<span class="sd">        scenario.</span>
+
+<span class="sd">        :param dict scenario_info: a ScenarioInfo instance</span>
+<span class="sd">        :param str field_name: the kind of profile</span>
+<span class="sd">        :return: (*tuple*) -- file name and path</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">version</span> <span class="o">=</span> <span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;base_&quot;</span> <span class="o">+</span> <span class="n">field_name</span><span class="p">]</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">field_name</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">version</span> <span class="o">+</span> <span class="s2">&quot;.csv&quot;</span>
+        <span class="n">grid_model</span> <span class="o">=</span> <span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
+        <span class="n">from_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;raw&quot;</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span></div>
+
+<div class="viewcode-block" id="ProfileHelper.download_file"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.profile_helper.ProfileHelper.download_file">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">download_file</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Download the profile from blob storage at the given path</span>
+
+<span class="sd">        :param str file_name: profile csv</span>
+<span class="sd">        :param str from_dir: the path relative to the blob container</span>
+<span class="sd">        :return: (*str*) -- path to downloaded file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--&gt; Downloading </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2"> from blob storage.&quot;</span><span class="p">)</span>
+        <span class="n">url_path</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">from_dir</span><span class="p">))</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ProfileHelper</span><span class="o">.</span><span class="n">BASE_URL</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">url_path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">dest</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">dest</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">content_length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;content-length&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">tqdm</span><span class="p">(</span>
+                <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;B&quot;</span><span class="p">,</span>
+                <span class="n">unit_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">unit_divisor</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+                <span class="n">miniters</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">total</span><span class="o">=</span><span class="n">content_length</span><span class="p">,</span>
+            <span class="p">)</span> <span class="k">as</span> <span class="n">pbar</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">resp</span><span class="o">.</span><span class="n">iter_content</span><span class="p">(</span><span class="n">chunk_size</span><span class="o">=</span><span class="mi">4096</span><span class="p">):</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+                    <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">chunk</span><span class="p">))</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Done!&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dest</span></div>
+
+<div class="viewcode-block" id="ProfileHelper.parse_version"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.profile_helper.ProfileHelper.parse_version">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">parse_version</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">version</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parse available versions from the given spec</span>
+
+<span class="sd">        :param str grid_model: grid model.</span>
+<span class="sd">        :param str kind: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
+<span class="sd">        :param dict version: version information per grid model</span>
+<span class="sd">        :return: (*list*) -- available profile version.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">grid_model</span> <span class="ow">in</span> <span class="n">version</span> <span class="ow">and</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">version</span><span class="p">[</span><span class="n">grid_model</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">version</span><span class="p">[</span><span class="n">grid_model</span><span class="p">][</span><span class="n">kind</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No </span><span class="si">%s</span><span class="s2"> profiles available.&quot;</span> <span class="o">%</span> <span class="n">kind</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+
+<div class="viewcode-block" id="ProfileHelper.get_profile_version_cloud"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.profile_helper.ProfileHelper.get_profile_version_cloud">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_profile_version_cloud</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns available raw profile from blob storage</span>
+
+<span class="sd">        :param str grid_model: grid model.</span>
+<span class="sd">        :param str kind: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
+<span class="sd">        :return: (*list*) -- available profile version.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ProfileHelper</span><span class="o">.</span><span class="n">BASE_URL</span><span class="si">}</span><span class="s2">/version.json&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ProfileHelper</span><span class="o">.</span><span class="n">parse_version</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="ProfileHelper.get_profile_version_local"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.profile_helper.ProfileHelper.get_profile_version_local">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_profile_version_local</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns available raw profile from local file</span>
+
+<span class="sd">        :param str grid_model: grid model.</span>
+<span class="sd">        :param str kind: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
+<span class="sd">        :return: (*list*) -- available profile version.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">version_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="s2">&quot;version.json&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">version_file</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">version_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">version</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">ProfileHelper</span><span class="o">.</span><span class="n">parse_version</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">version</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata_package.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise_package.html">PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reisejl_package.html">REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.5.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

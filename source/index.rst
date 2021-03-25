@@ -6,7 +6,6 @@
 
 Facilitating the Energy Transition
 ==================================
-
 You are familiar with our mission and you just want to install the software, add features or access the documentation? The quick links below will then come up handy:
 
 * :doc:`user/installation_guide`
@@ -52,7 +51,7 @@ Please review our :doc:`communication/code_of_conduct` before contributing.
 
    user/installation_guide.md
    communication/code_of_conduct
-   dev/contribution_guide.md
+   dev/contribution_guide
    user/git_guide.md
    powersimdata_package.md
    prereise_package.md

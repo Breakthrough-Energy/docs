@@ -63,7 +63,7 @@ We present the `Sphinx` docstring format [here](code_documentation.md). It is wo
 ## Communication
 Use [GitHub] to report bugs and propose features. Also, do not hesitate to [subscribe](http://science.breakthroughenergy.org#get-updates) to our email list and join our Slack workspace in order to stay updated and reach us if you should have any questions.
 
-We have a [code of conduct](../code_of_conduct) that we ask you to review before communicating on these channels.
+We have a [code of conduct](../communication/code_of_conduct) that we ask you to review before communicating on these channels.
 
 
 [bes]: https://science.breakthroughenergy.org/

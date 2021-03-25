@@ -10,10 +10,10 @@ Facilitating the Energy Transition
 You are familiar with our mission and you just want to install the software, add features or access the documentation? The quick links below will then come up handy:
 
 * :doc:`user/installation_guide`
-* :doc:`code_of_conduct`
+* :doc:`communication/code_of_conduct`
 * :doc:`dev/contribution_guide`
 * :doc:`user/git_guide`
-* :doc:`dev/idea_list`
+* :doc:`communication/idea_list`
 * :ref:`modindex`
 
 
@@ -43,7 +43,7 @@ Communication Channels
 `Sign up <http://science.breakthroughenergy.org#get-updates>`_ to our email list to stay updated.
 Indicate if you also want to join our Slack workspace to participate in the community.
 
-Please review our :doc:`code_of_conduct` before contributing.
+Please review our :doc:`communication/code_of_conduct` before contributing.
 
 
 .. toctree::
@@ -51,7 +51,7 @@ Please review our :doc:`code_of_conduct` before contributing.
    :hidden:
 
    user/installation_guide.md
-   code_of_conduct.rst
+   communication/code_of_conduct
    dev/contribution_guide.md
    user/git_guide.md
    powersimdata_package.md

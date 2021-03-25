@@ -13,7 +13,7 @@ You are familiar with our mission and you just want to install the software, add
 * :doc:`communication/code_of_conduct`
 * :doc:`dev/contribution_guide`
 * :doc:`user/git_guide`
-* :doc:`communication/idea_list`
+* :doc:`communication/project_ideas`
 * :ref:`modindex`
 
 

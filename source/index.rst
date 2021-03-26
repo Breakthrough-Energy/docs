@@ -49,7 +49,7 @@ Please review our :doc:`communication/code_of_conduct` before contributing.
    :maxdepth: 3
    :hidden:
 
-   user/installation_guide.md
+   user/installation_guide
    communication/code_of_conduct
    dev/contribution_guide
    user/git_guide.md

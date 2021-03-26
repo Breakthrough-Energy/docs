@@ -48,16 +48,12 @@
 
 
 <div class="viewcode-block" id="calculate_ac_inv_costs"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.investment_costs.calculate_ac_inv_costs">[docs]</a><span class="k">def</span> <span class="nf">calculate_ac_inv_costs</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exclude_branches</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Given a Scenario object, calculate the total cost of building that scenario&#39;s</span>
-<span class="sd">    upgrades of lines and transformers.</span>
-<span class="sd">    Currently uses NEEM regions to find regional multipliers.</span>
-<span class="sd">    Currently ignores financials, but all values are in 2010 $-year.</span>
-<span class="sd">    Need to test that there aren&#39;t any na values in regional multipliers</span>
-<span class="sd">    (some empty parts of table)</span>
+    <span class="sd">&quot;&quot;&quot;Calculate cost of upgrading AC lines and/or transformers in a scenario.</span>
+<span class="sd">    NEEM regions are used to find regional multipliers.</span>
 
 <span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
-<span class="sd">    :param boolean sum_results: if True, sum dataframe for each category.</span>
-<span class="sd">    :return: (*dict*) -- Total costs (line costs, transformer costs) (in $2010).</span>
+<span class="sd">    :param bool sum_results: sum data frame for each branch type.</span>
+<span class="sd">    :return: (*dict*) -- cost of upgrading branches in $2010.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span>
@@ -78,25 +74,24 @@
 
 
 <span class="k">def</span> <span class="nf">_calculate_ac_inv_costs</span><span class="p">(</span><span class="n">grid_new</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Given a grid, calculate the total cost of building that grid&#39;s</span>
-<span class="sd">    lines and transformers.</span>
-<span class="sd">    This function is separate from calculate_ac_inv_costs() for testing purposes.</span>
-<span class="sd">    Currently counts Transformer and TransformerWinding as transformers.</span>
-<span class="sd">    Currently uses NEEM regions to find regional multipliers.</span>
+    <span class="sd">&quot;&quot;&quot;Calculate cost of upgrading AC lines and/or transformers. NEEM regions are</span>
+<span class="sd">    used to find regional multipliers. Note that a transformer winding is considered</span>
+<span class="sd">    as a transformer.</span>
 
 <span class="sd">    :param powersimdata.input.grid.Grid grid_new: grid instance.</span>
-<span class="sd">    :param boolean sum_results: if True, sum dataframe for each category.</span>
-<span class="sd">    :return: (*dict*) -- Total costs (line costs, transformer costs).</span>
+<span class="sd">    :param bool sum_results: sum data frame for each branch type.</span>
+<span class="sd">    :return: (*dict*) -- cost of upgrading branches in $2010.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">select_mw</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">cost_df</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Given a single branch, determine the closest kV/MW combination and return</span>
-<span class="sd">        the corresponding cost $/MW-mi.</span>
+        <span class="sd">&quot;&quot;&quot;Determine the closest kV/MW combination for a single branch and return</span>
+<span class="sd">        the corresponding cost (in $/MW-mi).</span>
 
-<span class="sd">        :param pandas.core.series.Series x: data for a single branch</span>
-<span class="sd">        :param pandas.core.frame.DataFrame cost_df: DataFrame with kV, MW, cost columns</span>
-<span class="sd">        :return: (*pandas.core.series.Series*) -- series of [&#39;MW&#39;, &#39;costMWmi&#39;] to be</span>
-<span class="sd">            assigned to given branch</span>
+<span class="sd">        :param pandas.Series x: data for a single branch</span>
+<span class="sd">        :param pandas.DataFrame cost_df: data frame with *&#39;kV&#39;*, *&#39;MW&#39;*, *&#39;costMWmi&#39;*</span>
+<span class="sd">            as columns</span>
+<span class="sd">        :return: (*pandas.Series*) -- series of [*&#39;MW&#39;*, *&#39;costMWmi&#39;*] to be assigned</span>
+<span class="sd">            to branch.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># select corresponding cost table of selected kV</span>
@@ -109,9 +104,9 @@
     <span class="k">def</span> <span class="nf">get_transformer_mult</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">bus_reg</span><span class="p">,</span> <span class="n">ac_reg_mult</span><span class="p">,</span> <span class="n">xfmr_lookup_alerted</span><span class="o">=</span><span class="nb">set</span><span class="p">()):</span>
         <span class="sd">&quot;&quot;&quot;Determine the regional multiplier based on kV and power (closest).</span>
 
-<span class="sd">        :param pandas.core.series.Series x: data for a single transformer.</span>
-<span class="sd">        :param pandas.core.frame.DataFrame bus_reg: data frame with bus regions</span>
-<span class="sd">        :param pandas.core.frame.DataFrame ac_reg_mult: data frame with regional mults.</span>
+<span class="sd">        :param pandas.Series x: data for a single transformer.</span>
+<span class="sd">        :param pandas.DataFrame bus_reg: data frame with bus regions.</span>
+<span class="sd">        :param pandas.DataFrame ac_reg_mult: data frame with regional multipliers.</span>
 <span class="sd">        :param set xfmr_lookup_alerted: set of (voltage, region) tuples for which</span>
 <span class="sd">            a message has already been printed that this lookup was not found.</span>
 <span class="sd">        :return: (*float*) -- regional multiplier.</span>
@@ -174,8 +169,8 @@
     <span class="n">lines</span><span class="p">[[</span><span class="s2">&quot;MW&quot;</span><span class="p">,</span> <span class="s2">&quot;costMWmi&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">select_mw</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ac_cost</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="c1"># check that all buses included in this file and lat/long values match,</span>
-    <span class="c1">#   otherwise re-run mapping script on mis-matching buses.</span>
-    <span class="c1"># these buses are missing in region file</span>
+    <span class="c1"># otherwise re-run mapping script on mis-matching buses. These buses are missing</span>
+    <span class="c1"># in region file</span>
     <span class="n">bus_fix_index</span> <span class="o">=</span> <span class="n">bus</span><span class="p">[</span><span class="o">~</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">bus_reg</span><span class="o">.</span><span class="n">index</span><span class="p">)]</span><span class="o">.</span><span class="n">index</span>
     <span class="n">bus_mask</span> <span class="o">=</span> <span class="n">bus</span><span class="p">[</span><span class="o">~</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">bus_fix_index</span><span class="p">)]</span>
     <span class="n">bus_mask</span> <span class="o">=</span> <span class="n">bus_mask</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">bus_reg</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;bus_id&quot;</span><span class="p">)</span>
@@ -247,12 +242,11 @@
 
 
 <div class="viewcode-block" id="calculate_dc_inv_costs"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.investment_costs.calculate_dc_inv_costs">[docs]</a><span class="k">def</span> <span class="nf">calculate_dc_inv_costs</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Given a Scenario object, calculate the total cost of that grid&#39;s dc line</span>
-<span class="sd">        investment. Currently ignores financials, but all values are in 2015 $-year.</span>
+    <span class="sd">&quot;&quot;&quot;Calculate cost of upgrading HVDC lines in a scenario.</span>
 
 <span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
-<span class="sd">    :param boolean sum_results: if True, sum Series to return float.</span>
-<span class="sd">    :return: (*pandas.Series/float*) -- [Summed] dc line costs.</span>
+<span class="sd">    :param bool sum_results: sum series to return total cost.</span>
+<span class="sd">    :return: (*pandas.Series/float*) -- cost of upgrading HVDC lines in $2015.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span>
     <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
@@ -269,22 +263,20 @@
 
 
 <span class="k">def</span> <span class="nf">_calculate_dc_inv_costs</span><span class="p">(</span><span class="n">grid_new</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Given a grid, calculate the total cost of that grid&#39;s dc line investment.</span>
-<span class="sd">    This function is separate from calculate_dc_inv_costs() for testing purposes.</span>
+    <span class="sd">&quot;&quot;&quot;Calculate cost of upgrading HVDC lines.</span>
 
 <span class="sd">    :param powersimdata.input.grid.Grid grid_new: grid instance.</span>
-<span class="sd">    :param boolean sum_results: if True, sum Series to return float.</span>
-<span class="sd">    :return: (*pandas.Series/float*) -- [Summed] dc line costs.</span>
+<span class="sd">    :param bool sum_results: sum series to return total cost.</span>
+<span class="sd">    :return: (*pandas.Series/float*) -- cost of upgrading HVDC lines in $2015.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">_calculate_single_line_cost</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">bus</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Given a series representing a DC line upgrade/addition, and a dataframe of</span>
-<span class="sd">        bus locations, calculate this line&#39;s upgrade cost.</span>
+        <span class="sd">&quot;&quot;&quot;Calculate cost of upgrading a single HVDC line.</span>
 
-<span class="sd">        :param pandas.Series line: DC line series featuring:</span>
-<span class="sd">            {&quot;from_bus_id&quot;, &quot;to_bus_id&quot;, &quot;Pmax&quot;}.</span>
-<span class="sd">        :param pandas.Dataframe bus: Bus data frame featuring {&quot;lat&quot;, &quot;lon&quot;}.</span>
-<span class="sd">        :return: (*float*) -- DC line upgrade cost (in $2015).</span>
+<span class="sd">        :param pandas.Series line: HVDC line series featuring *&#39;from_bus_id&#39;*&#39;,</span>
+<span class="sd">            *&#39;to_bus_id&#39;* and *&#39;Pmax&#39;*.</span>
+<span class="sd">        :param pandas.Dataframe bus: bus data frame featuring *&#39;lat&#39;*, *&#39;lon&#39;*.</span>
+<span class="sd">        :return: (*float*) -- HVDC line upgrade cost in $2015.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Calculate distance</span>
         <span class="n">from_lat</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">]</span>
@@ -314,20 +306,19 @@
 
 
 <div class="viewcode-block" id="calculate_gen_inv_costs"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.investment_costs.calculate_gen_inv_costs">[docs]</a><span class="k">def</span> <span class="nf">calculate_gen_inv_costs</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">cost_case</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Given a Scenario object, calculate the total cost of building that scenario&#39;s</span>
-<span class="sd">        upgrades of generation.</span>
-<span class="sd">    Currently only uses one (arbutrary) sub-technology. Drops the rest of the costs.</span>
-<span class="sd">        Will want to fix for wind/solar (based on resource supply curves).</span>
-<span class="sd">    Currently uses ReEDS regions to find regional multipliers.</span>
+    <span class="sd">&quot;&quot;&quot;Calculate cost of upgrading generators in a scenario. ReEDS regions are used to</span>
+<span class="sd">    find regional multipliers.</span>
 
 <span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
-<span class="sd">    :param int/str year: year of builds.</span>
-<span class="sd">    :param str cost_case: the ATB cost case of data:</span>
-<span class="sd">        &#39;Moderate&#39;: mid cost case,</span>
-<span class="sd">        &#39;Conservative&#39;: generally higher costs,</span>
-<span class="sd">        &#39;Advanced&#39;: generally lower costs</span>
-<span class="sd">    :return: (*pandas.DataFrame*) -- Total generation investment cost summed by</span>
+<span class="sd">    :param int/str year: building year.</span>
+<span class="sd">    :param str cost_case: ATB cost case of data. *&#39;Moderate&#39;*: mid cost case,</span>
+<span class="sd">        *&#39;Conservative&#39;*: generally higher costs, *&#39;Advanced&#39;*: generally lower costs</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- total generation investment cost summed by</span>
 <span class="sd">        technology.</span>
+
+<span class="sd">    .. todo:: it currently uses one (arbitrary) sub-technology. The rest of the costs</span>
+<span class="sd">        are dropped. Wind and solar will need to be fixed based on the resource supply</span>
+<span class="sd">        curves.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span>
@@ -356,38 +347,33 @@
 
 
 <span class="k">def</span> <span class="nf">_calculate_gen_inv_costs</span><span class="p">(</span><span class="n">grid_new</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">cost_case</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Given a grid, calculate the total cost of building that generation investment.</span>
-<span class="sd">    Computes total capital cost as CAPEX_total =</span>
-<span class="sd">        CAPEX ($/MW) * Pmax (MW) * reg_cap_cost_mult (regional cost multiplier)</span>
-<span class="sd">    This function is separate from calculate_gen_inv_costs() for testing purposes.</span>
-<span class="sd">    Currently only uses one (arbutrary) sub-technology. Drops the rest of the costs.</span>
-<span class="sd">        Will want to fix for wind/solar (based on resource supply curves).</span>
-<span class="sd">    Currently uses ReEDS regions to find regional multipliers.</span>
+    <span class="sd">&quot;&quot;&quot;Calculate cost of upgrading generators. ReEDS regions are used to find</span>
+<span class="sd">    regional multipliers.</span>
 
 <span class="sd">    :param powersimdata.input.grid.Grid grid_new: grid instance.</span>
-<span class="sd">    :param int/str year: year of builds (used in financials).</span>
-<span class="sd">    :param str cost_case: the ATB cost case of data:</span>
-<span class="sd">        &#39;Moderate&#39;: mid cost case</span>
-<span class="sd">        &#39;Conservative&#39;: generally higher costs</span>
-<span class="sd">        &#39;Advanced&#39;: generally lower costs</span>
+<span class="sd">    :param int/str year: year of builds.</span>
+<span class="sd">    :param str cost_case: ATB cost case of data. *&#39;Moderate&#39;*: mid cost case</span>
+<span class="sd">        *&#39;Conservative&#39;*: generally higher costs, *&#39;Advanced&#39;*: generally lower costs.</span>
 <span class="sd">    :raises ValueError: if year not 2020 - 2050, or cost case not an allowed option.</span>
-<span class="sd">    :raises TypeError: if year gets the wrong type, or if cost_case is not str.</span>
-<span class="sd">    :return: (*pandas.Series*) -- Total generation investment cost,</span>
-<span class="sd">        summed by technology.</span>
+<span class="sd">    :raises TypeError: if year not int/str or cost_case not str.</span>
+<span class="sd">    :return: (*pandas.Series*) -- total generation investment cost, summed by</span>
+<span class="sd">        technology.</span>
+
+<span class="sd">    .. note:: the function computes the total capital cost as:</span>
+<span class="sd">        CAPEX_total = CAPEX ($/MW) * Pmax (MW) * regional multiplier</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">load_cost</span><span class="p">(</span><span class="n">year</span><span class="p">,</span> <span class="n">cost_case</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Load in base costs from NREL&#39;s 2020 ATB for generation technologies (CAPEX).</span>
-<span class="sd">            Can be adapted in the future for FOM, VOM, &amp; CAPEX.</span>
-<span class="sd">        This data is pulled from the ATB xlsx file Summary pages (saved as csv&#39;s).</span>
-<span class="sd">        Therefore, currently uses default financials, but will want to create custom</span>
-<span class="sd">            financial functions in the future.</span>
+        <span class="sd">&quot;&quot;&quot;Load in base costs from NREL&#39;s 2020 ATB for generation technologies (CAPEX).</span>
 
 <span class="sd">        :param int/str year: year of cost projections.</span>
-<span class="sd">        :param str cost_case: the ATB cost case of data</span>
-<span class="sd">            (see :py:func:`write_poly_shapefile` for details).</span>
-<span class="sd">        :return: (*pandas.DataFrame*) -- Cost by technology/subtype (in $2018).</span>
+<span class="sd">        :param str cost_case: ATB cost case of data (see</span>
+<span class="sd">        :return: (*pandas.DataFrame*) -- cost by technology/subtype in $2018.</span>
+
+<span class="sd">        .. todo:: it can be adapted in the future for FOM, VOM, &amp; CAPEX. This data is</span>
+<span class="sd">            pulled from the ATB xlsx file summary pages. Therefore, it currently uses</span>
+<span class="sd">            default financials, but will want to create custom financial functions in</span>
+<span class="sd">            the future.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">cost</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">gen_inv_cost_path</span><span class="p">)</span>
         <span class="n">cost</span> <span class="o">=</span> <span class="n">cost</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>

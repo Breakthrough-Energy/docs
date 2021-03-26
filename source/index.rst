@@ -52,7 +52,7 @@ Please review our :doc:`communication/code_of_conduct` before contributing.
    user/installation_guide
    communication/code_of_conduct
    dev/contribution_guide
-   user/git_guide.md
+   user/git_guide
    powersimdata_package.md
    prereise_package.md
    postreise_package.md

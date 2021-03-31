@@ -1,1 +1,0 @@
-../../PowerSimData/README.md

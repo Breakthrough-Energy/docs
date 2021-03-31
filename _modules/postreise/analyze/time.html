@@ -32,23 +32,70 @@
           <div class="body" role="main">
             
   <h1>Source code for postreise.analyze.time</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span></span><span class="kn">import</span> <span class="nn">re</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">import</span> <span class="nn">pytz</span>
 
 <span class="kn">from</span> <span class="nn">postreise.analyze.check</span> <span class="kn">import</span> <span class="n">_check_date_range_in_time_series</span><span class="p">,</span> <span class="n">_check_time_series</span>
 
 
-<div class="viewcode-block" id="slice_time_series"><a class="viewcode-back" href="../../../postreise.analyze.html#postreise.analyze.time.slice_time_series">[docs]</a><span class="k">def</span> <span class="nf">slice_time_series</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+<div class="viewcode-block" id="is_24_hour_format"><a class="viewcode-back" href="../../../postreise.analyze.html#postreise.analyze.time.is_24_hour_format">[docs]</a><span class="k">def</span> <span class="nf">is_24_hour_format</span><span class="p">(</span><span class="n">time</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check if the input string is in 24-hour format</span>
+
+<span class="sd">    :param str time: input string</span>
+<span class="sd">    :return: (*bool*) -- the input string is in 24-hour format or not</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">regex</span> <span class="o">=</span> <span class="s2">&quot;^([01]?[0-9]|2[0-3]):[0-5][0-9]$&quot;</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">regex</span><span class="p">)</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">m</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="slice_time_series"><a class="viewcode-back" href="../../../postreise.analyze.html#postreise.analyze.time.slice_time_series">[docs]</a><span class="k">def</span> <span class="nf">slice_time_series</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">between_time</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dayofweek</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Slice a time series.</span>
 
 <span class="sd">    :param pandas.DataFrame/pandas.Series ts: time series to slice.</span>
 <span class="sd">    :param pandas.Timestamp/numpy.datetime64/datetime.datetime start: start date.</span>
 <span class="sd">    :param pandas.Timestamp/numpy.datetime64/datetime.datetime end: end date.</span>
+<span class="sd">    :param list between_time: specify the start hour and end hour of each day</span>
+<span class="sd">        inclusively, default to None, which includes every hour of a day. Note that if</span>
+<span class="sd">        the end hour is set before the start hour, the complementary hours of a day are</span>
+<span class="sd">        picked.</span>
+<span class="sd">    :param set dayofweek: specify the interest days of week, which is a subset of</span>
+<span class="sd">        integers in [0, 6] with 0 being Monday and 6 being Sunday, default to None,</span>
+<span class="sd">        which includes every day of a week.</span>
 <span class="sd">    :return: (*pandas.DataFrame/pandas.Series*) -- the sliced time series.</span>
+<span class="sd">    :raises TypeError:</span>
+<span class="sd">        if between_time is provided but not a list and/or</span>
+<span class="sd">        if not all elements of between_time are strings and/or</span>
+<span class="sd">        if dayofweek is provided but not a set.</span>
+<span class="sd">    :raises ValueError:</span>
+<span class="sd">        if between_time is provided but does not have exactly two elements and/or</span>
+<span class="sd">        if not all elements of between_time are in 24 hour format and/or</span>
+<span class="sd">        if dayofweek is provided but not a subset of integers in [0, 6].</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">_check_date_range_in_time_series</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+    <span class="n">ts</span> <span class="o">=</span> <span class="n">ts</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">between_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">between_time</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;between_time must be a list&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">between_time</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">between_time</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;between_time must be a list with start_time and end_time&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">between_time</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;every element of between_time must be a string&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="n">is_24_hour_format</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">between_time</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;every element of between_time must be in 24 hour format&quot;</span><span class="p">)</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">between_time</span><span class="p">(</span><span class="o">*</span><span class="n">between_time</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">ts</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span></div>
+    <span class="k">if</span> <span class="n">dayofweek</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dayofweek</span><span class="p">,</span> <span class="nb">set</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;dayofweek must be a set&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dayofweek</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dayofweek</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">7</span><span class="p">))):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;dayofweek must be a subset of </span><span class="si">{</span><span class="nb">set</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">7</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">ts</span><span class="p">[</span><span class="n">ts</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">dayofweek</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">dayofweek</span><span class="p">)]</span>
+
+    <span class="k">return</span> <span class="n">ts</span></div>
 
 
 <div class="viewcode-block" id="resample_time_series"><a class="viewcode-back" href="../../../postreise.analyze.html#postreise.analyze.time.resample_time_series">[docs]</a><span class="k">def</span> <span class="nf">resample_time_series</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">freq</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">):</span>

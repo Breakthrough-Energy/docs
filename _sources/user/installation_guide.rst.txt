@@ -32,7 +32,7 @@ On Laptop/Desktop
       file enclosing the change table listing the transformation applied to the
       original grid
     + Set ``OUTPUT_DIR``: all scenario outputs are stored there after being extracted -
-      the list of output data is given in the :doc:`../powersimdata_package` README
+      the list of output data is given in the :doc:`../powersimdata/index` tutorial
     + Set ``MODEL_DIR``: this directory encloses the simulation engine
     + Set ``LOCAL_DIR``: this directory will enclose your local file system
     + Note that ``BACKUP_DATA_ROOT_DIR`` does not need to be set unless you have a
@@ -66,7 +66,7 @@ repository, along with usage examples.
 
 How to Run Scenario
 -------------------
-Follow the instructions in the :doc:`../powersimdata_package` README.
+Follow the instructions in the :doc:`../powersimdata/scenario` tutorial.
 
 
 .. _GitHub: https://github.com/Breakthrough-Energy

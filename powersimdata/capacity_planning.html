@@ -1,0 +1,233 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Capacity Planning Framework &#8212; documentation</title>
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="capacity-planning-framework">
+<h1>Capacity Planning Framework<a class="headerlink" href="#capacity-planning-framework" title="Permalink to this headline">¶</a></h1>
+<p>The capacity planning framework is intended to estimate the amount of new capacity that
+will be required to meet future clean energy goals.</p>
+<div class="section" id="required-inputs">
+<h2>Required Inputs<a class="headerlink" href="#required-inputs" title="Permalink to this headline">¶</a></h2>
+<p>At minimum, this framework requires a <em>reference</em> <code class="docutils literal notranslate"><span class="pre">Scenario</span></code> object–used to specify
+the current capacities and capacity factors of resources which <em>count</em> towards
+state-level clean energy goals (this <code class="docutils literal notranslate"><span class="pre">Scenario</span></code> object must be in <strong>analyze</strong>
+state)–and a list of target areas (comprised of one or more zones) and their target
+clean energy penetrations. A strategy must also be specified, either <code class="docutils literal notranslate"><span class="pre">independent</span></code>
+(each area meets it own goal) or <code class="docutils literal notranslate"><span class="pre">collaborative</span></code> (all areas with non-zero goals work
+together to meet a shared goal, resembling REC trading).</p>
+<p>The list of targets may be specified in either a CSV file or a data frame, as long as
+the required columns are present: <code class="docutils literal notranslate"><span class="pre">region_name</span></code> and <code class="docutils literal notranslate"><span class="pre">ce_target_fraction</span></code>. Optional
+columns are: <code class="docutils literal notranslate"><span class="pre">allowed_resources</span></code> (defaulting to solar &amp; wind),
+<code class="docutils literal notranslate"><span class="pre">external_ce_addl_historical_amount</span></code> (clean energy not modeled in our grid, defaulting
+to 0), and <code class="docutils literal notranslate"><span class="pre">solar_percentage</span></code> (how much of the new capacity will be solar, defaulting
+to the current solar:wind ratio. This input only applies to the <em>independent</em> strategy,
+a shared-goal new solar fraction for <em>collaborative</em> planning is specified in the
+function call to <code class="docutils literal notranslate"><span class="pre">calculate_clean_capacity_scaling</span></code>.</p>
+</div>
+<div class="section" id="optional-inputs">
+<h2>Optional Inputs<a class="headerlink" href="#optional-inputs" title="Permalink to this headline">¶</a></h2>
+<p>Since increasing penetration of renewable capacity is often associated with increased
+curtailment, an expectation of this new curtailment can be passed as the
+<code class="docutils literal notranslate"><span class="pre">addl_curtailment</span></code> parameter. For the <em>collaborative</em> method, this must be passed as a
+dictionary of <code class="docutils literal notranslate"><span class="pre">{resource_name:</span> <span class="pre">value}</span></code> pairs, for the <em>independent</em> method this must
+be passed as a data frame or as a two-layer nested dictionary which can be interpreted
+as a data frame. For either method, additional curtailment must be a value between 0 and
+1, representing a percentage, not percentage points. For example, if the previous
+capacity factor was 30%, and additional curtailment of 10% is specified, the expected
+new capacity factor will be 27%, not 20%.</p>
+<p>Another <code class="docutils literal notranslate"><span class="pre">Scenario</span></code> object can be passed as <code class="docutils literal notranslate"><span class="pre">next_scenario</span></code> to specify the magnitude
+of future demand (relevant for energy goals which are expressed as a fraction of total
+consumption); this <cite>Scenario</cite> object may be any state, as long as
+<code class="docutils literal notranslate"><span class="pre">Scenario.get_demand()</span></code> can be called successfully, i.e., if the <code class="docutils literal notranslate"><span class="pre">Scenario</span></code> object
+is in <strong>create</strong> state, an interconnection must be defined. This allows calculation of
+new capacity for a scenario which is being designed, using the demand scaling present in
+the change table.</p>
+<p>Finally, for the <em>collaborative</em> method, a <code class="docutils literal notranslate"><span class="pre">solar_fraction</span></code> may be defined, which
+determines scenario-wide how much of the new capacity should be solar (the remainder
+will be wind).</p>
+</div>
+<div class="section" id="example-capacity-planning-function-calls">
+<h2>Example Capacity Planning Function Calls<a class="headerlink" href="#example-capacity-planning-function-calls" title="Permalink to this headline">¶</a></h2>
+<p>Basic independent call, using the demand from the reference scenario to approximate the
+future demand:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata.design.generation.clean_capacity_scaling</span> <span class="kn">import</span> <span class="n">calculate_clean_capacity_scaling</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.scenario</span> <span class="kn">import</span> <span class="n">Scenario</span>
+
+<span class="n">ref_scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">403</span><span class="p">)</span>
+<span class="n">targets_and_new_capacities_df</span> <span class="o">=</span> <span class="n">calculate_clean_capacity_scaling</span><span class="p">(</span>
+    <span class="n">ref_scenario</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;independent&quot;</span><span class="p">,</span>
+    <span class="n">targets_filename</span><span class="o">=</span><span class="s2">&quot;eastern_2030_clean_energy_targets.csv&quot;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Complex collaborative call, using all optional parameters:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata.design.generation.clean_capacity_scaling</span> <span class="kn">import</span> <span class="n">calculate_clean_capacity_scaling</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.scenario</span> <span class="kn">import</span> <span class="n">Scenario</span>
+
+<span class="n">ref_scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">403</span><span class="p">)</span>
+<span class="c1"># Start building a new scenario, to plan capacity for greater demand</span>
+<span class="n">new_scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">()</span>
+<span class="n">new_scenario</span><span class="o">.</span><span class="n">set_grid</span><span class="p">(</span><span class="s2">&quot;Eastern&quot;</span><span class="p">)</span>
+<span class="n">zone_demand_scaling</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Massachusetts&quot;</span><span class="p">:</span> <span class="mf">1.1</span><span class="p">,</span> <span class="s2">&quot;New York City&quot;</span><span class="p">:</span> <span class="mf">1.2</span><span class="p">}</span>
+<span class="n">new_scenario</span><span class="o">.</span><span class="n">change_table</span><span class="o">.</span><span class="n">scale_demand</span><span class="p">(</span><span class="n">zone_name</span><span class="o">=</span><span class="n">zone_demand_scaling</span><span class="p">)</span>
+<span class="c1"># Define additional expected curtailment</span>
+<span class="n">addl_curtailment</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="mf">0.15</span><span class="p">}</span>
+
+<span class="n">targets_and_new_capacities_df</span> <span class="o">=</span> <span class="n">calculate_clean_capacity_scaling</span><span class="p">(</span>
+  <span class="n">ref_scenario</span><span class="p">,</span>
+  <span class="n">method</span><span class="o">=</span><span class="s2">&quot;collaborative&quot;</span><span class="p">,</span>
+  <span class="n">targets_filename</span><span class="o">=</span><span class="s2">&quot;eastern_2030_clean_energy_targets.csv&quot;</span><span class="p">,</span>
+  <span class="n">addl_curtailment</span><span class="o">=</span><span class="n">addl_curtailment</span><span class="p">,</span>
+  <span class="n">next_scenario</span><span class="o">=</span><span class="n">new_scenario</span><span class="p">,</span>
+  <span class="n">solar_fraction</span><span class="o">=</span><span class="mf">0.55</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="creating-a-change-table-from-capacity-planning-results">
+<h2>Creating a Change Table from Capacity Planning Results<a class="headerlink" href="#creating-a-change-table-from-capacity-planning-results" title="Permalink to this headline">¶</a></h2>
+<p>The capacity planning framework returns a data frame of capacities by resource type and
+target area, but the scenario creation process ultimately requires scaling factors by
+resource type and zone or plant id. A function <code class="docutils literal notranslate"><span class="pre">create_change_table</span></code> exists to perform
+this conversion process. Using a reference scenario, a set of scaling factors by
+resource type, zone, and plant id is calculated. When applied to a base <code class="docutils literal notranslate"><span class="pre">Grid</span></code> object,
+these scaling factors will result in capacities that are nearly identical to the
+reference scenario on a per-plant basis (subject to rounding), with the exception of
+solar and wind generators, which will be scaled up to meet clean energy goals.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata.design.generation.clean_capacity_scaling</span> <span class="kn">import</span> <span class="n">create_change_table</span>
+
+<span class="n">change_table</span> <span class="o">=</span> <span class="n">create_change_table</span><span class="p">(</span><span class="n">targets_and_new_capacities_df</span><span class="p">,</span> <span class="n">ref_scenario</span><span class="p">)</span>
+<span class="c1"># The change table method only accepts zone names, not zone IDs, so we have to translate</span>
+<span class="n">id2zone</span> <span class="o">=</span> <span class="n">new_scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span><span class="o">.</span><span class="n">id2zone</span>
+<span class="c1"># Plants can only be scaled one resource at a time, so we need to loop through</span>
+<span class="k">for</span> <span class="n">resource</span> <span class="ow">in</span> <span class="n">change_table</span><span class="p">:</span>
+    <span class="n">new_scenario</span><span class="o">.</span><span class="n">change_table</span><span class="o">.</span><span class="n">scale_plant_capacity</span><span class="p">(</span>
+            <span class="n">resource</span><span class="o">=</span><span class="n">resource</span><span class="p">,</span>
+            <span class="n">zone_name</span><span class="o">=</span><span class="p">{</span>
+                    <span class="n">id2zone</span><span class="p">[</span><span class="nb">id</span><span class="p">]:</span> <span class="n">value</span>
+                    <span class="k">for</span> <span class="nb">id</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">change_table</span><span class="p">[</span><span class="n">resource</span><span class="p">][</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="p">},</span>
+            <span class="n">plant_id</span><span class="o">=</span><span class="n">change_table</span><span class="p">[</span><span class="n">resource</span><span class="p">][</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../communication/code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="index.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../postreise_package.html">PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reisejl_package.html">REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.5.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/powersimdata/capacity_planning.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

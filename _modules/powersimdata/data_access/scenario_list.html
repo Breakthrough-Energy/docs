@@ -32,14 +32,12 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.data_access.scenario_list</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">posixpath</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span></span><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
 
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.data_access.csv_store</span> <span class="kn">import</span> <span class="n">CsvStore</span><span class="p">,</span> <span class="n">verify_hash</span>
 <span class="kn">from</span> <span class="nn">powersimdata.data_access.sql_store</span> <span class="kn">import</span> <span class="n">SqlStore</span><span class="p">,</span> <span class="n">to_data_frame</span>
-<span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
 
 
 <div class="viewcode-block" id="ScenarioTable"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioTable">[docs]</a><span class="k">class</span> <span class="nc">ScenarioTable</span><span class="p">(</span><span class="n">SqlStore</span><span class="p">):</span>
@@ -108,17 +106,9 @@
 
 
 <div class="viewcode-block" id="ScenarioListManager"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioListManager">[docs]</a><span class="k">class</span> <span class="nc">ScenarioListManager</span><span class="p">(</span><span class="n">CsvStore</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Storage abstraction for scenario list using a csv file on the server.</span>
-
-<span class="sd">    :param paramiko.client.SSHClient ssh_client: session with an SSH server.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;Storage abstraction for scenario list using a csv file.&quot;&quot;&quot;</span>
 
     <span class="n">_FILE_NAME</span> <span class="o">=</span> <span class="s2">&quot;ScenarioList.csv&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ssh_client</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">ssh_client</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_server_path</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_FILE_NAME</span><span class="p">)</span>
 
 <div class="viewcode-block" id="ScenarioListManager.get_scenario_table"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioListManager.get_scenario_table">[docs]</a>    <span class="k">def</span> <span class="nf">get_scenario_table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns scenario table from server if possible, otherwise read local</span>
@@ -128,15 +118,15 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_table</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="ScenarioListManager.generate_scenario_id"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioListManager.generate_scenario_id">[docs]</a>    <span class="k">def</span> <span class="nf">generate_scenario_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_generate_scenario_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Generates scenario id.</span>
 
+<span class="sd">        :param pandas.DataFrame table: the current scenario list</span>
 <span class="sd">        :return: (*str*) -- new scenario id.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_scenario_table</span><span class="p">()</span>
         <span class="n">max_value</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
         <span class="n">result</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">max_value</span><span class="p">)</span> <span class="k">else</span> <span class="n">max_value</span> <span class="o">+</span> <span class="mi">1</span>
-        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
 
 <div class="viewcode-block" id="ScenarioListManager.get_scenario"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.scenario_list.ScenarioListManager.get_scenario">[docs]</a>    <span class="k">def</span> <span class="nf">get_scenario</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">descriptor</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get information for a scenario based on id or name</span>
@@ -180,6 +170,9 @@
 <span class="sd">        :return: (*pandas.DataFrame*) -- the updated data frame</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_scenario_table</span><span class="p">()</span>
+        <span class="n">scenario_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_scenario_id</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
+        <span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">scenario_id</span>
+        <span class="n">scenario_info</span><span class="o">.</span><span class="n">move_to_end</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="n">last</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">table</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">entry</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">scenario_info</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
         <span class="n">table</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>

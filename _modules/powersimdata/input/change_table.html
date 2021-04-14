@@ -125,8 +125,11 @@
 <span class="sd">        the and the scaling factor for the increase/decrease in capacity</span>
 <span class="sd">        of the line as value.</span>
 <span class="sd">    * *&#39;storage&#39;*:</span>
-<span class="sd">        value is a dictionary. The latter has *&#39;bus_id&#39;* as keys and the</span>
-<span class="sd">        capacity of storage (in MW) to add as value.</span>
+<span class="sd">        value is a list. Each entry in this list is a dictionary enclosing all the</span>
+<span class="sd">        information needed to add a new storage device to the grid. The keys in the</span>
+<span class="sd">        dictionary are: *&#39;bus_id&#39;*, *&#39;capacity&#39;*, &quot;duration&quot;, &quot;min_stor&quot;, &quot;max_stor&quot;,</span>
+<span class="sd">        &quot;energy_value&quot;, &quot;InEff&quot;, &quot;OutEff&quot;, &quot;LossFactor&quot;, &quot;terminal_min&quot;,</span>
+<span class="sd">        and &quot;terminal_max&quot;. See the :meth:`add_storage_capacity` method for details.</span>
 <span class="sd">    * *&#39;new_dcline&#39;*:</span>
 <span class="sd">        value is a list. Each entry in this list is a dictionary enclosing</span>
 <span class="sd">        all the information needed to add a new dcline to the grid. The</span>
@@ -501,7 +504,23 @@
 
 <span class="sd">        :param list info: each entry is a dictionary. The dictionary gathers</span>
 <span class="sd">            the information needed to create a new storage device.</span>
-<span class="sd">        :raises TypeError: if info is not a list.</span>
+<span class="sd">            Required keys: &quot;bus_id&quot;, &quot;capacity&quot;.</span>
+<span class="sd">            &quot;capacity&quot; denotes the symmetric input and output power limits (MW).</span>
+<span class="sd">            Optional keys: &quot;duration&quot;, &quot;min_stor&quot;, &quot;max_stor&quot;, &quot;energy_value&quot;, &quot;InEff&quot;,</span>
+<span class="sd">                &quot;OutEff&quot;, &quot;LossFactor&quot;, &quot;terminal_min&quot;, &quot;terminal_max&quot;.</span>
+<span class="sd">            &quot;duration&quot; denotes the energy to power ratio (hours).</span>
+<span class="sd">            &quot;min_stor&quot; denotes the minimum energy limit (unitless), e.g. 0.05 = 5%.</span>
+<span class="sd">            &quot;max_stor&quot; denotes the maximum energy limit (unitless), e.g. 0.95 = 95%.</span>
+<span class="sd">            &quot;energy_value&quot; denotes the value of stored energy at interval end ($/MWh).</span>
+<span class="sd">            &quot;InEff&quot; denotes the input efficiency (unitless), e.g. 0.95 = 95%.</span>
+<span class="sd">            &quot;OutEff&quot; denotes the output efficiency (unitless), e.g. 0.95 = 95%.</span>
+<span class="sd">            &quot;LossFactor&quot; denotes the per-hour relative losses,</span>
+<span class="sd">            e.g. 0.01 means that 1% of the current state of charge is lost per hour).</span>
+<span class="sd">            &quot;terminal_min&quot; denotes the minimum state of charge at interval end,</span>
+<span class="sd">            e.g. 0.5 means that the storage must end the interval with at least 50%.</span>
+<span class="sd">            &quot;terminal_max&quot; denotes the maximum state of charge at interval end,</span>
+<span class="sd">            e.g. 0.9 means that the storage must end the interval with no more than 90%.</span>
+<span class="sd">        :raises TypeError: if ``info`` is not a list.</span>
 <span class="sd">        :raises ValueError: if any of the new storages to be added have bad values.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
@@ -554,7 +573,14 @@
 
 <span class="sd">        :param list info: each entry is a dictionary. The dictionary gathers</span>
 <span class="sd">            the information needed to create a new dcline.</span>
-<span class="sd">        :raises TypeError: if info is not a list.</span>
+<span class="sd">            Required keys: &quot;from_bus_id&quot;, &quot;to_bus_id&quot;.</span>
+<span class="sd">            Optional keys: &quot;capacity&quot;, &quot;Pmax&quot;, &quot;Pmin&quot;.</span>
+<span class="sd">            &quot;capacity&quot; denotes a bidirectional power limit (MW).</span>
+<span class="sd">            &quot;Pmax&quot; denotes a limit on power flowing from &#39;from&#39; end to &#39;to&#39; end.</span>
+<span class="sd">            &quot;Pmin&quot; denotes a limit on power flowing from &#39;from&#39; end to &#39;to&#39; end.</span>
+<span class="sd">            Either &quot;capacity&quot; XOR (&quot;Pmax&quot; and &quot;Pmin&quot;) must be provided.</span>
+<span class="sd">            `capacity: 200` is equivalent to `Pmax: 200, Pmin: -200`.</span>
+<span class="sd">        :raises TypeError: if ``info`` is not a list.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Argument enclosing new HVDC line(s) must be a list&quot;</span><span class="p">)</span>
@@ -565,7 +591,8 @@
 
 <span class="sd">        :param list info: each entry is a dictionary. The dictionary gathers</span>
 <span class="sd">            the information needed to create a new branch.</span>
-<span class="sd">        :raises TypeError: if info is not a list.</span>
+<span class="sd">            Required keys: &quot;from_bus_id&quot;, &quot;to_bus_id&quot;, &quot;capacity&quot;.</span>
+<span class="sd">        :raises TypeError: if ``info`` is not a list.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Argument enclosing new AC line(s) must be a list&quot;</span><span class="p">)</span>
@@ -680,7 +707,13 @@
 
 <span class="sd">        :param list info: each entry is a dictionary. The dictionary gathers</span>
 <span class="sd">            the information needed to create a new generator.</span>
-<span class="sd">        :raises TypeError: if info is not a list.</span>
+<span class="sd">            Required keys: &quot;bus_id&quot;, &quot;Pmax&quot;, &quot;type&quot;.</span>
+<span class="sd">            Optional keys: &quot;c0&quot;, &quot;c1&quot;, &quot;c2&quot;, &quot;Pmin&quot;.</span>
+<span class="sd">            &quot;c0&quot;, &quot;c1&quot;, and &quot;c2&quot; are the coefficients for the cost curve, representing</span>
+<span class="sd">            the fixed cost ($/hour), linear cost ($/MWh),</span>
+<span class="sd">            and quadratic cost ($/:math:`\rm{MW}^2 \rm{h}`).</span>
+<span class="sd">            These are optional for hydro, solar, and wind, and required for other types.</span>
+<span class="sd">        :raises TypeError: if ``info`` is not a list.</span>
 <span class="sd">        :raises ValueError: if any of the new plants to be added have bad values.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
@@ -735,7 +768,7 @@
 <span class="sd">            the information needed to create a new bus.</span>
 <span class="sd">            Required keys: &quot;lat&quot;, &quot;lon&quot;, [&quot;zone_id&quot; XOR &quot;zone_name&quot;].</span>
 <span class="sd">            Optional key: &quot;Pd&quot;, &quot;baseKV&quot;.</span>
-<span class="sd">        :raises TypeError: if info is not a list.</span>
+<span class="sd">        :raises TypeError: if ``info`` is not a list.</span>
 <span class="sd">        :raises ValueError: if any new bus doesn&#39;t have appropriate keys/values.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>

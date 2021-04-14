@@ -169,8 +169,11 @@ of the line as value.</p>
 </dl>
 </li>
 <li><dl class="simple">
-<dt><em>‘storage’</em>:</dt><dd><p>value is a dictionary. The latter has <em>‘bus_id’</em> as keys and the
-capacity of storage (in MW) to add as value.</p>
+<dt><em>‘storage’</em>:</dt><dd><p>value is a list. Each entry in this list is a dictionary enclosing all the
+information needed to add a new storage device to the grid. The keys in the
+dictionary are: <em>‘bus_id’</em>, <em>‘capacity’</em>, “duration”, “min_stor”, “max_stor”,
+“energy_value”, “InEff”, “OutEff”, “LossFactor”, “terminal_min”,
+and “terminal_max”. See the <a class="reference internal" href="#powersimdata.input.change_table.ChangeTable.add_storage_capacity" title="powersimdata.input.change_table.ChangeTable.add_storage_capacity"><code class="xref py py-meth docutils literal notranslate"><span class="pre">add_storage_capacity()</span></code></a> method for details.</p>
 </dd>
 </dl>
 </li>
@@ -222,10 +225,11 @@ optionally the nominal demand at that bus (defaults to 0).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>info</strong> (<em>list</em>) – each entry is a dictionary. The dictionary gathers
-the information needed to create a new branch.</p>
+the information needed to create a new branch.
+Required keys: “from_bus_id”, “to_bus_id”, “capacity”.</p>
 </dd>
 <dt class="field-even">Raises</dt>
-<dd class="field-even"><p><strong>TypeError</strong> – if info is not a list.</p>
+<dd class="field-even"><p><strong>TypeError</strong> – if <code class="docutils literal notranslate"><span class="pre">info</span></code> is not a list.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -243,7 +247,7 @@ Optional key: “Pd”, “baseKV”.</p>
 </dd>
 <dt class="field-even">Raises</dt>
 <dd class="field-even"><ul class="simple">
-<li><p><strong>TypeError</strong> – if info is not a list.</p></li>
+<li><p><strong>TypeError</strong> – if <code class="docutils literal notranslate"><span class="pre">info</span></code> is not a list.</p></li>
 <li><p><strong>ValueError</strong> – if any new bus doesn’t have appropriate keys/values.</p></li>
 </ul>
 </dd>
@@ -257,10 +261,17 @@ Optional key: “Pd”, “baseKV”.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>info</strong> (<em>list</em>) – each entry is a dictionary. The dictionary gathers
-the information needed to create a new dcline.</p>
+the information needed to create a new dcline.
+Required keys: “from_bus_id”, “to_bus_id”.
+Optional keys: “capacity”, “Pmax”, “Pmin”.
+“capacity” denotes a bidirectional power limit (MW).
+“Pmax” denotes a limit on power flowing from ‘from’ end to ‘to’ end.
+“Pmin” denotes a limit on power flowing from ‘from’ end to ‘to’ end.
+Either “capacity” XOR (“Pmax” and “Pmin”) must be provided.
+<cite>capacity: 200</cite> is equivalent to <cite>Pmax: 200, Pmin: -200</cite>.</p>
 </dd>
 <dt class="field-even">Raises</dt>
-<dd class="field-even"><p><strong>TypeError</strong> – if info is not a list.</p>
+<dd class="field-even"><p><strong>TypeError</strong> – if <code class="docutils literal notranslate"><span class="pre">info</span></code> is not a list.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -269,18 +280,34 @@ the information needed to create a new dcline.</p>
 <dt id="powersimdata.input.change_table.ChangeTable.add_plant">
 <code class="sig-name descname"><span class="pre">add_plant</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">info</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/powersimdata/input/change_table.html#ChangeTable.add_plant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#powersimdata.input.change_table.ChangeTable.add_plant" title="Permalink to this definition">¶</a></dt>
 <dd><p>Sets parameters of new generator(s) in change table.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>info</strong> (<em>list</em>) – each entry is a dictionary. The dictionary gathers
-the information needed to create a new generator.</p>
-</dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>TypeError</strong> – if info is not a list.</p></li>
-<li><p><strong>ValueError</strong> – if any of the new plants to be added have bad values.</p></li>
-</ul>
+<blockquote>
+<div><dl class="field-list simple">
+<dt class="field-odd">param list info</dt>
+<dd class="field-odd"><p>each entry is a dictionary. The dictionary gathers
+the information needed to create a new generator.
+Required keys: “bus_id”, “Pmax”, “type”.
+Optional keys: “c0”, “c1”, “c2”, “Pmin”.
+“c0”, “c1”, and “c2” are the coefficients for the cost curve, representing
+the fixed cost ($/hour), linear cost ($/MWh),
+and quadratic cost ($/:math:<a href="#id1"><span class="problematic" id="id2">`</span></a></p>
 </dd>
 </dl>
+</div></blockquote>
+<p>m{MW}^2 
+m{h}`).</p>
+<blockquote>
+<div><blockquote>
+<div><p>These are optional for hydro, solar, and wind, and required for other types.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">raises TypeError</dt>
+<dd class="field-odd"><p>if <code class="docutils literal notranslate"><span class="pre">info</span></code> is not a list.</p>
+</dd>
+<dt class="field-even">raises ValueError</dt>
+<dd class="field-even"><p>if any of the new plants to be added have bad values.</p>
+</dd>
+</dl>
+</div></blockquote>
 </dd></dl>
 
 <dl class="py method">
@@ -289,12 +316,31 @@ the information needed to create a new generator.</p>
 <dd><p>Sets storage parameters in change table.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>info</strong> (<em>list</em>) – each entry is a dictionary. The dictionary gathers
-the information needed to create a new storage device.</p>
+<dd class="field-odd"><p><strong>info</strong> (<em>list</em>) – <p>each entry is a dictionary. The dictionary gathers
+the information needed to create a new storage device.
+Required keys: “bus_id”, “capacity”.
+“capacity” denotes the symmetric input and output power limits (MW).
+Optional keys: “duration”, “min_stor”, “max_stor”, “energy_value”, “InEff”,</p>
+<blockquote>
+<div><p>”OutEff”, “LossFactor”, “terminal_min”, “terminal_max”.</p>
+</div></blockquote>
+<p>”duration” denotes the energy to power ratio (hours).
+“min_stor” denotes the minimum energy limit (unitless), e.g. 0.05 = 5%.
+“max_stor” denotes the maximum energy limit (unitless), e.g. 0.95 = 95%.
+“energy_value” denotes the value of stored energy at interval end ($/MWh).
+“InEff” denotes the input efficiency (unitless), e.g. 0.95 = 95%.
+“OutEff” denotes the output efficiency (unitless), e.g. 0.95 = 95%.
+“LossFactor” denotes the per-hour relative losses,
+e.g. 0.01 means that 1% of the current state of charge is lost per hour).
+“terminal_min” denotes the minimum state of charge at interval end,
+e.g. 0.5 means that the storage must end the interval with at least 50%.
+“terminal_max” denotes the maximum state of charge at interval end,
+e.g. 0.9 means that the storage must end the interval with no more than 90%.</p>
+</p>
 </dd>
 <dt class="field-even">Raises</dt>
 <dd class="field-even"><ul class="simple">
-<li><p><strong>TypeError</strong> – if info is not a list.</p></li>
+<li><p><strong>TypeError</strong> – if <code class="docutils literal notranslate"><span class="pre">info</span></code> is not a list.</p></li>
 <li><p><strong>ValueError</strong> – if any of the new storages to be added have bad values.</p></li>
 </ul>
 </dd>

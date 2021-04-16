@@ -39,6 +39,8 @@ On Laptop/Desktop
       backup storage mounted on you server that you plan to use to transfer scenario
       data.
 + Install Python and its dependencies as instructed in our :doc:`python_guide` guide
++ Fork `PostREISE <https://github.com/Breakthrough-Energy/PostREISE>`_ to later analyze
+  and plot scenario data.
 
 
 On Server

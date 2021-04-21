@@ -117,8 +117,7 @@
 
 <span class="sd">        :param str relative_path: the path, without filename, relative to root</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">full_path</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">relative_path</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;mkdir -p </span><span class="si">{</span><span class="n">full_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
 <div class="viewcode-block" id="DataAccess.execute_command"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.execute_command">[docs]</a>    <span class="k">def</span> <span class="nf">execute_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Execute a command locally at the data access.</span>
@@ -213,6 +212,14 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_file_exists</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="n">should_exist</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dest</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">src</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="LocalDataAccess.makedir"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.LocalDataAccess.makedir">[docs]</a>    <span class="k">def</span> <span class="nf">makedir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">relative_path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create paths relative to the instance root</span>
+
+<span class="sd">        :param str relative_path: the path, without filename, relative to root</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">relative_path</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="LocalDataAccess.execute_command"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.LocalDataAccess.execute_command">[docs]</a>    <span class="k">def</span> <span class="nf">execute_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Execute a command locally at the data access.</span>
@@ -428,6 +435,17 @@
             <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">errors</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
             <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;Failed to push file - most likely a conflict was detected.&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SSHDataAccess.makedir"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess.makedir">[docs]</a>    <span class="k">def</span> <span class="nf">makedir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">relative_path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create paths relative to the instance root</span>
+
+<span class="sd">        :param str relative_path: the path, without filename, relative to root</span>
+<span class="sd">        :raises IOError: if command generated stderr</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">full_path</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">relative_path</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;mkdir -p </span><span class="si">{</span><span class="n">full_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;Failed to create </span><span class="si">%s</span><span class="s2"> on server&quot;</span> <span class="o">%</span> <span class="n">full_path</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SSHDataAccess.close"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Close the connection that was opened when the object was created.&quot;&quot;&quot;</span>

@@ -34,6 +34,7 @@
   <h1>Source code for powersimdata.design.transmission.upgrade</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
+<span class="kn">from</span> <span class="nn">powersimdata.design.investment.investment_costs</span> <span class="kn">import</span> <span class="n">_calculate_ac_inv_costs</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">area_to_loadzone</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.distance</span> <span class="kn">import</span> <span class="n">haversine</span>
@@ -296,14 +297,13 @@
     <span class="n">zero_length_value</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># miles</span>
 
     <span class="c1"># Validate method input</span>
-    <span class="n">allowed_methods</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;branches&quot;</span><span class="p">,</span> <span class="s2">&quot;MW&quot;</span><span class="p">,</span> <span class="s2">&quot;MWmiles&quot;</span><span class="p">)</span>
+    <span class="n">allowed_methods</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;branches&quot;</span><span class="p">,</span> <span class="s2">&quot;MW&quot;</span><span class="p">,</span> <span class="s2">&quot;MWmiles&quot;</span><span class="p">,</span> <span class="s2">&quot;cost&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed_methods</span><span class="p">:</span>
         <span class="n">allowed_list</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">allowed_methods</span><span class="p">)</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;method must be one of: </span><span class="si">{</span><span class="n">allowed_list</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="c1"># Get raw congestion dual values, add them</span>
-    <span class="n">rss</span> <span class="o">=</span> <span class="n">ref_scenario</span><span class="o">.</span><span class="n">state</span>
-    <span class="n">ref_cong_abs</span> <span class="o">=</span> <span class="n">rss</span><span class="o">.</span><span class="n">get_congu</span><span class="p">()</span> <span class="o">+</span> <span class="n">rss</span><span class="o">.</span><span class="n">get_congl</span><span class="p">()</span>
+    <span class="n">ref_cong_abs</span> <span class="o">=</span> <span class="n">ref_scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_congu</span><span class="p">()</span> <span class="o">+</span> <span class="n">ref_scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_congl</span><span class="p">()</span>
     <span class="n">all_branches</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">ref_cong_abs</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
     <span class="c1"># Create validated composite allow list</span>
     <span class="n">composite_allow_list</span> <span class="o">=</span> <span class="n">_construct_composite_allow_list</span><span class="p">(</span>
@@ -311,12 +311,12 @@
     <span class="p">)</span>
 
     <span class="c1"># Parse 2-D array to vector of quantile values</span>
+    <span class="n">ref_cong_abs</span> <span class="o">=</span> <span class="n">ref_cong_abs</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">items</span><span class="o">=</span><span class="n">composite_allow_list</span><span class="p">)</span>
     <span class="n">quantile_cong_abs</span> <span class="o">=</span> <span class="n">ref_cong_abs</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">quantile</span><span class="p">)</span>
     <span class="c1"># Filter out insignificant values</span>
     <span class="n">significance_bitmask</span> <span class="o">=</span> <span class="n">quantile_cong_abs</span> <span class="o">&gt;</span> <span class="n">cong_significance_cutoff</span>
     <span class="n">quantile_cong_abs</span> <span class="o">=</span> <span class="n">quantile_cong_abs</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">significance_bitmask</span><span class="p">)</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
     <span class="c1"># Filter based on composite allow list</span>
-    <span class="n">quantile_cong_abs</span> <span class="o">=</span> <span class="n">quantile_cong_abs</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">items</span><span class="o">=</span><span class="n">composite_allow_list</span><span class="p">)</span>
     <span class="n">congested_indices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">quantile_cong_abs</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
 
     <span class="c1"># Ensure that we have enough congested branches to upgrade</span>
@@ -327,6 +327,15 @@
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
 
     <span class="c1"># Calculate selected metric for congested branches</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;cost&quot;</span><span class="p">:</span>
+        <span class="c1"># Calculate costs for an upgrade dataframe containing only composite_allow_list</span>
+        <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
+            <span class="n">ref_scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">],</span> <span class="n">ref_scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">base_grid</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">items</span><span class="o">=</span><span class="n">congested_indices</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">upgrade_costs</span> <span class="o">=</span> <span class="n">_calculate_ac_inv_costs</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="c1"># Merge the individual line/transformer data into a single Series</span>
+        <span class="n">merged_upgrade_costs</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">v</span><span class="o">.</span><span class="n">Cost</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">upgrade_costs</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
     <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;MW&quot;</span><span class="p">,</span> <span class="s2">&quot;MWmiles&quot;</span><span class="p">):</span>
         <span class="n">ref_grid</span> <span class="o">=</span> <span class="n">ref_scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
         <span class="n">branch_ratings</span> <span class="o">=</span> <span class="n">ref_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">congested_indices</span><span class="p">,</span> <span class="s2">&quot;rateA&quot;</span><span class="p">]</span>
@@ -349,6 +358,8 @@
         <span class="c1"># Replace zero-length branches by designated default, don&#39;t divide by 0</span>
         <span class="n">branch_lengths</span> <span class="o">=</span> <span class="n">branch_lengths</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">zero_length_value</span><span class="p">)</span>
         <span class="n">branch_metric</span> <span class="o">=</span> <span class="n">quantile_cong_abs</span> <span class="o">/</span> <span class="p">(</span><span class="n">branch_ratings</span> <span class="o">*</span> <span class="n">branch_lengths</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;cost&quot;</span><span class="p">:</span>
+        <span class="n">branch_metric</span> <span class="o">=</span> <span class="n">quantile_cong_abs</span> <span class="o">/</span> <span class="n">merged_upgrade_costs</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="c1"># By process of elimination, all that&#39;s left is method &#39;branches&#39;</span>
         <span class="n">branch_metric</span> <span class="o">=</span> <span class="n">quantile_cong_abs</span>

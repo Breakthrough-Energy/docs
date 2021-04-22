@@ -90,6 +90,14 @@
         <span class="n">command</span> <span class="o">=</span> <span class="n">CommandBuilder</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="p">,</span> <span class="n">force</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="n">command</span><span class="p">)</span></div>
 
+    <span class="k">def</span> <span class="nf">_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return whether the file exists</span>
+
+<span class="sd">        :param str filepath: the path to the file</span>
+<span class="sd">        :return: (*bool*) -- whether the file exists</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
     <span class="k">def</span> <span class="nf">_check_file_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">,</span> <span class="n">should_exist</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Check that file exists (or not) at the given path</span>
 
@@ -97,11 +105,11 @@
 <span class="sd">        :param bool should_exist: whether the file is expected to exist</span>
 <span class="sd">        :raises OSError: if the expected condition is not met</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="n">CommandBuilder</span><span class="o">.</span><span class="n">list</span><span class="p">(</span><span class="n">filepath</span><span class="p">))</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exists</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
         <span class="n">compare</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">ne</span> <span class="k">if</span> <span class="n">should_exist</span> <span class="k">else</span> <span class="n">operator</span><span class="o">.</span><span class="n">eq</span>
-        <span class="k">if</span> <span class="n">compare</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">()),</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">compare</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
             <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;not found&quot;</span> <span class="k">if</span> <span class="n">should_exist</span> <span class="k">else</span> <span class="s2">&quot;already exists&quot;</span>
-            <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s2"> on server&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_check_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Check that filename is only the name part</span>
@@ -170,6 +178,7 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">root</span> <span class="k">if</span> <span class="n">root</span> <span class="k">else</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;local machine&quot;</span>
 
 <div class="viewcode-block" id="LocalDataAccess.copy_from"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.LocalDataAccess.copy_from">[docs]</a>    <span class="k">def</span> <span class="nf">copy_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Copy a file from data store to userspace.</span>
@@ -251,7 +260,15 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">blob_version</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_profile_version</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>
         <span class="n">local_version</span> <span class="o">=</span> <span class="n">ProfileHelper</span><span class="o">.</span><span class="n">get_profile_version_local</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>
-        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">blob_version</span> <span class="o">+</span> <span class="n">local_version</span><span class="p">))</span></div></div>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">blob_version</span> <span class="o">+</span> <span class="n">local_version</span><span class="p">))</span></div>
+
+    <span class="k">def</span> <span class="nf">_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return whether the file exists</span>
+
+<span class="sd">        :param str filepath: the path to the file</span>
+<span class="sd">        :return: (*bool*) -- whether the file exists</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="SSHDataAccess"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess">[docs]</a><span class="k">class</span> <span class="nc">SSHDataAccess</span><span class="p">(</span><span class="n">DataAccess</span><span class="p">):</span>
@@ -265,6 +282,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_retry_after</span> <span class="o">=</span> <span class="mi">5</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span> <span class="k">if</span> <span class="n">root</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">root</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">local_root</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;server&quot;</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">ssh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -446,6 +464,15 @@
         <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;mkdir -p </span><span class="si">{</span><span class="n">full_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;Failed to create </span><span class="si">%s</span><span class="s2"> on server&quot;</span> <span class="o">%</span> <span class="n">full_path</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return whether the file exists</span>
+
+<span class="sd">        :param str filepath: the path to the file</span>
+<span class="sd">        :return: (*bool*) -- whether the file exists</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ls </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span> <span class="o">==</span> <span class="mi">0</span>
 
 <div class="viewcode-block" id="SSHDataAccess.close"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Close the connection that was opened when the object was created.&quot;&quot;&quot;</span>

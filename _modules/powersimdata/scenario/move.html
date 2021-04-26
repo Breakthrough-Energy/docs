@@ -59,10 +59,13 @@
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">val</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="Move.move_scenario"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.move.Move.move_scenario">[docs]</a>    <span class="k">def</span> <span class="nf">move_scenario</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="s2">&quot;disk&quot;</span><span class="p">):</span>
+<div class="viewcode-block" id="Move.move_scenario"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.move.Move.move_scenario">[docs]</a>    <span class="k">def</span> <span class="nf">move_scenario</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="s2">&quot;disk&quot;</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Move scenario.</span>
 
 <span class="sd">        :param str target: optional argument specifying the backup system.</span>
+<span class="sd">        :param bool confirm: prompt before deleting each batch of files</span>
+<span class="sd">        :raises TypeError: if target is not a str</span>
+<span class="sd">        :raises ValueError: if target is unknown (only &quot;disk&quot; is supported)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;string is expected for optional argument target&quot;</span><span class="p">)</span>
@@ -72,9 +75,9 @@
 
         <span class="n">backup</span> <span class="o">=</span> <span class="n">BackUpDisk</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">)</span>
 
-        <span class="n">backup</span><span class="o">.</span><span class="n">move_input_data</span><span class="p">()</span>
-        <span class="n">backup</span><span class="o">.</span><span class="n">move_output_data</span><span class="p">()</span>
-        <span class="n">backup</span><span class="o">.</span><span class="n">move_temporary_folder</span><span class="p">()</span>
+        <span class="n">backup</span><span class="o">.</span><span class="n">move_input_data</span><span class="p">(</span><span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
+        <span class="n">backup</span><span class="o">.</span><span class="n">move_output_data</span><span class="p">(</span><span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
+        <span class="n">backup</span><span class="o">.</span><span class="n">move_temporary_folder</span><span class="p">(</span><span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
 
         <span class="n">sid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_execute_list_manager</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="n">sid</span><span class="p">,</span> <span class="s2">&quot;moved&quot;</span><span class="p">)</span>
@@ -92,7 +95,7 @@
 
 <span class="sd">    :param powersimdata.data_access.data_access.DataAccess data_access:</span>
 <span class="sd">        data access object.</span>
-<span class="sd">    :param dict scenario: scenario information.</span>
+<span class="sd">    :param dict scenario_info: scenario information.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_access</span><span class="p">,</span> <span class="n">scenario_info</span><span class="p">):</span>
@@ -101,39 +104,40 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span> <span class="o">=</span> <span class="n">scenario_info</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">backup_config</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">PathConfig</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">BACKUP_DATA_ROOT_DIR</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">server_config</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">PathConfig</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scenario_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wildcard</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">_*&quot;</span>
 
-<div class="viewcode-block" id="BackUpDisk.move_input_data"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.move.BackUpDisk.move_input_data">[docs]</a>    <span class="k">def</span> <span class="nf">move_input_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="BackUpDisk.move_input_data"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.move.BackUpDisk.move_input_data">[docs]</a>    <span class="k">def</span> <span class="nf">move_input_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Moves input data.&quot;&quot;&quot;</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Moving scenario input data to backup disk&quot;</span><span class="p">)</span>
         <span class="n">source</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">server_config</span><span class="o">.</span><span class="n">input_dir</span><span class="p">(),</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;_*&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">wildcard</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">backup_config</span><span class="o">.</span><span class="n">input_dir</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="BackUpDisk.move_output_data"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.move.BackUpDisk.move_output_data">[docs]</a>    <span class="k">def</span> <span class="nf">move_output_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="BackUpDisk.move_output_data"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.move.BackUpDisk.move_output_data">[docs]</a>    <span class="k">def</span> <span class="nf">move_output_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Moves output data&quot;&quot;&quot;</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Moving scenario output data to backup disk&quot;</span><span class="p">)</span>
         <span class="n">source</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">server_config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">(),</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;_*&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">wildcard</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">backup_config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="BackUpDisk.move_temporary_folder"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.move.BackUpDisk.move_temporary_folder">[docs]</a>    <span class="k">def</span> <span class="nf">move_temporary_folder</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="BackUpDisk.move_temporary_folder"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.move.BackUpDisk.move_temporary_folder">[docs]</a>    <span class="k">def</span> <span class="nf">move_temporary_folder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Moves temporary folder.&quot;&quot;&quot;</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Moving temporary folder to backup disk&quot;</span><span class="p">)</span>
         <span class="n">source</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">server_config</span><span class="o">.</span><span class="n">execute_dir</span><span class="p">(),</span>
-            <span class="s2">&quot;scenario_&quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">],</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">server_config</span><span class="o">.</span><span class="n">execute_dir</span><span class="p">(),</span> <span class="s2">&quot;scenario_&quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_id</span>
         <span class="p">)</span>
         <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">backup_config</span><span class="o">.</span><span class="n">execute_dir</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">update</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>

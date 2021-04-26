@@ -32,7 +32,8 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.data_access.data_access</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">operator</span>
+<span></span><span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">operator</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">posixpath</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
@@ -80,15 +81,14 @@
         <span class="n">command</span> <span class="o">=</span> <span class="n">CommandBuilder</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dest</span><span class="p">,</span> <span class="n">recursive</span><span class="p">,</span> <span class="n">update</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="n">command</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="DataAccess.remove"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.remove">[docs]</a>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="DataAccess.remove"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.remove">[docs]</a>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Wrapper around rm command</span>
 
 <span class="sd">        :param str target: path to remove</span>
 <span class="sd">        :param bool recursive: delete directories recursively</span>
-<span class="sd">        :param bool force: remove without confirmation</span>
+<span class="sd">        :param bool confirm: prompt before executing command</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">command</span> <span class="o">=</span> <span class="n">CommandBuilder</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="p">,</span> <span class="n">force</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="n">command</span><span class="p">)</span></div>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
     <span class="k">def</span> <span class="nf">_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return whether the file exists</span>
@@ -229,6 +229,26 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">target</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">relative_path</span><span class="p">)</span>
         <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="LocalDataAccess.remove"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.LocalDataAccess.remove">[docs]</a>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Remove target using rm semantics</span>
+
+<span class="sd">        :param str target: path to remove</span>
+<span class="sd">        :param bool recursive: delete directories recursively</span>
+<span class="sd">        :param bool confirm: prompt before executing command</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">confirm</span><span class="p">:</span>
+            <span class="n">confirmed</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Delete </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">? [y/n] (default is &#39;n&#39;)&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">confirmed</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Operation cancelled.&quot;</span><span class="p">)</span>
+                <span class="k">return</span>
+        <span class="k">if</span> <span class="n">recursive</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">target</span><span class="p">)</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">f</span><span class="p">)]</span>
+            <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Done!&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="LocalDataAccess.execute_command"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.LocalDataAccess.execute_command">[docs]</a>    <span class="k">def</span> <span class="nf">execute_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Execute a command locally at the data access.</span>
@@ -464,6 +484,25 @@
         <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;mkdir -p </span><span class="si">{</span><span class="n">full_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;Failed to create </span><span class="si">%s</span><span class="s2"> on server&quot;</span> <span class="o">%</span> <span class="n">full_path</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SSHDataAccess.remove"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess.remove">[docs]</a>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Run rm command on server</span>
+
+<span class="sd">        :param str target: path to remove</span>
+<span class="sd">        :param bool recursive: delete directories recursively</span>
+<span class="sd">        :param bool confirm: prompt before executing command</span>
+<span class="sd">        :raises IOError: if command generated stderr</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">command</span> <span class="o">=</span> <span class="n">CommandBuilder</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">confirm</span><span class="p">:</span>
+            <span class="n">confirmed</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Execute &#39;</span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s2">&#39;? [y/n] (default is &#39;n&#39;)&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">confirmed</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Operation cancelled.&quot;</span><span class="p">)</span>
+                <span class="k">return</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">execute_command</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to delete target=</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2"> on server&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Done!&quot;</span><span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return whether the file exists</span>

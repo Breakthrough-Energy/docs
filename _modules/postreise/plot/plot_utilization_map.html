@@ -39,73 +39,91 @@
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">from</span> <span class="nn">bokeh.models</span> <span class="kn">import</span> <span class="n">ColorBar</span><span class="p">,</span> <span class="n">ColumnDataSource</span><span class="p">,</span> <span class="n">HoverTool</span>
 <span class="kn">from</span> <span class="nn">bokeh.plotting</span> <span class="kn">import</span> <span class="n">figure</span>
-<span class="kn">from</span> <span class="nn">bokeh.tile_providers</span> <span class="kn">import</span> <span class="n">Vendors</span><span class="p">,</span> <span class="n">get_provider</span>
 <span class="kn">from</span> <span class="nn">bokeh.transform</span> <span class="kn">import</span> <span class="n">linear_cmap</span>
 
-<span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">get_state_borders</span>
-<span class="kn">from</span> <span class="nn">postreise.plot.projection_helpers</span> <span class="kn">import</span> <span class="n">project_borders</span><span class="p">,</span> <span class="n">project_branch</span>
-
-<span class="n">traffic_palette</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="s2">&quot;darkgreen&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;green&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;limegreen&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;lawngreen&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;yellowgreen&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;yellow&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;gold&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;goldenrod&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;orange&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;orangered&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;red&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;darkred&quot;</span><span class="p">,</span>
-<span class="p">]</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.transmission.utilization</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">generate_cong_stats</span><span class="p">,</span>
+    <span class="n">get_utilization</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.colors</span> <span class="kn">import</span> <span class="n">traffic_palette</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">plot_states</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.projection_helpers</span> <span class="kn">import</span> <span class="n">project_branch</span>
 
 
 <div class="viewcode-block" id="map_risk_bind"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_utilization_map.map_risk_bind">[docs]</a><span class="k">def</span> <span class="nf">map_risk_bind</span><span class="p">(</span>
     <span class="n">risk_or_bind</span><span class="p">,</span>
-    <span class="n">congestion_stats</span><span class="p">,</span>
-    <span class="n">branch</span><span class="p">,</span>
+    <span class="n">scenario</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">congestion_stats</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">branch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">us_states_dat</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">vmin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">vmax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">is_website</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">color_bar_width</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+    <span class="n">palette</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">all_branch_scale_factor</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">all_branch_min_width</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+    <span class="n">select_branch_scale_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">select_branch_min_width</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">1400</span><span class="p">,</span> <span class="mi">800</span><span class="p">),</span>
+    <span class="n">show_color_bar</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">plot_states_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Makes map showing risk or binding incidents on US states map.</span>
+<span class="sd">    Either ``scenario`` XOR (``congestion_stats`` AND ``branch``) must be specified.</span>
 
-<span class="sd">    :param str risk_or_bind: specify plotting &quot;risk&quot; or &quot;bind&quot;</span>
+<span class="sd">    :param str risk_or_bind: specify plotting &quot;risk&quot; or &quot;bind&quot;.</span>
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario to analyze.</span>
 <span class="sd">    :param pandas.DataFrame congestion_stats: data frame as returned by</span>
 <span class="sd">        :func:`postreise.analyze.transmission.utilization.generate_cong_stats`.</span>
 <span class="sd">    :param pandas.DataFrame branch: branch data frame.</span>
-<span class="sd">    :param dict us_states_dat: dictionary of state border lats/lons. If None, get</span>
-<span class="sd">        from :func:`postreise.plot.plot_states.get_state_borders`.</span>
 <span class="sd">    :param int/float vmin: minimum value for color range. If None, use data minimum.</span>
 <span class="sd">    :param int/float vmax: maximum value for color range. If None, use data maximum.</span>
-<span class="sd">    :param bool is_website: changes text/legend formatting to look better on the website</span>
-<span class="sd">    :return:  -- map of lines with risk and bind incidents color coded</span>
+<span class="sd">    :param int color_bar_width: width of color bar (pixels).</span>
+<span class="sd">    :param iterable palette: sequence of colors used for color range, passed as</span>
+<span class="sd">        `palette` kwarg to :func:`bokeh.transform.linear_cmap`.</span>
+<span class="sd">        If None, default to `postreise.plot.colors.traffic_palette`.</span>
+<span class="sd">    :param int/float all_branch_scale_factor: scale factor for unhighlighted branches</span>
+<span class="sd">        (pixels/GW).</span>
+<span class="sd">    :param int/float all_branch_min_width: minimum width for unhighlighted branches</span>
+<span class="sd">        (pixels).</span>
+<span class="sd">    :param int/float select_branch_scale_factor: scale factor for highlighted branches</span>
+<span class="sd">        (pixels/GW).</span>
+<span class="sd">    :param int/float select_branch_min_width: minimum width for highlighted branches</span>
+<span class="sd">        (pixels).</span>
+<span class="sd">    :param tuple(int, int) figsize: size of the bokeh figure (in pixels).</span>
+<span class="sd">    :param bool show_color_bar: whether to render the color bar on the figure.</span>
+<span class="sd">    :param dict plot_states_kwargs: keyword arguments to be passed to</span>
+<span class="sd">        :func:`postreise.plot.plot_states.plot_states`.</span>
+<span class="sd">    :raises ValueError: if (``scenario`` XOR (``congestion_stats`` AND ``branch``)) are</span>
+<span class="sd">        not properly specified.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure*) -- map of lines with risk and bind incidents</span>
+<span class="sd">        color coded.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">us_states_dat</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">us_states_dat</span> <span class="o">=</span> <span class="n">get_state_borders</span><span class="p">()</span>
+    <span class="n">unit_labels</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;risk&quot;</span><span class="p">:</span> <span class="s2">&quot;Risk (MWH)&quot;</span><span class="p">,</span> <span class="s2">&quot;bind&quot;</span><span class="p">:</span> <span class="s2">&quot;Binding incidents&quot;</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">risk_or_bind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">unit_labels</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;risk_or_bind must be either &#39;risk&#39; or &#39;bind&#39;&quot;</span><span class="p">)</span>
+    <span class="n">risk_or_bind_units</span> <span class="o">=</span> <span class="n">unit_labels</span><span class="p">[</span><span class="n">risk_or_bind</span><span class="p">]</span>
 
-    <span class="k">if</span> <span class="n">risk_or_bind</span> <span class="o">==</span> <span class="s2">&quot;risk&quot;</span><span class="p">:</span>
-        <span class="n">risk_or_bind_units</span> <span class="o">=</span> <span class="s2">&quot;Risk (MWH)&quot;</span>
+    <span class="c1"># Check that we&#39;ve appropriately specified:</span>
+    <span class="c1">#    `scenario` XOR (`congestion_stats` AND `branch`)</span>
+    <span class="k">if</span> <span class="n">scenario</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">branch</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span><span class="o">.</span><span class="n">branch</span>
+        <span class="n">congestion_stats</span> <span class="o">=</span> <span class="n">generate_cong_stats</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_pf</span><span class="p">(),</span> <span class="n">branch</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">congestion_stats</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">branch</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Either scenario XOR (congestion_stats AND branch) must be specified&quot;</span>
+        <span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">risk_or_bind</span> <span class="o">==</span> <span class="s2">&quot;bind&quot;</span><span class="p">:</span>
-        <span class="n">risk_or_bind_units</span> <span class="o">=</span> <span class="s2">&quot;Binding incidents&quot;</span>
+    <span class="k">if</span> <span class="n">palette</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">palette</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">traffic_palette</span><span class="p">)</span>
 
     <span class="c1"># projection steps for mapping</span>
     <span class="n">branch_congestion</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
         <span class="p">[</span><span class="n">branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">congestion_stats</span><span class="o">.</span><span class="n">index</span><span class="p">],</span> <span class="n">congestion_stats</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
     <span class="p">)</span>
     <span class="n">branch_map_all</span> <span class="o">=</span> <span class="n">project_branch</span><span class="p">(</span><span class="n">branch</span><span class="p">)</span>
-    <span class="n">multi_line_source_all</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
-        <span class="p">{</span>
-            <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="n">branch_map_all</span><span class="p">[[</span><span class="s2">&quot;from_x&quot;</span><span class="p">,</span> <span class="s2">&quot;to_x&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
-            <span class="s2">&quot;ys&quot;</span><span class="p">:</span> <span class="n">branch_map_all</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
-            <span class="s2">&quot;cap&quot;</span><span class="p">:</span> <span class="n">branch_map_all</span><span class="p">[</span><span class="s2">&quot;rateA&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2000</span> <span class="o">+</span> <span class="mf">0.2</span><span class="p">,</span>
-        <span class="p">}</span>
-    <span class="p">)</span>
-    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">project_borders</span><span class="p">(</span><span class="n">us_states_dat</span><span class="p">)</span>
-    <span class="n">tools</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;pan,wheel_zoom,reset,save&quot;</span>
 
     <span class="n">branch_congestion</span> <span class="o">=</span> <span class="n">branch_congestion</span><span class="p">[</span><span class="n">branch_congestion</span><span class="p">[</span><span class="n">risk_or_bind</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
     <span class="n">branch_congestion</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="n">risk_or_bind</span><span class="p">])</span>
@@ -113,16 +131,7 @@
     <span class="n">min_val</span> <span class="o">=</span> <span class="n">branch_congestion</span><span class="p">[</span><span class="n">risk_or_bind</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="k">if</span> <span class="n">vmin</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">vmin</span>
     <span class="n">max_val</span> <span class="o">=</span> <span class="n">branch_congestion</span><span class="p">[</span><span class="n">risk_or_bind</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">if</span> <span class="n">vmax</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">vmax</span>
     <span class="n">mapper</span> <span class="o">=</span> <span class="n">linear_cmap</span><span class="p">(</span>
-        <span class="n">field_name</span><span class="o">=</span><span class="n">risk_or_bind</span><span class="p">,</span> <span class="n">palette</span><span class="o">=</span><span class="n">traffic_palette</span><span class="p">,</span> <span class="n">low</span><span class="o">=</span><span class="n">min_val</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">max_val</span>
-    <span class="p">)</span>
-    <span class="n">color_bar</span> <span class="o">=</span> <span class="n">ColorBar</span><span class="p">(</span>
-        <span class="n">color_mapper</span><span class="o">=</span><span class="n">mapper</span><span class="p">[</span><span class="s2">&quot;transform&quot;</span><span class="p">],</span>
-        <span class="n">width</span><span class="o">=</span><span class="mi">385</span> <span class="k">if</span> <span class="n">is_website</span> <span class="k">else</span> <span class="mi">500</span><span class="p">,</span>
-        <span class="n">height</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-        <span class="n">location</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-        <span class="n">title</span><span class="o">=</span><span class="n">risk_or_bind_units</span><span class="p">,</span>
-        <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;horizontal&quot;</span><span class="p">,</span>
-        <span class="n">padding</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="n">field_name</span><span class="o">=</span><span class="n">risk_or_bind</span><span class="p">,</span> <span class="n">palette</span><span class="o">=</span><span class="n">palette</span><span class="p">,</span> <span class="n">low</span><span class="o">=</span><span class="n">min_val</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">max_val</span>
     <span class="p">)</span>
     <span class="n">multi_line_source</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
         <span class="p">{</span>
@@ -130,31 +139,50 @@
             <span class="s2">&quot;ys&quot;</span><span class="p">:</span> <span class="n">branch_map</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
             <span class="n">risk_or_bind</span><span class="p">:</span> <span class="n">branch_map</span><span class="p">[</span><span class="n">risk_or_bind</span><span class="p">],</span>
             <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">branch_map</span><span class="p">[</span><span class="n">risk_or_bind</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(),</span>
-            <span class="s2">&quot;cap&quot;</span><span class="p">:</span> <span class="n">branch_map</span><span class="p">[</span><span class="s2">&quot;capacity&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="mi">1000</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span>
+            <span class="s2">&quot;cap&quot;</span><span class="p">:</span> <span class="p">(</span>
+                <span class="n">branch_map</span><span class="p">[</span><span class="s2">&quot;capacity&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">select_branch_scale_factor</span> <span class="o">/</span> <span class="mi">1000</span>
+                <span class="o">+</span> <span class="n">select_branch_min_width</span>
+            <span class="p">),</span>
             <span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="n">branch_map</span><span class="o">.</span><span class="n">rateA</span><span class="o">.</span><span class="n">round</span><span class="p">(),</span>
         <span class="p">}</span>
     <span class="p">)</span>
 
     <span class="c1"># Set up figure</span>
     <span class="n">p</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
-        <span class="n">tools</span><span class="o">=</span><span class="n">tools</span><span class="p">,</span>
+        <span class="n">tools</span><span class="o">=</span><span class="s2">&quot;pan,wheel_zoom,reset,save&quot;</span><span class="p">,</span>
         <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">plot_width</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
-        <span class="n">plot_height</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
+        <span class="n">plot_width</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="n">plot_height</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
         <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
-        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;stretch_both&quot;</span><span class="p">,</span>
+        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;scale_both&quot;</span><span class="p">,</span>
         <span class="n">match_aspect</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">color_bar</span><span class="p">,</span> <span class="s2">&quot;center&quot;</span><span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_tile</span><span class="p">(</span><span class="n">get_provider</span><span class="p">(</span><span class="n">Vendors</span><span class="o">.</span><span class="n">CARTODBPOSITRON</span><span class="p">))</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">patches</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">fill_alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">line_color</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">show_color_bar</span><span class="p">:</span>
+        <span class="n">color_bar</span> <span class="o">=</span> <span class="n">ColorBar</span><span class="p">(</span>
+            <span class="n">color_mapper</span><span class="o">=</span><span class="n">mapper</span><span class="p">[</span><span class="s2">&quot;transform&quot;</span><span class="p">],</span>
+            <span class="n">width</span><span class="o">=</span><span class="n">color_bar_width</span><span class="p">,</span>
+            <span class="n">height</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+            <span class="n">location</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="n">title</span><span class="o">=</span><span class="n">risk_or_bind_units</span><span class="p">,</span>
+            <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;horizontal&quot;</span><span class="p">,</span>
+            <span class="n">padding</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">color_bar</span><span class="p">,</span> <span class="s2">&quot;center&quot;</span><span class="p">)</span>
+    <span class="n">default_plot_states_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;fill_alpha&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;background_map&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">plot_states_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">all_plot_states_kwargs</span> <span class="o">=</span> <span class="n">default_plot_states_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="o">**</span><span class="n">plot_states_kwargs</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">all_plot_states_kwargs</span> <span class="o">=</span> <span class="n">default_plot_states_kwargs</span>
+    <span class="n">plot_states</span><span class="p">(</span><span class="n">bokeh_figure</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="o">**</span><span class="n">all_plot_states_kwargs</span><span class="p">)</span>
     <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
-        <span class="s2">&quot;xs&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;ys&quot;</span><span class="p">,</span>
+        <span class="n">branch_map_all</span><span class="p">[[</span><span class="s2">&quot;from_x&quot;</span><span class="p">,</span> <span class="s2">&quot;to_x&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="n">branch_map_all</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
         <span class="n">color</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">,</span>
-        <span class="n">line_width</span><span class="o">=</span><span class="s2">&quot;cap&quot;</span><span class="p">,</span>
-        <span class="n">source</span><span class="o">=</span><span class="n">multi_line_source_all</span><span class="p">,</span>
+        <span class="n">line_width</span><span class="o">=</span><span class="p">(</span>
+            <span class="n">branch_map_all</span><span class="p">[</span><span class="s2">&quot;rateA&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">all_branch_scale_factor</span> <span class="o">/</span> <span class="mi">1000</span>
+            <span class="o">+</span> <span class="n">all_branch_min_width</span>
+        <span class="p">),</span>
         <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">lines</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
@@ -172,23 +200,57 @@
 
 
 <div class="viewcode-block" id="map_utilization"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_utilization_map.map_utilization">[docs]</a><span class="k">def</span> <span class="nf">map_utilization</span><span class="p">(</span>
-    <span class="n">utilization_df</span><span class="p">,</span> <span class="n">branch</span><span class="p">,</span> <span class="n">us_states_dat</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">is_website</span><span class="o">=</span><span class="kc">False</span>
+    <span class="n">scenario</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">utilization_df</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">branch</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">vmin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">vmax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">color_bar_width</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+    <span class="n">palette</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">branch_scale_factor</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">branch_min_width</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">1400</span><span class="p">,</span> <span class="mi">800</span><span class="p">),</span>
+    <span class="n">show_color_bar</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">plot_states_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Makes map showing utilization. Utilization input can either be medians</span>
-<span class="sd">    only, or can be normalized utilization dataframe</span>
+<span class="sd">    only, or can be normalized utilization dataframe.</span>
+<span class="sd">    Either ``scenario`` XOR (``utilization_df`` AND ``branch``) must be specified.</span>
 
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario to analyze.</span>
 <span class="sd">    :param pandas.DataFrame utilization_df: utilization returned by</span>
 <span class="sd">        :func:`postreise.analyze.transmission.utilization.get_utilization`</span>
 <span class="sd">    :param pandas.DataFrame branch: branch data frame.</span>
-<span class="sd">    :param dict us_states_dat: dictionary of state border lats/lons. If None, get</span>
-<span class="sd">        from :func:`postreise.plot.plot_states.get_state_borders`.</span>
 <span class="sd">    :param int/float vmin: minimum value for color range. If None, use data minimum.</span>
 <span class="sd">    :param int/float vmax: maximum value for color range. If None, use data maximum.</span>
-<span class="sd">    :param bool is_website: changes text/legend formatting to look better on the website</span>
-<span class="sd">    :return:  -- map of lines with median utilization color coded</span>
+<span class="sd">    :param int color_bar_width: width of color bar (pixels).</span>
+<span class="sd">    :param iterable palette: sequence of colors used for color range, passed as</span>
+<span class="sd">        `palette` kwarg to :func:`bokeh.transform.linear_cmap`.</span>
+<span class="sd">        If None, default to `postreise.plot.colors.traffic_palette`.</span>
+<span class="sd">    :param int/float branch_scale_factor: scale factor for branches (pixels/GW).</span>
+<span class="sd">    :param int/float branch_min_width: minimum width for branches (pixels).</span>
+<span class="sd">    :param tuple(int, int) figsize: size of the bokeh figure (in pixels).</span>
+<span class="sd">    :param dict plot_states_kwargs: keyword arguments to be passed to</span>
+<span class="sd">        :func:`postreise.plot.plot_states.plot_states`.</span>
+<span class="sd">    :raises ValueError: if (``scenario`` XOR (``utilization_df`` AND ``branch``)) are</span>
+<span class="sd">        not properly specified.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure*) -- map of lines with median utilization color</span>
+<span class="sd">        coded.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">us_states_dat</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">us_states_dat</span> <span class="o">=</span> <span class="n">get_state_borders</span><span class="p">()</span>
+    <span class="c1"># Check that we&#39;ve appropriately specified:</span>
+    <span class="c1">#    `scenario` XOR (`utilization_df` AND `branch`)</span>
+    <span class="k">if</span> <span class="n">scenario</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">branch</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span><span class="o">.</span><span class="n">branch</span>
+        <span class="n">utilization_df</span> <span class="o">=</span> <span class="n">get_utilization</span><span class="p">(</span><span class="n">branch</span><span class="p">,</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_pf</span><span class="p">(),</span> <span class="n">median</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">utilization_df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">branch</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Either scenario XOR (utilization_df AND branch) must be specified&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">palette</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">palette</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">traffic_palette</span><span class="p">)</span>
 
     <span class="n">branch_mask</span> <span class="o">=</span> <span class="n">branch</span><span class="o">.</span><span class="n">rateA</span> <span class="o">!=</span> <span class="mi">0</span>
     <span class="n">median_util</span> <span class="o">=</span> <span class="n">utilization_df</span><span class="p">[</span><span class="n">branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_mask</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">()</span>
@@ -200,59 +262,57 @@
     <span class="n">min_val</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;median_utilization&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="k">if</span> <span class="n">vmin</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">vmin</span>
     <span class="n">max_val</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;median_utilization&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">if</span> <span class="n">vmax</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">vmax</span>
 
-    <span class="n">mapper1</span> <span class="o">=</span> <span class="n">linear_cmap</span><span class="p">(</span>
+    <span class="n">mapper</span> <span class="o">=</span> <span class="n">linear_cmap</span><span class="p">(</span>
         <span class="n">field_name</span><span class="o">=</span><span class="s2">&quot;median_utilization&quot;</span><span class="p">,</span>
-        <span class="n">palette</span><span class="o">=</span><span class="n">traffic_palette</span><span class="p">,</span>
+        <span class="n">palette</span><span class="o">=</span><span class="n">palette</span><span class="p">,</span>
         <span class="n">low</span><span class="o">=</span><span class="n">min_val</span><span class="p">,</span>
         <span class="n">high</span><span class="o">=</span><span class="n">max_val</span><span class="p">,</span>
-    <span class="p">)</span>
-
-    <span class="n">color_bar</span> <span class="o">=</span> <span class="n">ColorBar</span><span class="p">(</span>
-        <span class="n">color_mapper</span><span class="o">=</span><span class="n">mapper1</span><span class="p">[</span><span class="s2">&quot;transform&quot;</span><span class="p">],</span>
-        <span class="n">width</span><span class="o">=</span><span class="mi">385</span> <span class="k">if</span> <span class="n">is_website</span> <span class="k">else</span> <span class="mi">500</span><span class="p">,</span>
-        <span class="n">height</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-        <span class="n">location</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-        <span class="n">title</span><span class="o">=</span><span class="s2">&quot;median utilization&quot;</span><span class="p">,</span>
-        <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;horizontal&quot;</span><span class="p">,</span>
-        <span class="n">padding</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="n">branch_map</span> <span class="o">=</span> <span class="n">project_branch</span><span class="p">(</span><span class="n">branch_utilization</span><span class="p">)</span>
     <span class="n">branch_map</span> <span class="o">=</span> <span class="n">branch_map</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;median_utilization&quot;</span><span class="p">])</span>
     <span class="n">branch_map</span> <span class="o">=</span> <span class="n">branch_map</span><span class="p">[</span><span class="o">~</span><span class="n">branch_map</span><span class="o">.</span><span class="n">isin</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">])</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="mi">1</span><span class="p">)]</span>
 
-    <span class="c1"># state borders</span>
-    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">project_borders</span><span class="p">(</span><span class="n">us_states_dat</span><span class="p">)</span>
-
     <span class="n">multi_line_source</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
         <span class="p">{</span>
             <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="n">branch_map</span><span class="p">[[</span><span class="s2">&quot;from_x&quot;</span><span class="p">,</span> <span class="s2">&quot;to_x&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
             <span class="s2">&quot;ys&quot;</span><span class="p">:</span> <span class="n">branch_map</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
             <span class="s2">&quot;median_utilization&quot;</span><span class="p">:</span> <span class="n">branch_map</span><span class="o">.</span><span class="n">median_utilization</span><span class="p">,</span>
-            <span class="s2">&quot;cap&quot;</span><span class="p">:</span> <span class="n">branch_map</span><span class="o">.</span><span class="n">rateA</span> <span class="o">/</span> <span class="mi">2000</span> <span class="o">+</span> <span class="mf">0.2</span><span class="p">,</span>
+            <span class="s2">&quot;width&quot;</span><span class="p">:</span> <span class="n">branch_map</span><span class="o">.</span><span class="n">rateA</span> <span class="o">*</span> <span class="n">branch_scale_factor</span> <span class="o">/</span> <span class="mi">1000</span> <span class="o">+</span> <span class="n">branch_min_width</span><span class="p">,</span>
             <span class="s2">&quot;util&quot;</span><span class="p">:</span> <span class="n">branch_map</span><span class="o">.</span><span class="n">median_utilization</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
             <span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="n">branch_map</span><span class="o">.</span><span class="n">rateA</span><span class="o">.</span><span class="n">round</span><span class="p">(),</span>
         <span class="p">}</span>
     <span class="p">)</span>
 
-    <span class="c1"># Set up figure</span>
-    <span class="n">tools</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;pan,wheel_zoom,reset,save&quot;</span>
-
     <span class="n">p</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
-        <span class="n">tools</span><span class="o">=</span><span class="n">tools</span><span class="p">,</span>
+        <span class="n">tools</span><span class="o">=</span><span class="s2">&quot;pan,wheel_zoom,reset,save&quot;</span><span class="p">,</span>
         <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">plot_width</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
-        <span class="n">plot_height</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
+        <span class="n">plot_width</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="n">plot_height</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
         <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
-        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;stretch_both&quot;</span><span class="p">,</span>
+        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;scale_both&quot;</span><span class="p">,</span>
         <span class="n">match_aspect</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">color_bar</span><span class="p">,</span> <span class="s2">&quot;center&quot;</span><span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_tile</span><span class="p">(</span><span class="n">get_provider</span><span class="p">(</span><span class="n">Vendors</span><span class="o">.</span><span class="n">CARTODBPOSITRON</span><span class="p">))</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">patches</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">fill_alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">line_color</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">show_color_bar</span><span class="p">:</span>
+        <span class="n">color_bar</span> <span class="o">=</span> <span class="n">ColorBar</span><span class="p">(</span>
+            <span class="n">color_mapper</span><span class="o">=</span><span class="n">mapper</span><span class="p">[</span><span class="s2">&quot;transform&quot;</span><span class="p">],</span>
+            <span class="n">width</span><span class="o">=</span><span class="n">color_bar_width</span><span class="p">,</span>
+            <span class="n">height</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+            <span class="n">location</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="n">title</span><span class="o">=</span><span class="s2">&quot;median utilization&quot;</span><span class="p">,</span>
+            <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;horizontal&quot;</span><span class="p">,</span>
+            <span class="n">padding</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">color_bar</span><span class="p">,</span> <span class="s2">&quot;center&quot;</span><span class="p">)</span>
+    <span class="n">default_plot_states_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;fill_alpha&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;line_width&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">plot_states_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">all_plot_states_kwargs</span> <span class="o">=</span> <span class="n">default_plot_states_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="o">**</span><span class="n">plot_states_kwargs</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">all_plot_states_kwargs</span> <span class="o">=</span> <span class="n">default_plot_states_kwargs</span>
+    <span class="n">plot_states</span><span class="p">(</span><span class="n">bokeh_figure</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="o">**</span><span class="n">all_plot_states_kwargs</span><span class="p">)</span>
     <span class="n">lines</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
-        <span class="s2">&quot;xs&quot;</span><span class="p">,</span> <span class="s2">&quot;ys&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">mapper1</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="s2">&quot;cap&quot;</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">multi_line_source</span>
+        <span class="s2">&quot;xs&quot;</span><span class="p">,</span> <span class="s2">&quot;ys&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">mapper</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="s2">&quot;width&quot;</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">multi_line_source</span>
     <span class="p">)</span>
     <span class="n">hover</span> <span class="o">=</span> <span class="n">HoverTool</span><span class="p">(</span>
         <span class="n">tooltips</span><span class="o">=</span><span class="p">[</span>

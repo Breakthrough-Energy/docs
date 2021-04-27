@@ -79,8 +79,11 @@
 <span class="sd">    NEEM regions are used to find regional multipliers.</span>
 
 <span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
-<span class="sd">    :param bool sum_results: sum data frame for each branch type.</span>
-<span class="sd">    :return: (*dict*) -- cost of upgrading branches in $2010.</span>
+<span class="sd">    :param bool sum_results: whether to sum data frame for each branch type. Defaults to</span>
+<span class="sd">        True.</span>
+<span class="sd">    :return: (*dict*) -- keys are {&#39;line_cost&#39;, &#39;transformer_cost&#39;}, values are either</span>
+<span class="sd">        float if ``sum_results``, or pandas Series indexed by branch ID.</span>
+<span class="sd">        Whether summed or not, values are $USD, inflation-adjusted to today.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span>
@@ -106,8 +109,11 @@
 <span class="sd">    as a transformer.</span>
 
 <span class="sd">    :param powersimdata.input.grid.Grid grid_new: grid instance.</span>
-<span class="sd">    :param bool sum_results: sum data frame for each branch type.</span>
-<span class="sd">    :return: (*dict*) -- cost of upgrading branches in $2010.</span>
+<span class="sd">    :param bool sum_results: whether to sum data frame for each branch type. Defaults to</span>
+<span class="sd">        True.</span>
+<span class="sd">    :return: (*dict*) -- keys are {&#39;line_cost&#39;, &#39;transformer_cost&#39;}, values are either</span>
+<span class="sd">        float if ``sum_results``, or pandas Series indexed by branch ID.</span>
+<span class="sd">        Whether summed or not, values are $USD, inflation-adjusted to today.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">select_mw</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">cost_df</span><span class="p">):</span>
@@ -245,7 +251,7 @@
     <span class="n">lines</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;MWmi&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;lengthMi&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;rateA&quot;</span><span class="p">]</span>
 
     <span class="c1"># calculate cost of each line</span>
-    <span class="n">lines</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;Cost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;MWmi&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;costMWmi&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;mult&quot;</span><span class="p">]</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;cost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;MWmi&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;costMWmi&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">lines</span><span class="p">[</span><span class="s2">&quot;mult&quot;</span><span class="p">]</span>
 
     <span class="c1"># calculate transformer costs</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">transformers</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
@@ -268,27 +274,30 @@
         <span class="n">transformers</span><span class="p">[</span><span class="s2">&quot;per_MW_cost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">transformers</span><span class="p">[</span><span class="s2">&quot;mult&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="n">transformers</span><span class="p">[</span><span class="s2">&quot;Cost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">transformers</span><span class="p">[</span><span class="s2">&quot;cost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
         <span class="n">transformers</span><span class="p">[</span><span class="s2">&quot;rateA&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">transformers</span><span class="p">[</span><span class="s2">&quot;per_MW_cost&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">transformers</span><span class="p">[</span><span class="s2">&quot;mult&quot;</span><span class="p">]</span>
     <span class="p">)</span>
 
-    <span class="n">lines</span><span class="o">.</span><span class="n">Cost</span> <span class="o">*=</span> <span class="n">calculate_inflation</span><span class="p">(</span><span class="mi">2010</span><span class="p">)</span>
-    <span class="n">transformers</span><span class="o">.</span><span class="n">Cost</span> <span class="o">*=</span> <span class="n">calculate_inflation</span><span class="p">(</span><span class="mi">2020</span><span class="p">)</span>
+    <span class="n">lines</span><span class="o">.</span><span class="n">cost</span> <span class="o">*=</span> <span class="n">calculate_inflation</span><span class="p">(</span><span class="mi">2010</span><span class="p">)</span>
+    <span class="n">transformers</span><span class="o">.</span><span class="n">cost</span> <span class="o">*=</span> <span class="n">calculate_inflation</span><span class="p">(</span><span class="mi">2020</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">sum_results</span><span class="p">:</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;line_cost&quot;</span><span class="p">:</span> <span class="n">lines</span><span class="o">.</span><span class="n">Cost</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
-            <span class="s2">&quot;transformer_cost&quot;</span><span class="p">:</span> <span class="n">transformers</span><span class="o">.</span><span class="n">Cost</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+            <span class="s2">&quot;line_cost&quot;</span><span class="p">:</span> <span class="n">lines</span><span class="o">.</span><span class="n">cost</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+            <span class="s2">&quot;transformer_cost&quot;</span><span class="p">:</span> <span class="n">transformers</span><span class="o">.</span><span class="n">cost</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
         <span class="p">}</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;line_cost&quot;</span><span class="p">:</span> <span class="n">lines</span><span class="p">,</span> <span class="s2">&quot;transformer_cost&quot;</span><span class="p">:</span> <span class="n">transformers</span><span class="p">}</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;line_cost&quot;</span><span class="p">:</span> <span class="n">lines</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="s2">&quot;transformer_cost&quot;</span><span class="p">:</span> <span class="n">transformers</span><span class="o">.</span><span class="n">cost</span><span class="p">}</span>
 
 
 <div class="viewcode-block" id="calculate_dc_inv_costs"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.investment_costs.calculate_dc_inv_costs">[docs]</a><span class="k">def</span> <span class="nf">calculate_dc_inv_costs</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Calculate cost of upgrading HVDC lines in a scenario.</span>
 
 <span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
-<span class="sd">    :param bool sum_results: sum series to return total cost.</span>
-<span class="sd">    :return: (*pandas.Series/float*) -- cost of upgrading HVDC lines in $2015.</span>
+<span class="sd">    :param bool sum_results: whether to sum series to return total cost. Defaults to</span>
+<span class="sd">        True.</span>
+<span class="sd">    :return: (*pandas.Series/float*) -- cost of upgrading HVDC lines, in $USD,</span>
+<span class="sd">        inflation-adjusted to today. If ``sum_results``, a float is returned, otherwise</span>
+<span class="sd">        a Series.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span>
     <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
@@ -308,8 +317,11 @@
     <span class="sd">&quot;&quot;&quot;Calculate cost of upgrading HVDC lines.</span>
 
 <span class="sd">    :param powersimdata.input.grid.Grid grid_new: grid instance.</span>
-<span class="sd">    :param bool sum_results: sum series to return total cost.</span>
-<span class="sd">    :return: (*pandas.Series/float*) -- cost of upgrading HVDC lines in $2015.</span>
+<span class="sd">    :param bool sum_results: whether to sum series to return total cost. Defaults to</span>
+<span class="sd">        True.</span>
+<span class="sd">    :return: (*pandas.Series/float*) -- cost of upgrading HVDC lines, in $USD,</span>
+<span class="sd">        inflation-adjusted to today. If ``sum_results``, a float is returned, otherwise</span>
+<span class="sd">        a Series.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">_calculate_single_line_cost</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">bus</span><span class="p">):</span>
@@ -355,8 +367,13 @@
 <span class="sd">    :param int/str year: building year.</span>
 <span class="sd">    :param str cost_case: ATB cost case of data. *&#39;Moderate&#39;*: mid cost case,</span>
 <span class="sd">        *&#39;Conservative&#39;*: generally higher costs, *&#39;Advanced&#39;*: generally lower costs</span>
-<span class="sd">    :return: (*pandas.DataFrame*) -- total generation investment cost summed by</span>
-<span class="sd">        technology.</span>
+<span class="sd">    :param bool sum_results: whether to sum data frame for plant costs. Defaults to</span>
+<span class="sd">        True.</span>
+<span class="sd">    :return: (*pandas.Series*) -- Overnight generation investment cost.</span>
+<span class="sd">        If ``sum_results``, indices are technologies and values are total cost.</span>
+<span class="sd">        Otherwise, indices are IDs of plants (including storage, which is given</span>
+<span class="sd">        pseudo-plant-IDs), and values are individual generator costs.</span>
+<span class="sd">        Whether summed or not, values are $USD, inflation-adjusted to today.</span>
 
 <span class="sd">    .. todo:: it currently uses one (arbitrary) sub-technology. The rest of the costs</span>
 <span class="sd">        are dropped. Wind and solar will need to be fixed based on the resource supply</span>
@@ -398,11 +415,16 @@
 <span class="sd">        *&#39;Conservative&#39;*: generally higher costs, *&#39;Advanced&#39;*: generally lower costs.</span>
 <span class="sd">    :raises ValueError: if year not 2020 - 2050, or cost case not an allowed option.</span>
 <span class="sd">    :raises TypeError: if year not int/str or cost_case not str.</span>
-<span class="sd">    :return: (*pandas.Series*) -- total generation investment cost, summed by</span>
-<span class="sd">        technology.</span>
+<span class="sd">    :param bool sum_results: whether to sum data frame for plant costs. Defaults to</span>
+<span class="sd">        True.</span>
+<span class="sd">    :return: (*pandas.Series*) -- Overnight generation investment cost.</span>
+<span class="sd">        If ``sum_results``, indices are technologies and values are total cost.</span>
+<span class="sd">        Otherwise, indices are IDs of plants (including storage, which is given</span>
+<span class="sd">        pseudo-plant-IDs), and values are individual generator costs.</span>
+<span class="sd">        Whether summed or not, values are $USD, inflation-adjusted to today.</span>
 
 <span class="sd">    .. note:: the function computes the total capital cost as:</span>
-<span class="sd">        CAPEX_total = CAPEX ($/MW) * Pmax (MW) * regional multiplier</span>
+<span class="sd">        CAPEX_total = overnight CAPEX ($/MW) * Power capacity (MW) * regional multiplier</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="nf">load_cost</span><span class="p">(</span><span class="n">year</span><span class="p">,</span> <span class="n">cost_case</span><span class="p">):</span>
@@ -535,16 +557,16 @@
     <span class="p">)</span>
 
     <span class="c1"># multiply all together to get summed CAPEX ($)</span>
-    <span class="n">plants</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;CAPEX_total&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">plants</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;cost&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
         <span class="n">plants</span><span class="p">[</span><span class="s2">&quot;CAPEX&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">plants</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">plants</span><span class="p">[</span><span class="s2">&quot;reg_cap_cost_mult&quot;</span><span class="p">]</span>
     <span class="p">)</span>
 
     <span class="c1"># sum cost by technology</span>
-    <span class="n">plants</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;CAPEX_total&quot;</span><span class="p">]</span> <span class="o">*=</span> <span class="n">calculate_inflation</span><span class="p">(</span><span class="mi">2018</span><span class="p">)</span>
+    <span class="n">plants</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;cost&quot;</span><span class="p">]</span> <span class="o">*=</span> <span class="n">calculate_inflation</span><span class="p">(</span><span class="mi">2018</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">sum_results</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">plants</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;Technology&quot;</span><span class="p">])[</span><span class="s2">&quot;CAPEX_total&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">plants</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;Technology&quot;</span><span class="p">])[</span><span class="s2">&quot;cost&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">plants</span>
+        <span class="k">return</span> <span class="n">plants</span><span class="p">[</span><span class="s2">&quot;cost&quot;</span><span class="p">]</span>
 </pre></div>
 
           </div>

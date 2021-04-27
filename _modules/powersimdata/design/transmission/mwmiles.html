@@ -33,6 +33,7 @@
             
   <h1>Source code for powersimdata.design.transmission.mwmiles</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.distance</span> <span class="kn">import</span> <span class="n">haversine</span>
 
 
@@ -85,20 +86,30 @@
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;exclude_branches must be None, list, tuple, or set&quot;</span><span class="p">)</span>
 
-    <span class="n">base_branch</span> <span class="o">=</span> <span class="n">original_grid</span><span class="o">.</span><span class="n">branch</span>
-    <span class="n">upgraded_branches</span> <span class="o">=</span> <span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span>
-    <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">upgraded_branches</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">base_branch_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">original_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="n">upgraded_branch_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">transformed_branch</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">original_grid</span><span class="p">,</span> <span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span><span class="o">.</span><span class="n">branch</span>
+    <span class="k">if</span> <span class="s2">&quot;new_branch&quot;</span> <span class="ow">in</span> <span class="n">ct</span><span class="p">:</span>
+        <span class="n">upgraded_branch_ids</span> <span class="o">|=</span> <span class="nb">set</span><span class="p">(</span><span class="n">transformed_branch</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="o">-</span> <span class="n">base_branch_ids</span>
+    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">upgraded_branch_ids</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">exclude_branches</span><span class="p">:</span>
             <span class="k">continue</span>
-        <span class="c1"># &#39;upgraded&#39; capacity is v-1 because a scale of 1 = an upgrade of 0</span>
-        <span class="n">upgraded_capacity</span> <span class="o">=</span> <span class="n">base_branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;rateA&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">v</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">device_type</span> <span class="o">=</span> <span class="n">base_branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;branch_device_type&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">base_branch_ids</span><span class="p">:</span>
+            <span class="c1"># &#39;upgraded&#39; capacity is (scale - 1) because a scale of 1 = an upgrade of 0</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">][</span><span class="n">b</span><span class="p">]</span>
+            <span class="n">upgraded_capacity</span> <span class="o">=</span> <span class="n">transformed_branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;rateA&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">scale</span> <span class="o">*</span> <span class="p">(</span><span class="n">scale</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">upgraded_capacity</span> <span class="o">=</span> <span class="n">transformed_branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;rateA&quot;</span><span class="p">]</span>
+        <span class="n">device_type</span> <span class="o">=</span> <span class="n">transformed_branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;branch_device_type&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">device_type</span> <span class="o">==</span> <span class="s2">&quot;Line&quot;</span><span class="p">:</span>
             <span class="n">from_coords</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">base_branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;from_lat&quot;</span><span class="p">],</span>
-                <span class="n">base_branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;from_lon&quot;</span><span class="p">],</span>
+                <span class="n">transformed_branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;from_lat&quot;</span><span class="p">],</span>
+                <span class="n">transformed_branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;from_lon&quot;</span><span class="p">],</span>
             <span class="p">)</span>
-            <span class="n">to_coords</span> <span class="o">=</span> <span class="p">(</span><span class="n">base_branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;to_lat&quot;</span><span class="p">],</span> <span class="n">base_branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;to_lon&quot;</span><span class="p">])</span>
+            <span class="n">to_coords</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">transformed_branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;to_lat&quot;</span><span class="p">],</span>
+                <span class="n">transformed_branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="s2">&quot;to_lon&quot;</span><span class="p">],</span>
+            <span class="p">)</span>
             <span class="n">addtl_mw_miles</span> <span class="o">=</span> <span class="n">upgraded_capacity</span> <span class="o">*</span> <span class="n">haversine</span><span class="p">(</span><span class="n">from_coords</span><span class="p">,</span> <span class="n">to_coords</span><span class="p">)</span>
             <span class="n">upgrades</span><span class="p">[</span><span class="s2">&quot;mw_miles&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">addtl_mw_miles</span>
             <span class="n">upgrades</span><span class="p">[</span><span class="s2">&quot;num_lines&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
@@ -109,7 +120,7 @@
             <span class="n">upgrades</span><span class="p">[</span><span class="s2">&quot;transformer_mw&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">upgraded_capacity</span>
             <span class="n">upgrades</span><span class="p">[</span><span class="s2">&quot;num_transformers&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Unknown branch: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Unknown branch type: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
 
     <span class="k">return</span> <span class="n">upgrades</span>
 </pre></div>

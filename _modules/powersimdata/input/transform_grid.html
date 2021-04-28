@@ -77,20 +77,19 @@
 
     <span class="k">def</span> <span class="nf">_apply_change_table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Apply changes listed in change table to the grid.&quot;&quot;&quot;</span>
+        <span class="c1"># First scale by zones, so that zone factors are not applied to additions.</span>
         <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_types</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_scale_gen</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_scale_gen_by_zone</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
             <span class="k">if</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">g</span><span class="si">}</span><span class="s2">_cost&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_scale_gencost</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_scale_gencost_by_zone</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
             <span class="k">if</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">g</span><span class="si">}</span><span class="s2">_pmin&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_scale_gen_pmin</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_scale_gen_pmin_by_zone</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="s2">&quot;branch&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_scale_branch</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scale_branch_by_zone</span><span class="p">()</span>
 
-        <span class="k">if</span> <span class="s2">&quot;dcline&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_scale_dcline</span><span class="p">()</span>
-
+        <span class="c1"># Then, add new elements</span>
         <span class="k">if</span> <span class="s2">&quot;new_bus&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_add_bus</span><span class="p">()</span>
 
@@ -106,9 +105,24 @@
         <span class="k">if</span> <span class="s2">&quot;storage&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_add_storage</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_scale_gen</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Scales capacity of generators and the associated generation cost curve</span>
-<span class="sd">            (to maintain the same slopes at the start/end of the curve).</span>
+        <span class="c1"># Finally, scale by IDs, so that additions can be scaled.</span>
+        <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_types</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_scale_gen_by_id</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+            <span class="k">if</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">g</span><span class="si">}</span><span class="s2">_cost&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_scale_gencost_by_id</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+            <span class="k">if</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">g</span><span class="si">}</span><span class="s2">_pmin&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_scale_gen_pmin_by_id</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">&quot;branch&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scale_branch_by_id</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="s2">&quot;dcline&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scale_dcline</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_scale_gen_by_zone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Scales capacity of generators, by zone. Also scales the associated generation</span>
+<span class="sd">            cost curve (to maintain the same slopes at the start/end of the curve).</span>
 
 <span class="sd">        :param str gen_type: type of generator.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -122,14 +136,21 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_scale_gen_capacity</span><span class="p">(</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">factor</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">gen_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_gen_types</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_scale_gencost_by_capacity</span><span class="p">(</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">factor</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_scale_gen_by_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Scales capacity of generators by ID. Also scales the associated generation</span>
+<span class="sd">            cost curve (to maintain the same slopes at the start/end of the curve).</span>
+
+<span class="sd">        :param str gen_type: type of generator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="s2">&quot;plant_id&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">gen_type</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="k">for</span> <span class="n">plant_id</span><span class="p">,</span> <span class="n">factor</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">gen_type</span><span class="p">][</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_scale_gen_capacity</span><span class="p">(</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">factor</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">gen_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_gen_types</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_scale_gencost_by_capacity</span><span class="p">(</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">factor</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_scale_gencost</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Scales cost of generators.</span>
+    <span class="k">def</span> <span class="nf">_scale_gencost_by_zone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Scales cost of generators, by zone.</span>
 
 <span class="sd">        :param str gen_type: type of generator.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -142,12 +163,19 @@
                     <span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
                 <span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;c0&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">]]</span> <span class="o">*=</span> <span class="n">factor</span>
+
+    <span class="k">def</span> <span class="nf">_scale_gencost_by_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Scales cost of generators, by ID.</span>
+
+<span class="sd">        :param str gen_type: type of generator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cost_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">gen_type</span><span class="si">}</span><span class="s2">_cost&quot;</span>
         <span class="k">if</span> <span class="s2">&quot;plant_id&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">cost_key</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="k">for</span> <span class="n">plant_id</span><span class="p">,</span> <span class="n">factor</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">cost_key</span><span class="p">][</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;c0&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">]]</span> <span class="o">*=</span> <span class="n">factor</span>
 
-    <span class="k">def</span> <span class="nf">_scale_gen_pmin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Scales cost of generators.</span>
+    <span class="k">def</span> <span class="nf">_scale_gen_pmin_by_zone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Scales minimum generation of generators, by zone.</span>
 
 <span class="sd">        :param str gen_type: type of generator.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -160,6 +188,13 @@
                     <span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
                 <span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="s2">&quot;Pmin&quot;</span><span class="p">]</span> <span class="o">*=</span> <span class="n">factor</span>
+
+    <span class="k">def</span> <span class="nf">_scale_gen_pmin_by_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Scales minimum generation of generators, by ID.</span>
+
+<span class="sd">        :param str gen_type: type of generator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pmin_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">gen_type</span><span class="si">}</span><span class="s2">_pmin&quot;</span>
         <span class="k">if</span> <span class="s2">&quot;plant_id&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">pmin_key</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="k">for</span> <span class="n">plant_id</span><span class="p">,</span> <span class="n">factor</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">pmin_key</span><span class="p">][</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="s2">&quot;Pmin&quot;</span><span class="p">]</span> <span class="o">*=</span> <span class="n">factor</span>
@@ -185,8 +220,8 @@
         <span class="k">if</span> <span class="n">factor</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">]</span> <span class="o">/=</span> <span class="n">factor</span>
 
-    <span class="k">def</span> <span class="nf">_scale_branch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Scales capacity of AC lines.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_scale_branch_by_zone</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Scales capacity of AC lines, by zone, for lines entirely within that zone.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="s2">&quot;zone_id&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="k">for</span> <span class="n">zone_id</span><span class="p">,</span> <span class="n">factor</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="n">branch_id</span> <span class="o">=</span> <span class="p">(</span>
@@ -195,6 +230,9 @@
                     <span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
                 <span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_scale_branch_capacity</span><span class="p">(</span><span class="n">branch_id</span><span class="p">,</span> <span class="n">factor</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_scale_branch_by_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Scales capacity of AC lines, by ID.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="s2">&quot;branch_id&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="k">for</span> <span class="n">branch_id</span><span class="p">,</span> <span class="n">factor</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;branch_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_scale_branch_capacity</span><span class="p">(</span><span class="n">branch_id</span><span class="p">,</span> <span class="n">factor</span><span class="p">)</span>

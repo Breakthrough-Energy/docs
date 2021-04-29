@@ -1,0 +1,498 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Analysis of Scenario Data &#8212; documentation</title>
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="shortcut icon" href="../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="analysis-of-scenario-data">
+<h1>Analysis of Scenario Data<a class="headerlink" href="#analysis-of-scenario-data" title="Permalink to this headline">¶</a></h1>
+<p>Several categories of analysis focusing on:</p>
+<ul class="simple">
+<li><p>transmission congestion/utilization</p></li>
+<li><p>generation and generator capacity</p></li>
+<li><p>emission (<span class="math notranslate nohighlight">\(\rm{CO}_2\)</span>, <span class="math notranslate nohighlight">\(\rm{NO}_x\)</span> and <span class="math notranslate nohighlight">\(\rm{SO}_2\)</span>) from thermal
+generators</p></li>
+<li><p>curtailment of renewable generators</p></li>
+</ul>
+<p>can be conducted with the PostREISE package.</p>
+<p>You will find below some code snippets that will help you use these analysis tools
+for each category. Information on the input and returned parameter(s) of the analysis
+functions can be found on this website. Use the <a class="reference internal" href="../py-modindex.html"><span class="std std-ref">Module Index</span></a> to locate a module and
+access the documentation along with the source code of the objects therein.</p>
+<div class="section" id="transmission">
+<h2>Transmission<a class="headerlink" href="#transmission" title="Permalink to this headline">¶</a></h2>
+<ul>
+<li><p>calculate the hourly congestion surplus</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.transmission.congestion</span> <span class="kn">import</span> <span class="n">calculate_congestion_surplus</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">403</span><span class="p">)</span>
+<span class="n">congestion_surplus</span> <span class="o">=</span> <span class="n">calculate_congestion_surplus</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>get the hourly utilization level (in [0, 1]) of the branches, i.e., the extent to
+which the transmission path is used</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.transmission.utilization</span> <span class="kn">import</span> <span class="n">get_utilization</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">403</span><span class="p">)</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+<span class="n">pf</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_pf</span><span class="p">()</span>
+
+<span class="n">utilization</span> <span class="o">=</span> <span class="n">get_utilization</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="n">pf</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>obtain utilization/congestion statistics for each line</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.transmission.utilization</span> <span class="kn">import</span> <span class="n">generate_cong_stats</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">403</span><span class="p">)</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+<span class="n">pf</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_pf</span><span class="p">()</span>
+
+<span class="n">congestion_stats</span> <span class="o">=</span> <span class="n">generate_cong_stats</span><span class="p">(</span><span class="n">pf</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The columns of the returned table are:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">capacity</span></code>: the capacity of the line</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">branch_device_type</span></code>: the type of line</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">per_util1</span></code>, <code class="docutils literal notranslate"><span class="pre">per_util2</span></code> and <code class="docutils literal notranslate"><span class="pre">per_util3</span></code>: fraction of hours the line is
+used above threshold 1, 2 and 3. Default value for threshold are 0.75, 0.9 and
+0.99, respectively</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bind</span></code>: number of hours the line is used at full capacity</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">risk</span></code>: total power flowing on the line for hours used above threshold 1 (0.75
+by default)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">uflag1</span></code>, <code class="docutils literal notranslate"><span class="pre">uflag2</span></code> and <code class="docutils literal notranslate"><span class="pre">uflag3</span></code>: threshold for <code class="docutils literal notranslate"><span class="pre">per_util1</span></code>, <code class="docutils literal notranslate"><span class="pre">per_util2</span></code>
+and <code class="docutils literal notranslate"><span class="pre">per_util3</span></code>. Default values for threshold are 0.5, 0.2 and 0.05,
+respectively</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sumflag</span></code>: total number of flags (in [0, 3])</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dist</span></code>: the length of the line</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="generator-capacity-and-generation">
+<h2>Generator Capacity and Generation<a class="headerlink" href="#generator-capacity-and-generation" title="Permalink to this headline">¶</a></h2>
+<ul>
+<li><p>identify hours for which generators are at minimum power, maximum power and have
+binding ramp constraints</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.binding</span> <span class="kn">import</span> <span class="p">(</span>
+  <span class="n">pmin_constraints</span><span class="p">,</span> <span class="n">pmax_constraints</span><span class="p">,</span>
+  <span class="n">ramp_constraints</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">3287</span><span class="p">)</span>
+<span class="n">binding_pmin</span> <span class="o">=</span> <span class="n">pmin_constraints</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+<span class="n">binding_pmax</span> <span class="o">=</span> <span class="n">pmax_constraints</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+<span class="n">binding_ramp</span> <span class="o">=</span> <span class="n">ramp_constraints</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>calculate the net load duration curve, i.e., the capacity value of a class of
+resources by comparing the mean of the top N hour of absolute demand to the mean of
+the top N hours of net demand</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.capacity</span> <span class="kn">import</span> <span class="n">calculate_NLDC</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">3287</span><span class="p">)</span>
+<span class="n">nldc</span> <span class="o">=</span> <span class="n">calculate_NLDC</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;ng&quot;</span><span class="p">,</span> <span class="s2">&quot;coal&quot;</span><span class="p">})</span>
+</pre></div>
+</div>
+</li>
+<li><p>calculate the capacity value of a class of resources by averaging the power generated
+in the top N hours of net load peak</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.capacity</span> <span class="kn">import</span> <span class="n">calculate_net_load_peak</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">3287</span><span class="p">)</span>
+<span class="n">nlp</span> <span class="o">=</span> <span class="n">calculate_net_load_peak</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;nuclear&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">},</span> <span class="n">hours</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>get the total nameplate capacity for generator type(s) in an area</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.capacity</span> <span class="kn">import</span> <span class="n">get_capacity_by_resources</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">2497</span><span class="p">)</span>
+<span class="n">resources_capacity</span> <span class="o">=</span> <span class="n">get_capacity_by_resources</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;CA&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">})</span>
+</pre></div>
+</div>
+</li>
+<li><p>get total storage nameplate capacity in an area</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.capacity</span> <span class="kn">import</span> <span class="n">get_storage_capacity</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">1171</span><span class="p">)</span>
+<span class="n">storage_capacity</span> <span class="o">=</span> <span class="n">get_storage_capacity</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;CA&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>get the total nameplate capacity for each generator type and load zone
+combination</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.capacity</span> <span class="kn">import</span> <span class="n">sum_capacity_by_type_zone</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">2497</span><span class="p">)</span>
+<span class="n">capacity</span> <span class="o">=</span> <span class="n">sum_capacity_by_type_zone</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>get the hourly capacity factor of each generator fueled by resource(s) in an area</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.capacity</span> <span class="kn">import</span> <span class="n">get_capacity_factor_time_series</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">3287</span><span class="p">)</span>
+<span class="n">capacity</span> <span class="o">=</span> <span class="n">get_capacity_factor_time_series</span><span class="p">(</span>
+  <span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">},</span> <span class="n">area_type</span><span class="o">=</span> <span class="s2">&quot;interconnect&quot;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>get the total generation for each generator type and load zone combination</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.summarize</span> <span class="kn">import</span> <span class="n">sum_generation_by_type_zone</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">3101</span><span class="p">)</span>
+<span class="n">generation</span> <span class="o">=</span> <span class="n">sum_generation_by_type_zone</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>get the total generation for each generator type and state combination, adding
+totals for the interconnects and for all states</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.summarize</span> <span class="kn">import</span> <span class="n">sum_generation_by_state</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">3101</span><span class="p">)</span>
+<span class="n">generation</span> <span class="o">=</span> <span class="n">sum_generation_by_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>get the total historical generation for each generator type and state combination,
+adding totals for interconnects and for all states</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">import</span> <span class="nn">postreise</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.summarize</span> <span class="kn">import</span> <span class="n">summarize_hist_gen</span>
+
+<span class="n">data</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getfile</span><span class="p">(</span><span class="n">postreise</span><span class="p">)),</span> <span class="s2">&quot;data&quot;</span><span class="p">)</span>
+  <span class="n">hist_gen</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+  <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&quot;2016_Historical_USA_TAMU_Generation_GWh.csv&quot;</span><span class="p">),</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span>
+<span class="p">)</span><span class="o">.</span><span class="n">T</span>
+<span class="n">historical_generation</span> <span class="o">=</span> <span class="n">summarize_hist_gen</span><span class="p">(</span><span class="n">hist_gen</span><span class="p">,</span> <span class="n">hist_gen</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">to_list</span><span class="p">())</span>
+</pre></div>
+</div>
+</li>
+<li><p>get hourly total generation for generator type(s) in an area</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.summarize</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">get_generation_time_series_by_resources</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">3287</span><span class="p">)</span>
+<span class="n">generation</span> <span class="o">=</span> <span class="n">get_generation_time_series_by_resources</span><span class="p">(</span>
+  <span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>get hourly total storage power generation in an area</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.summarize</span> <span class="kn">import</span> <span class="n">get_storage_time_series</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">1171</span><span class="p">)</span>
+<span class="n">generation</span> <span class="o">=</span> <span class="n">get_storage_time_series</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="section" id="emission">
+<h2>Emission<a class="headerlink" href="#emission" title="Permalink to this headline">¶</a></h2>
+<ul>
+<li><p>calculate hourly emissions for each generator</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.emissions</span> <span class="kn">import</span> <span class="n">generate_emissions_stats</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">403</span><span class="p">)</span>
+<span class="n">emission</span> <span class="o">=</span> <span class="n">generate_emissions_stats</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">pollutant</span><span class="o">=</span><span class="s2">&quot;carbon&quot;</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;simple&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Different methods can be used to infer the carbon emission:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>‘simple’ uses a fixed ratio of <span class="math notranslate nohighlight">\(\rm{CO}_2\)</span> to MWh</p></li>
+<li><p>‘always-on’ uses generator heat-rate curves including non-zero intercepts</p></li>
+<li><p>‘decommit’ uses generator heat-rate curves but de-commits generators if off</p></li>
+</ul>
+</div></blockquote>
+<p>Only the ‘simple’ method can be used to infer emission of <span class="math notranslate nohighlight">\(\rm{NO}_x\)</span> or
+<span class="math notranslate nohighlight">\(\rm{SO}_2\)</span>.</p>
+<p>Pollutant options:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">carbon</span></code> = carbon dioxide (<span class="math notranslate nohighlight">\(\rm{CO}_2\)</span>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nox</span></code> = nitrogen oxides (<span class="math notranslate nohighlight">\(\rm{NO}_x\)</span>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">so2</span></code> = sulfur dioxide (<span class="math notranslate nohighlight">\(\rm{SO}_2\)</span>)</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>calculate total emissions by generator type and bus</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.emissions</span> <span class="kn">import</span> <span class="p">(</span>
+  <span class="n">generate_emissions_stats</span><span class="p">,</span>
+  <span class="n">summarize_emissions_by_bus</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">403</span><span class="p">)</span>
+<span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+<span class="n">emission</span> <span class="o">=</span> <span class="n">generate_emissions_stats</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">pollutant</span><span class="o">=</span><span class="s2">&quot;carbon&quot;</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;simple&quot;</span><span class="p">)</span>
+<span class="n">emission_by_resources_and_bus</span> <span class="o">=</span> <span class="n">summarize_emissions_by_bus</span><span class="p">(</span><span class="n">emission</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>calculate individual generator costs at given power output</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.emissions</span> <span class="kn">import</span> <span class="n">calculate_costs</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">403</span><span class="p">)</span>
+<span class="n">costs</span> <span class="o">=</span> <span class="n">calculate_costs</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="section" id="curtailment">
+<h2>Curtailment<a class="headerlink" href="#curtailment" title="Permalink to this headline">¶</a></h2>
+<ul>
+<li><p>calculate hourly curtailment for each renewable generator</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.curtailment</span> <span class="kn">import</span> <span class="p">(</span>
+  <span class="n">calculate_curtailment_time_series</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">403</span><span class="p">)</span>
+<span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>calculate hourly curtailment by generator type(s)</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.curtailment</span> <span class="kn">import</span> <span class="p">(</span>
+  <span class="n">calculate_curtailment_time_series_by_resources</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">403</span><span class="p">)</span>
+<span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series_by_resources</span><span class="p">(</span>
+  <span class="n">scenario</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>calculate hourly curtailment by area(s)</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.curtailment</span> <span class="kn">import</span> <span class="p">(</span>
+  <span class="n">calculate_curtailment_time_series_by_areas</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">3287</span><span class="p">)</span>
+<span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series_by_areas</span><span class="p">(</span>
+  <span class="n">scenario</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CA&quot;</span><span class="p">,</span> <span class="s2">&quot;WA&quot;</span><span class="p">,</span> <span class="s2">&quot;OR&quot;</span><span class="p">,</span> <span class="s2">&quot;NV&quot;</span><span class="p">,</span> <span class="s2">&quot;UT&quot;</span><span class="p">]}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>calculate scenario-long average curtailment fraction for a set of generator type(s)</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.curtailment</span> <span class="kn">import</span> <span class="p">(</span>
+  <span class="n">calculate_curtailment_percentage_by_resources</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">3287</span><span class="p">)</span>
+<span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_percentage_by_resources</span><span class="p">(</span>
+  <span class="n">scenario</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>calculate hourly curtailment of each generator located in area(s) and fueled by
+resource(s)</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.curtailment</span> <span class="kn">import</span> <span class="p">(</span>
+  <span class="n">calculate_curtailment_time_series_by_areas_and_resources</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">3287</span><span class="p">)</span>
+<span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series_by_areas_and_resources</span><span class="p">(</span>
+  <span class="n">scenario</span><span class="p">,</span> <span class="n">areas</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Maine&quot;</span><span class="p">,</span> <span class="s2">&quot;CA&quot;</span><span class="p">,</span> <span class="s2">&quot;TX&quot;</span><span class="p">]})</span>
+</pre></div>
+</div>
+</li>
+<li><p>calculate hourly curtailment of each generator fueled by resources and located
+in area(s).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.curtailment</span> <span class="kn">import</span> <span class="p">(</span>
+  <span class="n">calculate_curtailment_time_series_by_resources_and_areas</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">3287</span><span class="p">)</span>
+<span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series_by_resources_and_areas</span><span class="p">(</span>
+  <span class="n">scenario</span><span class="p">,</span> <span class="n">areas</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Maine&quot;</span><span class="p">,</span> <span class="s2">&quot;CA&quot;</span><span class="p">,</span> <span class="s2">&quot;TX&quot;</span><span class="p">]})</span>
+</pre></div>
+</div>
+</li>
+<li><p>calculate total curtailment by bus</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.curtailment</span> <span class="kn">import</span> <span class="n">summarize_curtailment_by_bus</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">403</span><span class="p">)</span>
+<span class="n">curtailment</span> <span class="o">=</span> <span class="n">summarize_curtailment_by_bus</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>calculate total curtailment by location</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.curtailment</span> <span class="kn">import</span> <span class="p">(</span>
+  <span class="n">summarize_curtailment_by_location</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">2497</span><span class="p">)</span>
+<span class="n">curtailment</span> <span class="o">=</span> <span class="n">summarize_curtailment_by_location</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p>get hourly curtailment for each available renewable resource(s) in area.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.curtailment</span> <span class="kn">import</span> <span class="n">get_curtailment_time_series</span>
+
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="mi">2497</span><span class="p">)</span>
+<span class="n">curtailment</span> <span class="o">=</span> <span class="n">get_curtailment_time_series</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="s2">&quot;WA&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../communication/code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../powersimdata/index.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="index.html">PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reisejl_package.html">REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.5.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/postreise/analyze.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

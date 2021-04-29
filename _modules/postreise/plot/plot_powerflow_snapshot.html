@@ -33,7 +33,6 @@
             
   <h1>Source code for postreise.plot.plot_powerflow_snapshot</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">from</span> <span class="nn">bokeh.io</span> <span class="kn">import</span> <span class="n">show</span>
 <span class="kn">from</span> <span class="nn">bokeh.models</span> <span class="kn">import</span> <span class="n">Arrow</span><span class="p">,</span> <span class="n">VeeHead</span>
 <span class="kn">from</span> <span class="nn">bokeh.plotting</span> <span class="kn">import</span> <span class="n">figure</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.distance</span> <span class="kn">import</span> <span class="n">haversine</span>
@@ -152,7 +151,7 @@
 <span class="sd">    :param str solar_color: color to plot solar generation.</span>
 <span class="sd">    :param str wind_color: color to plot wind generation.</span>
 <span class="sd">    :param str demand_color: color to plot demand.</span>
-<span class="sd">    :param tuple(int, int) figsize: size of the bokeh figure (in pixels).</span>
+<span class="sd">    :param tuple figsize: size of the bokeh figure (in pixels).</span>
 <span class="sd">    :param int/float circle_scale_factor: scale factor for demand/solar/wind circles.</span>
 <span class="sd">    :param int/float bg_width_scale_factor: scale factor for grid capacities.</span>
 <span class="sd">    :param int/float pf_width_scale_factor: scale factor for power flows.</span>
@@ -166,6 +165,7 @@
 <span class="sd">    :param tuple(float, float) x_range: x range to zoom plot to (EPSG:3857).</span>
 <span class="sd">    :param tuple(float, float) y_range: y range to zoom plot to (EPSG:3857).</span>
 <span class="sd">    :param int/str legend_font_size: size to display legend specified as e.g. 12/&#39;12pt&#39;.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure*) -- power flow snapshot map.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
     <span class="n">_check_date_range_in_scenario</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">hour</span><span class="p">,</span> <span class="n">hour</span><span class="p">)</span>
@@ -207,6 +207,7 @@
         <span class="n">plot_width</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
         <span class="n">plot_height</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
         <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
+        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;scale_both&quot;</span><span class="p">,</span>
         <span class="n">match_aspect</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">x_range</span><span class="o">=</span><span class="n">x_range</span><span class="p">,</span>
         <span class="n">y_range</span><span class="o">=</span><span class="n">y_range</span><span class="p">,</span>
@@ -246,14 +247,15 @@
         <span class="n">alpha</span><span class="o">=</span><span class="n">branch_alpha</span><span class="p">,</span>
         <span class="n">line_width</span><span class="o">=</span><span class="p">(</span><span class="n">dcline</span><span class="p">[[</span><span class="s2">&quot;Pmin&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">bg_width_scale_factor</span><span class="p">),</span>
     <span class="p">)</span>
-    <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
-        <span class="n">x</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_x</span><span class="p">,</span>
-        <span class="n">y</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_y</span><span class="p">,</span>
-        <span class="n">color</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">,</span>
-        <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
-        <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;triangle&quot;</span><span class="p">,</span>
-        <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">b2b</span><span class="p">[[</span><span class="s2">&quot;Pmin&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">bg_width_scale_factor</span><span class="p">),</span>
-    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">b2b_dclines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_x</span><span class="p">,</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_y</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">,</span>
+            <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+            <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;triangle&quot;</span><span class="p">,</span>
+            <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">b2b</span><span class="p">[[</span><span class="s2">&quot;Pmin&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">bg_width_scale_factor</span><span class="p">),</span>
+        <span class="p">)</span>
 
     <span class="n">fake_location</span> <span class="o">=</span> <span class="n">branch</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="s2">&quot;from_x&quot;</span><span class="p">:</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;from_y&quot;</span><span class="p">:</span> <span class="s2">&quot;y&quot;</span><span class="p">})</span>
     <span class="c1"># Legend entries</span>
@@ -293,24 +295,26 @@
         <span class="n">legend_label</span><span class="o">=</span><span class="s2">&quot;Wind Gen.&quot;</span><span class="p">,</span>
         <span class="n">visible</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span>
-        <span class="n">fake_location</span><span class="o">.</span><span class="n">x</span><span class="p">,</span>
-        <span class="n">fake_location</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
-        <span class="n">color</span><span class="o">=</span><span class="n">demand_color</span><span class="p">,</span>
-        <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
-        <span class="n">size</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-        <span class="n">legend_label</span><span class="o">=</span><span class="s2">&quot;Demand&quot;</span><span class="p">,</span>
-        <span class="n">visible</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="p">)</span>
 
     <span class="c1"># Plot demand</span>
-    <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span>
-        <span class="n">demand_centers</span><span class="o">.</span><span class="n">x</span><span class="p">,</span>
-        <span class="n">demand_centers</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
-        <span class="n">color</span><span class="o">=</span><span class="n">demand_color</span><span class="p">,</span>
-        <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
-        <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">demand_centers</span><span class="o">.</span><span class="n">demand</span> <span class="o">*</span> <span class="n">circle_scale_factor</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span><span class="p">,</span>
-    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">demand_centers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span>
+            <span class="n">fake_location</span><span class="o">.</span><span class="n">x</span><span class="p">,</span>
+            <span class="n">fake_location</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">demand_color</span><span class="p">,</span>
+            <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+            <span class="n">size</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+            <span class="n">legend_label</span><span class="o">=</span><span class="s2">&quot;Demand&quot;</span><span class="p">,</span>
+            <span class="n">visible</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span>
+            <span class="n">demand_centers</span><span class="o">.</span><span class="n">x</span><span class="p">,</span>
+            <span class="n">demand_centers</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">demand_color</span><span class="p">,</span>
+            <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+            <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">demand_centers</span><span class="o">.</span><span class="n">demand</span> <span class="o">*</span> <span class="n">circle_scale_factor</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span><span class="p">,</span>
+        <span class="p">)</span>
+
     <span class="c1"># Aggregate solar and wind for plotting</span>
     <span class="n">plant_with_pg</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">plant_with_pg</span><span class="p">[</span><span class="s2">&quot;pg&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_pg</span><span class="p">()</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">hour</span><span class="p">]</span>
@@ -366,14 +370,15 @@
         <span class="n">n</span><span class="o">=</span><span class="n">num_dc_arrows</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="c1"># B2Bs</span>
-    <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
-        <span class="n">x</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_x</span><span class="p">,</span>
-        <span class="n">y</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_y</span><span class="p">,</span>
-        <span class="n">color</span><span class="o">=</span><span class="n">dc_branch_color</span><span class="p">,</span>
-        <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
-        <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;triangle&quot;</span><span class="p">,</span>
-        <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">b2b</span><span class="p">[</span><span class="s2">&quot;pf&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span> <span class="o">*</span> <span class="n">pf_width_scale_factor</span> <span class="o">*</span> <span class="mi">5</span><span class="p">),</span>
-    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">b2b_dclines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+            <span class="n">x</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_x</span><span class="p">,</span>
+            <span class="n">y</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_y</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">dc_branch_color</span><span class="p">,</span>
+            <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+            <span class="n">marker</span><span class="o">=</span><span class="s2">&quot;triangle&quot;</span><span class="p">,</span>
+            <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">b2b</span><span class="p">[</span><span class="s2">&quot;pf&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span> <span class="o">*</span> <span class="n">pf_width_scale_factor</span> <span class="o">*</span> <span class="mi">5</span><span class="p">),</span>
+        <span class="p">)</span>
 
     <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="s2">&quot;bottom_left&quot;</span>
     <span class="k">if</span> <span class="n">legend_font_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -381,7 +386,7 @@
             <span class="n">legend_font_size</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">legend_font_size</span><span class="si">}</span><span class="s2">pt&quot;</span>
         <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">label_text_font_size</span> <span class="o">=</span> <span class="n">legend_font_size</span>
 
-    <span class="n">show</span><span class="p">(</span><span class="n">bokeh_figure</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">bokeh_figure</span></div>
 </pre></div>
 
           </div>

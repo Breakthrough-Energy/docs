@@ -45,16 +45,20 @@
 
 
 <div class="viewcode-block" id="generate_emissions_stats"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.emissions.generate_emissions_stats">[docs]</a><span class="k">def</span> <span class="nf">generate_emissions_stats</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">pollutant</span><span class="o">=</span><span class="s2">&quot;carbon&quot;</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;simple&quot;</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Generate emissions statistics from the input generation data. Method</span>
-<span class="sd">    descriptions: &#39;simple&#39; uses a fixed ratio of CO2 to MWh, &#39;always-on&#39; uses</span>
-<span class="sd">    generator heat-rate curves including non-zero intercepts, &#39;decommit&#39; uses</span>
-<span class="sd">    generator heat-rate curves but de-commits generators if they are off</span>
-<span class="sd">    (detected by pg &lt; 1 MW).</span>
+    <span class="sd">&quot;&quot;&quot;Calculate hourly emissions for each generator.</span>
 
 <span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
 <span class="sd">    :param str pollutant: pollutant to analyze.</span>
 <span class="sd">    :param str method: selected method to handle no-load fuel consumption.</span>
-<span class="sd">    :return: (*pandas.DataFrame*) -- emissions data frame.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- emissions data frame. index: timestamps, column:</span>
+<span class="sd">        plant id, values: emission in tons.</span>
+
+<span class="sd">    .. note:: method descriptions:</span>
+
+<span class="sd">        - &#39;simple&#39; uses a fixed ratio of CO2 to MWh</span>
+<span class="sd">        - &#39;always-on&#39; uses generator heat-rate curves including non-zero intercepts</span>
+<span class="sd">        - &#39;decommit&#39; uses generator heat-rate curves but de-commits generators if they</span>
+<span class="sd">          are off (detected by pg &lt; 1 MW).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
     <span class="n">mi</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">])</span>
@@ -106,9 +110,10 @@
 
 
 <div class="viewcode-block" id="summarize_emissions_by_bus"><a class="viewcode-back" href="../../../../postreise.analyze.generation.html#postreise.analyze.generation.emissions.summarize_emissions_by_bus">[docs]</a><span class="k">def</span> <span class="nf">summarize_emissions_by_bus</span><span class="p">(</span><span class="n">emissions</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Summarize time series emissions dataframe by type and bus.</span>
+    <span class="sd">&quot;&quot;&quot;Calculate total emissions by generator type and bus.</span>
 
-<span class="sd">    :param pandas.DataFrame emissions: hourly emissions by generator.</span>
+<span class="sd">    :param pandas.DataFrame emissions: hourly emissions by generator as returned by</span>
+<span class="sd">        :func:`generate_emissions_stats`.</span>
 <span class="sd">    :param powersimdata.input.grid.Grid grid: grid object.</span>
 <span class="sd">    :return: (*dict*) -- annual emissions by fuel and bus.</span>
 <span class="sd">    &quot;&quot;&quot;</span>

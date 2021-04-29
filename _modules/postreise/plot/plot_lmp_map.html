@@ -35,130 +35,175 @@
 <span></span><span class="c1"># This plotting module has a corresponding demo notebook in</span>
 <span class="c1">#   PostREISE/postreise/plot/demo: lmp_map_demo.ipynb</span>
 
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">from</span> <span class="nn">bokeh.layouts</span> <span class="kn">import</span> <span class="n">row</span>
-<span class="kn">from</span> <span class="nn">bokeh.models</span> <span class="kn">import</span> <span class="n">ColumnDataSource</span><span class="p">,</span> <span class="n">HoverTool</span>
+<span class="kn">from</span> <span class="nn">bokeh.models</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BasicTicker</span><span class="p">,</span>
+    <span class="n">ColorBar</span><span class="p">,</span>
+    <span class="n">ColumnDataSource</span><span class="p">,</span>
+    <span class="n">HoverTool</span><span class="p">,</span>
+    <span class="n">LinearColorMapper</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">bokeh.palettes</span> <span class="kn">import</span> <span class="n">Turbo256</span>
 <span class="kn">from</span> <span class="nn">bokeh.plotting</span> <span class="kn">import</span> <span class="n">figure</span>
-<span class="kn">from</span> <span class="nn">bokeh.tile_providers</span> <span class="kn">import</span> <span class="n">Vendors</span><span class="p">,</span> <span class="n">get_provider</span>
+<span class="kn">from</span> <span class="nn">matplotlib.colors</span> <span class="kn">import</span> <span class="n">BoundaryNorm</span>
 
-<span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">get_state_borders</span>
-<span class="kn">from</span> <span class="nn">postreise.plot.projection_helpers</span> <span class="kn">import</span> <span class="n">project_borders</span><span class="p">,</span> <span class="n">project_bus</span>
+<span class="kn">from</span> <span class="nn">postreise.analyze.check</span> <span class="kn">import</span> <span class="n">_check_scenario_is_in_analyze_state</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">plot_states</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.projection_helpers</span> <span class="kn">import</span> <span class="n">project_bus</span>
 
 
-<div class="viewcode-block" id="map_lmp"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_lmp_map.map_lmp">[docs]</a><span class="k">def</span> <span class="nf">map_lmp</span><span class="p">(</span><span class="n">s_grid</span><span class="p">,</span> <span class="n">lmp</span><span class="p">,</span> <span class="n">us_states_dat</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lmp_min</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">lmp_max</span><span class="o">=</span><span class="mi">45</span><span class="p">,</span> <span class="n">is_website</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Plots average LMP by color coding buses</span>
+<div class="viewcode-block" id="map_lmp"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_lmp_map.map_lmp">[docs]</a><span class="k">def</span> <span class="nf">map_lmp</span><span class="p">(</span>
+    <span class="n">scenario</span><span class="p">,</span>
+    <span class="n">coordinate_rounding</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">lmp_min</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">lmp_max</span><span class="o">=</span><span class="mi">45</span><span class="p">,</span>
+    <span class="n">num_ticks</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">1400</span><span class="p">,</span> <span class="mi">800</span><span class="p">),</span>
+    <span class="n">scale_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">background_map</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Plot average LMP at bus level.</span>
 
-<span class="sd">    :param powersimdata.input.grid.Grid s_grid: scenario grid</span>
-<span class="sd">    :param pandas.DataFrame lmp: locational marginal prices calculated for the scenario</span>
-<span class="sd">    :param dict us_states_dat: dictionary of state border lats/lons. If None, get</span>
-<span class="sd">        from :func:`postreise.plot.plot_states.get_state_borders`.</span>
-<span class="sd">    :param inf/float lmp_min: minimum LMP to clamp plot range to.</span>
-<span class="sd">    :param inf/float lmp_max: maximum LMP to clamp plot range to.</span>
-<span class="sd">    :param bool is_website: changes text/legend formatting to look better on the website</span>
-<span class="sd">    :return: (*bokeh.models.layout.Row*) bokeh map visual in row layout</span>
+<span class="sd">    :param powersimdata.scenario,scenario.Scenario scenario: scenario instance..</span>
+<span class="sd">    :param int coordinate_rounding: number of digits to round lat/lon for aggregation.</span>
+<span class="sd">    :param int lmp_min: minimum LMP to clamp plot range to.</span>
+<span class="sd">    :param int lmp_max: maximum LMP to clamp plot range to.</span>
+<span class="sd">    :param int num_ticks: number of ticks to display on the color bar.</span>
+<span class="sd">    :param tuple figsize: size of the bokeh figure (in pixels).</span>
+<span class="sd">    :param int/float scale_factor: scaling factor for size of circles centered on buses.</span>
+<span class="sd">    :param bool background_map: whether to plot map tiles behind figure.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure*) -- LMP map.</span>
+<span class="sd">    :raises TypeError:</span>
+<span class="sd">        if ``coordinate_rounding`` is not ``int``.</span>
+<span class="sd">        if ``lmp_min`` and ``lmp_max`` are not ``int``.</span>
+<span class="sd">        if ``num_ticks`` is not ``int``.</span>
+<span class="sd">        if ``figsize`` is not a tuple.</span>
+<span class="sd">        if ``scale_factor`` is not ``int`` or ``float``.</span>
+<span class="sd">        if ``background_map`` is not a ``bool``.</span>
+<span class="sd">    :raises ValueError:</span>
+<span class="sd">        if ``coordinate_rounding`` is not positive.</span>
+<span class="sd">        if ``num_ticks`` is negative.</span>
+<span class="sd">        if ``lmp_min`` or ``lmp_min`` is negative or ``lmp_min`` &gt;= ``lmp_max``.</span>
+<span class="sd">        if ``scale_factor`` is negative.</span>
+<span class="sd">        if both elements of ``figsize`` are not positive.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">us_states_dat</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">us_states_dat</span> <span class="o">=</span> <span class="n">get_state_borders</span><span class="p">()</span>
+    <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coordinate_rounding</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;coordinate_rounding must be an int&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">coordinate_rounding</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;coordinate_rounding must be positive&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lmp_min</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;lmp_min must be a int&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lmp_max</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;lmp_max must be a int&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">lmp_min</span> <span class="o">&gt;=</span> <span class="n">lmp_max</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must have lmp_min &lt; lmp_max&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">figsize</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;figsize must be a tuple&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">figsize</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="n">e</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">figsize</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;both elemets of figsize must be positive&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scale_factor</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;scale_factor must be a int/float&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">scale_factor</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;scale_factor must be positive&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">background_map</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;background_map must be a bool&quot;</span><span class="p">)</span>
 
-    <span class="n">bus</span> <span class="o">=</span> <span class="n">project_bus</span><span class="p">(</span><span class="n">s_grid</span><span class="o">.</span><span class="n">bus</span><span class="p">)</span>
-    <span class="n">bus_segments</span> <span class="o">=</span> <span class="n">_construct_bus_data</span><span class="p">(</span><span class="n">bus</span><span class="p">,</span> <span class="n">lmp</span><span class="p">,</span> <span class="n">lmp_min</span><span class="p">,</span> <span class="n">lmp_max</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">_construct_shadowprice_visuals</span><span class="p">(</span>
-        <span class="n">bus_segments</span><span class="p">,</span> <span class="n">us_states_dat</span><span class="p">,</span> <span class="n">lmp_min</span><span class="p">,</span> <span class="n">lmp_max</span><span class="p">,</span> <span class="n">is_website</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">lmp</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_lmp</span><span class="p">()</span>
+    <span class="n">bus_with_lmp</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">bus_with_lmp</span><span class="p">[</span><span class="s2">&quot;lmp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lmp</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">construct_lmp_visuals</span><span class="p">(</span>
+        <span class="n">bus_with_lmp</span><span class="p">,</span>
+        <span class="n">coordinate_rounding</span><span class="p">,</span>
+        <span class="n">lmp_min</span><span class="p">,</span>
+        <span class="n">lmp_max</span><span class="p">,</span>
+        <span class="n">num_ticks</span><span class="p">,</span>
+        <span class="n">figsize</span><span class="p">,</span>
+        <span class="n">scale_factor</span><span class="p">,</span>
+        <span class="n">background_map</span><span class="p">,</span>
     <span class="p">)</span></div>
 
 
-<span class="k">def</span> <span class="nf">_construct_bus_data</span><span class="p">(</span><span class="n">bus_map</span><span class="p">,</span> <span class="n">lmp</span><span class="p">,</span> <span class="n">lmp_min</span><span class="p">,</span> <span class="n">lmp_max</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Adds lmp data to each bus, splits buses into lmp segments for coloring</span>
+<div class="viewcode-block" id="aggregate_bus_lmp"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_lmp_map.aggregate_bus_lmp">[docs]</a><span class="k">def</span> <span class="nf">aggregate_bus_lmp</span><span class="p">(</span><span class="n">bus</span><span class="p">,</span> <span class="n">coordinate_rounding</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Aggregate LMP for buses based on similar lat/lon coordinates.</span>
 
-<span class="sd">    :param pandas.DataFrame bus_map: bus dataframe with location data</span>
-<span class="sd">    :param pandas.DataFrame lmp: lmp dataframe</span>
-<span class="sd">    :param inf/float lmp_min: minimum LMP to clamp plot range to.</span>
-<span class="sd">    :param inf/float lmp_max: maximum LMP to clamp plot range to.</span>
-<span class="sd">    :return: (list(pandas.DataFrame)) -- bus data split into segments</span>
+<span class="sd">    :param pandas.DataFrame bus: data frame containing &#39;lat&#39;, &#39;lon&#39;, &#39;lmp&#39; columns.</span>
+<span class="sd">    :param int coordinate_rounding: number of digits to round lat/lon for aggregation.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- aggregated data frame.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># Add mean lmp to bus dataframe</span>
-    <span class="n">lmp_mean</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">lmp</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
-    <span class="n">lmp_mean</span> <span class="o">=</span> <span class="n">lmp_mean</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="n">lmp_mean</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="s2">&quot;lmp&quot;</span><span class="p">})</span>
-    <span class="n">lmp_mean</span><span class="p">[</span><span class="s2">&quot;lmp_norm&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">lmp_mean</span><span class="o">.</span><span class="n">lmp</span> <span class="o">-</span> <span class="n">lmp_min</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">lmp_max</span> <span class="o">-</span> <span class="n">lmp_min</span><span class="p">)</span> <span class="o">*</span> <span class="mi">256</span>
-    <span class="n">bus_map</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">bus_map</span><span class="p">,</span> <span class="n">lmp_mean</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">bus_map_agg</span> <span class="o">=</span> <span class="n">group_lat_lon</span><span class="p">(</span><span class="n">bus_map</span><span class="p">)</span>
-
-    <span class="c1"># set a min and a max so all values are assigned a color</span>
-    <span class="n">bus_map_agg</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">bus_map_agg</span><span class="o">.</span><span class="n">lmp_norm</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;lmp_norm&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.01</span>
-    <span class="n">bus_map_agg</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">bus_map_agg</span><span class="o">.</span><span class="n">lmp_norm</span> <span class="o">&gt;</span> <span class="mi">255</span><span class="p">),</span> <span class="s2">&quot;lmp_norm&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">255</span>
-    <span class="n">bus_map_agg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">bus_map_agg</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">bus_map_agg</span>
-
-
-<div class="viewcode-block" id="group_lat_lon"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_lmp_map.group_lat_lon">[docs]</a><span class="k">def</span> <span class="nf">group_lat_lon</span><span class="p">(</span><span class="n">bus_map</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Groups data and sums values, based on coordinates.</span>
-<span class="sd">        Takes mean of means of buses at same coordinates</span>
-<span class="sd">        Rounds locations for grouping to nearest latlon decimal (1/10) degrees</span>
-
-<span class="sd">    :param pandas.DataFrame bus_map: data frame bus location and lmp means</span>
-<span class="sd">    :return: (pandas.DataFrame) -- data frame, aggregated by rounded lat lon</span>
-<span class="sd">        coordinates</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">bus_map1</span> <span class="o">=</span> <span class="n">bus_map</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-
-    <span class="n">bus_map1</span><span class="o">.</span><span class="n">lat</span> <span class="o">=</span> <span class="n">bus_map1</span><span class="o">.</span><span class="n">lat</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">bus_map1</span><span class="o">.</span><span class="n">lon</span> <span class="o">=</span> <span class="n">bus_map1</span><span class="o">.</span><span class="n">lon</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-
-    <span class="n">bus_map2</span> <span class="o">=</span> <span class="n">bus_map1</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span>
-        <span class="p">{</span><span class="s2">&quot;lmp_norm&quot;</span><span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;lmp&quot;</span><span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">}</span>
+    <span class="n">bus_w_xy</span> <span class="o">=</span> <span class="n">project_bus</span><span class="p">(</span><span class="n">bus</span><span class="p">)</span>
+    <span class="n">bus_w_xy</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_w_xy</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">coordinate_rounding</span><span class="p">)</span>
+    <span class="n">bus_w_xy</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_w_xy</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">coordinate_rounding</span><span class="p">)</span>
+    <span class="n">aggregated</span> <span class="o">=</span> <span class="n">bus_w_xy</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span>
+        <span class="p">{</span><span class="s2">&quot;lmp&quot;</span><span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">}</span>
     <span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">bus_map2</span></div>
+    <span class="k">return</span> <span class="n">aggregated</span></div>
 
 
-<span class="k">def</span> <span class="nf">_construct_shadowprice_visuals</span><span class="p">(</span>
-    <span class="n">bus_segments</span><span class="p">,</span> <span class="n">us_states_dat</span><span class="p">,</span> <span class="n">lmp_min</span><span class="p">,</span> <span class="n">lmp_max</span><span class="p">,</span> <span class="n">is_website</span><span class="o">=</span><span class="kc">False</span>
+<div class="viewcode-block" id="construct_lmp_visuals"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_lmp_map.construct_lmp_visuals">[docs]</a><span class="k">def</span> <span class="nf">construct_lmp_visuals</span><span class="p">(</span>
+    <span class="n">bus_with_lmp</span><span class="p">,</span>
+    <span class="n">coordinate_rounding</span><span class="p">,</span>
+    <span class="n">lmp_min</span><span class="p">,</span>
+    <span class="n">lmp_max</span><span class="p">,</span>
+    <span class="n">num_ticks</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="p">,</span>
+    <span class="n">scale_factor</span><span class="p">,</span>
+    <span class="n">background_map</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Uses bokeh to plot formatted data. Make map showing lmp using color.</span>
+    <span class="sd">&quot;&quot;&quot;Use bokeh to plot formatted data. Make map showing LMP using color.</span>
 
-<span class="sd">    :param list(pandas.DataFrame) bus_segments: bus data split by lmp</span>
-<span class="sd">    :param dict us_states_dat: dictionary of state border lats/lons</span>
-<span class="sd">    :param str file_name: name for output png file</span>
-<span class="sd">    :param inf/float lmp_min: minimum LMP to clamp plot range to.</span>
-<span class="sd">    :param inf/float lmp_max: maximum LMP to clamp plot range to.</span>
-<span class="sd">    :param bool is_website: changes text/legend formatting to look better on the website</span>
-<span class="sd">    :return: (*bokeh.models.layout.Row*) bokeh map visual in row layout</span>
+<span class="sd">    :param list bus_with_lmp: bus data frame with LMP values.</span>
+<span class="sd">    :param int coordinate_rounding: number of digits to round lat/lon for aggregation.</span>
+<span class="sd">    :param str file_name: name for output png file.</span>
+<span class="sd">    :param int lmp_min: minimum LMP to clamp plot range to.</span>
+<span class="sd">    :param int lmp_max: maximum LMP to clamp plot range to.</span>
+<span class="sd">    :param int num_ticks: number of ticks to display on the color bar.</span>
+<span class="sd">    :param tuple figsize: size of the bokeh figure (in pixels).</span>
+<span class="sd">    :param int/float scale_factor: scaling factor for size of circles centered on buses.</span>
+<span class="sd">    :param bool background_map: whether to plot map tiles behind figure.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure*) -- bokeh LMP map.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">tools</span> <span class="o">=</span> <span class="s2">&quot;pan,wheel_zoom,reset,save&quot;</span>
     <span class="n">p</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
-        <span class="n">tools</span><span class="o">=</span><span class="n">tools</span><span class="p">,</span>
+        <span class="n">tools</span><span class="o">=</span><span class="s2">&quot;pan,wheel_zoom,reset,save&quot;</span><span class="p">,</span>
         <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">plot_width</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
-        <span class="n">plot_height</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
+        <span class="n">plot_width</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="n">plot_height</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
         <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
-        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;stretch_both&quot;</span><span class="p">,</span>
+        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;scale_both&quot;</span><span class="p">,</span>
         <span class="n">match_aspect</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">xgrid</span><span class="o">.</span><span class="n">visible</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">ygrid</span><span class="o">.</span><span class="n">visible</span> <span class="o">=</span> <span class="kc">False</span>
 
-    <span class="c1"># Add USA map</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_tile</span><span class="p">(</span><span class="n">get_provider</span><span class="p">(</span><span class="n">Vendors</span><span class="o">.</span><span class="n">CARTODBPOSITRON</span><span class="p">))</span>
-    <span class="c1"># state borders</span>
-    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">project_borders</span><span class="p">(</span><span class="n">us_states_dat</span><span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">patches</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">fill_alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">line_color</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="c1"># Add colored circles for bus locations</span>
+    <span class="n">plot_states</span><span class="p">(</span><span class="n">bokeh_figure</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="n">background_map</span><span class="o">=</span><span class="n">background_map</span><span class="p">)</span>
 
-    <span class="n">bus_segments</span><span class="o">.</span><span class="n">lmp_norm</span> <span class="o">=</span> <span class="n">bus_segments</span><span class="o">.</span><span class="n">lmp_norm</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
-    <span class="n">bus_segments</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_segments</span><span class="p">[</span><span class="s2">&quot;lmp_norm&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">Turbo256</span><span class="p">[</span><span class="n">x</span><span class="p">])</span>
+    <span class="c1"># aggregate buses by lat/lon</span>
+    <span class="n">grouped_bus</span> <span class="o">=</span> <span class="n">aggregate_bus_lmp</span><span class="p">(</span><span class="n">bus_with_lmp</span><span class="p">,</span> <span class="n">coordinate_rounding</span><span class="p">)</span>
 
-    <span class="n">bus_cds</span> <span class="o">=</span> <span class="n">ColumnDataSource</span><span class="p">(</span>
-        <span class="p">{</span>
-            <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">bus_segments</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">bus_segments</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;col&quot;</span><span class="p">:</span> <span class="n">bus_segments</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">],</span>
-            <span class="s2">&quot;lmp&quot;</span><span class="p">:</span> <span class="n">bus_segments</span><span class="p">[</span><span class="s2">&quot;lmp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
-        <span class="p">}</span>
+    <span class="c1"># assign color</span>
+    <span class="n">norm</span> <span class="o">=</span> <span class="n">BoundaryNorm</span><span class="p">(</span><span class="n">boundaries</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="n">lmp_min</span><span class="p">,</span> <span class="n">lmp_max</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">ncolors</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">clip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">norm</span><span class="p">(</span><span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;lmp&quot;</span><span class="p">])</span>
+    <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">Turbo256</span><span class="p">[</span><span class="n">x</span><span class="p">])</span>
+
+    <span class="n">grouped_bus_info</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;col&quot;</span><span class="p">:</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;lmp&quot;</span><span class="p">:</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;lmp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
+    <span class="p">}</span>
+
+    <span class="n">circle</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span>
+        <span class="s2">&quot;x&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;y&quot;</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="s2">&quot;col&quot;</span><span class="p">,</span>
+        <span class="n">size</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="n">scale_factor</span><span class="p">,</span>
+        <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">ColumnDataSource</span><span class="p">(</span><span class="n">grouped_bus_info</span><span class="p">),</span>
     <span class="p">)</span>
-    <span class="n">circle</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;col&quot;</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">bus_cds</span><span class="p">)</span>
-
     <span class="n">hover</span> <span class="o">=</span> <span class="n">HoverTool</span><span class="p">(</span>
         <span class="n">tooltips</span><span class="o">=</span><span class="p">[</span>
             <span class="p">(</span><span class="s2">&quot;$/MWh&quot;</span><span class="p">,</span> <span class="s2">&quot;@lmp</span><span class="si">{1.11}</span><span class="s2">&quot;</span><span class="p">),</span>
@@ -166,107 +211,19 @@
         <span class="n">renderers</span><span class="o">=</span><span class="p">[</span><span class="n">circle</span><span class="p">],</span>
     <span class="p">)</span>
     <span class="n">p</span><span class="o">.</span><span class="n">add_tools</span><span class="p">(</span><span class="n">hover</span><span class="p">)</span>
-    <span class="c1"># Add legend</span>
-    <span class="n">bus_legend</span> <span class="o">=</span> <span class="n">_construct_bus_legend</span><span class="p">(</span><span class="n">lmp_min</span><span class="p">,</span> <span class="n">lmp_max</span><span class="p">,</span> <span class="n">is_website</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">row</span><span class="p">(</span><span class="n">bus_legend</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;stretch_both&quot;</span><span class="p">)</span>
 
-
-<span class="k">def</span> <span class="nf">_construct_bus_legend</span><span class="p">(</span><span class="n">lmp_min</span><span class="p">,</span> <span class="n">lmp_max</span><span class="p">,</span> <span class="n">is_website</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Constructs the legend for lmp at each bus</span>
-
-<span class="sd">    :param inf/float lmp_min: minimum LMP to clamp plot range to.</span>
-<span class="sd">    :param inf/float lmp_max: maximum LMP to clamp plot range to.</span>
-<span class="sd">    :param bool is_website: changes text/legend formatting to look better on the website</span>
-<span class="sd">    :return: (bokeh.plotting.figure) the legend showing lmp for each bus</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">x_range</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&quot;</span><span class="p">]</span>
-    <span class="n">bars</span><span class="p">,</span> <span class="n">bar_len_sum</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">_get_bus_legend_bars_and_labels</span><span class="p">(</span>
-        <span class="n">x_range</span><span class="p">,</span> <span class="n">lmp_min</span><span class="p">,</span> <span class="n">lmp_max</span>
+    <span class="n">cm</span> <span class="o">=</span> <span class="n">LinearColorMapper</span><span class="p">(</span><span class="n">palette</span><span class="o">=</span><span class="s2">&quot;Turbo256&quot;</span><span class="p">,</span> <span class="n">low</span><span class="o">=</span><span class="n">norm</span><span class="o">.</span><span class="n">vmin</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">norm</span><span class="o">.</span><span class="n">vmax</span><span class="p">)</span>
+    <span class="n">cb</span> <span class="o">=</span> <span class="n">ColorBar</span><span class="p">(</span>
+        <span class="n">color_mapper</span><span class="o">=</span><span class="n">cm</span><span class="p">,</span>
+        <span class="n">ticker</span><span class="o">=</span><span class="n">BasicTicker</span><span class="p">(</span><span class="n">desired_num_ticks</span><span class="o">=</span><span class="n">num_ticks</span><span class="p">),</span>
+        <span class="n">title</span><span class="o">=</span><span class="s2">&quot;$/MWh&quot;</span><span class="p">,</span>
+        <span class="n">title_standoff</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+        <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;vertical&quot;</span><span class="p">,</span>
+        <span class="n">location</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
     <span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">cb</span><span class="p">,</span> <span class="s2">&quot;left&quot;</span><span class="p">)</span>
 
-    <span class="c1"># Make legend</span>
-    <span class="n">p</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
-        <span class="n">x_range</span><span class="o">=</span><span class="n">x_range</span><span class="p">,</span>
-        <span class="n">plot_height</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
-        <span class="n">plot_width</span><span class="o">=</span><span class="mi">50</span> <span class="k">if</span> <span class="n">is_website</span> <span class="k">else</span> <span class="mi">110</span><span class="p">,</span>
-        <span class="n">toolbar_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">tools</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-        <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
-        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;stretch_height&quot;</span><span class="p">,</span>
-        <span class="n">match_aspect</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">vbar_stack</span><span class="p">(</span>
-        <span class="nb">list</span><span class="p">(</span><span class="n">bars</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">1</span><span class="p">:],</span>
-        <span class="n">x</span><span class="o">=</span><span class="s2">&quot;x_range&quot;</span><span class="p">,</span>
-        <span class="n">width</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span>
-        <span class="n">color</span><span class="o">=</span><span class="n">Turbo256</span><span class="p">[:</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">bars</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)],</span>
-        <span class="n">source</span><span class="o">=</span><span class="n">bars</span><span class="p">,</span>
-    <span class="p">)</span>
-
-    <span class="n">p</span><span class="o">.</span><span class="n">y_range</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">x_range</span><span class="o">.</span><span class="n">range_padding</span> <span class="o">=</span> <span class="mf">0.1</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">xgrid</span><span class="o">.</span><span class="n">grid_line_color</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">axis</span><span class="o">.</span><span class="n">minor_tick_line_color</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">outline_line_color</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">ticker_vals</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">labels</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-    <span class="c1"># Label colorbar in increments of 5 for website</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">ticker</span> <span class="o">=</span> <span class="n">ticker_vals</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="mi">5</span><span class="p">]</span> <span class="k">if</span> <span class="n">is_website</span> <span class="k">else</span> <span class="n">ticker_vals</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">yaxis</span><span class="o">.</span><span class="n">major_label_overrides</span> <span class="o">=</span> <span class="n">labels</span>
-
-    <span class="k">if</span> <span class="n">is_website</span><span class="p">:</span>
-        <span class="c1"># Prevents $/MWh text from being cut off</span>
-        <span class="n">p</span><span class="o">.</span><span class="n">rect</span><span class="p">(</span>
-            <span class="n">x</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-            <span class="n">y</span><span class="o">=</span><span class="n">bar_len_sum</span> <span class="o">+</span> <span class="mi">7</span><span class="p">,</span>
-            <span class="n">width</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-            <span class="n">height</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span>
-            <span class="n">alpha</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-        <span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
-        <span class="n">x</span><span class="o">=</span><span class="p">[</span><span class="mf">0.05</span><span class="p">],</span>
-        <span class="n">y</span><span class="o">=</span><span class="p">[</span><span class="n">bar_len_sum</span> <span class="o">*</span> <span class="mf">1.01</span><span class="p">],</span>
-        <span class="n">text</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;$/</span><span class="se">\n</span><span class="s2">MWh&quot;</span> <span class="k">if</span> <span class="n">is_website</span> <span class="k">else</span> <span class="s2">&quot; $/MWh&quot;</span><span class="p">],</span>
-        <span class="n">text_font_size</span><span class="o">=</span><span class="s2">&quot;7pt&quot;</span> <span class="k">if</span> <span class="n">is_website</span> <span class="k">else</span> <span class="s2">&quot;12pt&quot;</span><span class="p">,</span>
-        <span class="n">level</span><span class="o">=</span><span class="s2">&quot;overlay&quot;</span><span class="p">,</span>
-    <span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">p</span>
-
-
-<span class="k">def</span> <span class="nf">_get_bus_legend_bars_and_labels</span><span class="p">(</span><span class="n">x_range</span><span class="p">,</span> <span class="n">lmp_min</span><span class="p">,</span> <span class="n">lmp_max</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Gets the bar lengths and labels for the bus legend</span>
-
-<span class="sd">    :param list(string) x_range: the x-range for the vbar_stack</span>
-<span class="sd">    :param inf/float lmp_min: minimum LMP to clamp plot range to.</span>
-<span class="sd">    :param inf/float lmp_max: maximum LMP to clamp plot range to.</span>
-<span class="sd">    :return: (dict, float, dict) bar lengths and labels for the bus legend</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">bars</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;x_range&quot;</span><span class="p">:</span> <span class="n">x_range</span><span class="p">}</span>
-    <span class="n">lmp_split_points</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-    <span class="n">bar_length_sum</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="n">labels</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># { y-position: label_text, ... }</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lmp_split_points</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">):</span>
-        <span class="n">bar_length</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">i</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">lmp_split_points</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="c1"># For first and last bars, clamp bar length</span>
-            <span class="c1"># to prevent extreme min, max vals from overwhelming the legend</span>
-            <span class="n">lmp_diff</span> <span class="o">=</span> <span class="n">lmp_split_points</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">lmp_split_points</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-            <span class="n">bar_length</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">lmp_diff</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mi">5</span> <span class="k">if</span> <span class="n">lmp_diff</span> <span class="o">&gt;</span> <span class="mi">5</span> <span class="k">else</span> <span class="n">lmp_diff</span>
-        <span class="k">elif</span> <span class="n">i</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">lmp_split_points</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="c1"># max_lmp has a label but no bar</span>
-            <span class="n">lmp_diff</span> <span class="o">=</span> <span class="n">lmp_split_points</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">lmp_split_points</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-            <span class="c1"># Min bar length of 1 to ensure small bars are visible</span>
-            <span class="n">bar_length</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">lmp_diff</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-
-        <span class="n">label_num</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
-            <span class="nb">round</span><span class="p">(((</span><span class="n">lmp_split_points</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">lmp_max</span> <span class="o">-</span> <span class="n">lmp_min</span><span class="p">)</span> <span class="o">/</span> <span class="mi">256</span> <span class="o">+</span> <span class="n">lmp_min</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="n">labels</span><span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="n">bar_length_sum</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">label_num</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">lmp_split_points</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">bars</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[</span><span class="n">bar_length</span><span class="p">]</span>
-            <span class="n">bar_length_sum</span> <span class="o">+=</span> <span class="n">bar_length</span>
-
-    <span class="k">return</span> <span class="n">bars</span><span class="p">,</span> <span class="n">bar_length_sum</span><span class="p">,</span> <span class="n">labels</span>
+    <span class="k">return</span> <span class="n">p</span></div>
 </pre></div>
 
           </div>

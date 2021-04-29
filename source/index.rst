@@ -87,5 +87,5 @@ Please review our :doc:`communication/code_of_conduct` before contributing.
    user/git_guide
    powersimdata/index
    prereise_package.md
-   postreise_package.md
+   postreise/index
    reisejl_package.md

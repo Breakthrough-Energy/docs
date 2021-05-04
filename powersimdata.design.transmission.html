@@ -128,9 +128,12 @@ is not one of the recognized methods.</p></li>
 
 <dl class="py function">
 <dt id="powersimdata.design.transmission.upgrade.scale_congested_mesh_branches">
-<code class="sig-prename descclassname"><span class="pre">powersimdata.design.transmission.upgrade.</span></code><code class="sig-name descname"><span class="pre">scale_congested_mesh_branches</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">change_table</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref_scenario</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">upgrade_n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deny_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'branches'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/powersimdata/design/transmission/upgrade.html#scale_congested_mesh_branches"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#powersimdata.design.transmission.upgrade.scale_congested_mesh_branches" title="Permalink to this definition">¶</a></dt>
-<dd><p>Use a reference scenario as a baseline for branch scaling, and further
-increment branch scaling based on observed congestion duals.</p>
+<code class="sig-prename descclassname"><span class="pre">powersimdata.design.transmission.upgrade.</span></code><code class="sig-name descname"><span class="pre">scale_congested_mesh_branches</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">change_table</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref_scenario</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">upgrade_n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deny_list</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">congestion_metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'quantile'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cost_metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'branches'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increment</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/powersimdata/design/transmission/upgrade.html#scale_congested_mesh_branches"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#powersimdata.design.transmission.upgrade.scale_congested_mesh_branches" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use a reference scenario to detect congested mesh branches (based on values of
+the shadow price of congestion), and increase the capacity of a subset of them.
+Branches are ranked by a ratio of (congestion metric) / (cost metric), and the top N
+branches are selected for upgrading, where N is specified by <code class="docutils literal notranslate"><span class="pre">upgraade_n</span></code>, with
+each upgraded by their base capacity multiplied by <code class="docutils literal notranslate"><span class="pre">increment</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -141,10 +144,15 @@ scenario to be used in bootstrapping the branch scaling factors.</p></li>
 <li><p><strong>upgrade_n</strong> (<em>int</em>) – the number of branches to upgrade.</p></li>
 <li><p><strong>allow_list</strong> (<em>list/set/tuple/None</em>) – only select from these branch IDs.</p></li>
 <li><p><strong>deny_list</strong> (<em>list/set/tuple/None</em>) – never select any of these branch IDs.</p></li>
-<li><p><strong>quantile</strong> (<em>float</em>) – the quantile to use to judge branch congestion.</p></li>
-<li><p><strong>increment</strong> (<em>[</em><em>float/int</em><em>]</em>) – branch increment, relative to original
+<li><p><strong>congestion_metric</strong> (<em>str</em>) – numerator method: ‘quantile’ or ‘mean’.</p></li>
+<li><p><strong>cost_metric</strong> (<em>str</em>) – denominator method: ‘branches’, ‘cost’, ‘MW’, or
+‘MWmiles’.</p></li>
+<li><p><strong>quantile</strong> (<em>float</em>) – if <code class="docutils literal notranslate"><span class="pre">congestion_metric</span></code> == ‘quantile’, this is the quantile
+to use to judge branch congestion (otherwise it is unused). If None, a default
+value of 0.95 is used, i.e. we evaluate the shadow price for the worst 5% of
+hours.</p></li>
+<li><p><strong>increment</strong> (<em>float/int</em>) – branch increment, relative to original
 capacity.</p></li>
-<li><p><strong>method</strong> (<em>str</em>) – prioritization method: ‘branches’, ‘MW’, or ‘MWmiles’.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>

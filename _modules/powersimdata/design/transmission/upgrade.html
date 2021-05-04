@@ -231,12 +231,16 @@
     <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
     <span class="n">allow_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">deny_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">quantile</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span>
+    <span class="n">congestion_metric</span><span class="o">=</span><span class="s2">&quot;quantile&quot;</span><span class="p">,</span>
+    <span class="n">cost_metric</span><span class="o">=</span><span class="s2">&quot;branches&quot;</span><span class="p">,</span>
+    <span class="n">quantile</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">increment</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;branches&quot;</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Use a reference scenario as a baseline for branch scaling, and further</span>
-<span class="sd">    increment branch scaling based on observed congestion duals.</span>
+    <span class="sd">&quot;&quot;&quot;Use a reference scenario to detect congested mesh branches (based on values of</span>
+<span class="sd">    the shadow price of congestion), and increase the capacity of a subset of them.</span>
+<span class="sd">    Branches are ranked by a ratio of (congestion metric) / (cost metric), and the top N</span>
+<span class="sd">    branches are selected for upgrading, where N is specified by ``upgraade_n``, with</span>
+<span class="sd">    each upgraded by their base capacity multiplied by ``increment``.</span>
 
 <span class="sd">    :param powersimdata.input.change_table.ChangeTable change_table: the</span>
 <span class="sd">        change table instance we are operating on.</span>
@@ -245,10 +249,15 @@
 <span class="sd">    :param int upgrade_n: the number of branches to upgrade.</span>
 <span class="sd">    :param list/set/tuple/None allow_list: only select from these branch IDs.</span>
 <span class="sd">    :param list/set/tuple/None deny_list: never select any of these branch IDs.</span>
-<span class="sd">    :param float quantile: the quantile to use to judge branch congestion.</span>
-<span class="sd">    :param [float/int] increment: branch increment, relative to original</span>
+<span class="sd">    :param str congestion_metric: numerator method: &#39;quantile&#39; or &#39;mean&#39;.</span>
+<span class="sd">    :param str cost_metric: denominator method: &#39;branches&#39;, &#39;cost&#39;, &#39;MW&#39;, or</span>
+<span class="sd">        &#39;MWmiles&#39;.</span>
+<span class="sd">    :param float quantile: if ``congestion_metric`` == &#39;quantile&#39;, this is the quantile</span>
+<span class="sd">        to use to judge branch congestion (otherwise it is unused). If None, a default</span>
+<span class="sd">        value of 0.95 is used, i.e. we evaluate the shadow price for the worst 5% of</span>
+<span class="sd">        hours.</span>
+<span class="sd">    :param float/int increment: branch increment, relative to original</span>
 <span class="sd">        capacity.</span>
-<span class="sd">    :param str method: prioritization method: &#39;branches&#39;, &#39;MW&#39;, or &#39;MWmiles&#39;.</span>
 <span class="sd">    :return: (*None*) -- the change_table is modified in-place.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># To do: better type checking of inputs.</span>
@@ -257,10 +266,11 @@
     <span class="n">branches_to_upgrade</span> <span class="o">=</span> <span class="n">_identify_mesh_branch_upgrades</span><span class="p">(</span>
         <span class="n">ref_scenario</span><span class="p">,</span>
         <span class="n">upgrade_n</span><span class="o">=</span><span class="n">upgrade_n</span><span class="p">,</span>
-        <span class="n">quantile</span><span class="o">=</span><span class="n">quantile</span><span class="p">,</span>
-        <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span>
+        <span class="n">congestion_metric</span><span class="o">=</span><span class="n">congestion_metric</span><span class="p">,</span>
+        <span class="n">cost_metric</span><span class="o">=</span><span class="n">cost_metric</span><span class="p">,</span>
         <span class="n">allow_list</span><span class="o">=</span><span class="n">allow_list</span><span class="p">,</span>
         <span class="n">deny_list</span><span class="o">=</span><span class="n">deny_list</span><span class="p">,</span>
+        <span class="n">quantile</span><span class="o">=</span><span class="n">quantile</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">_increment_branch_scaling</span><span class="p">(</span>
         <span class="n">change_table</span><span class="p">,</span> <span class="n">branches_to_upgrade</span><span class="p">,</span> <span class="n">ref_scenario</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">increment</span>
@@ -270,24 +280,32 @@
 <span class="k">def</span> <span class="nf">_identify_mesh_branch_upgrades</span><span class="p">(</span>
     <span class="n">ref_scenario</span><span class="p">,</span>
     <span class="n">upgrade_n</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-    <span class="n">quantile</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span>
     <span class="n">allow_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">deny_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">method</span><span class="o">=</span><span class="s2">&quot;branches&quot;</span><span class="p">,</span>
+    <span class="n">congestion_metric</span><span class="o">=</span><span class="s2">&quot;quantile&quot;</span><span class="p">,</span>
+    <span class="n">cost_metric</span><span class="o">=</span><span class="s2">&quot;branches&quot;</span><span class="p">,</span>
+    <span class="n">quantile</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Identify the N most congested branches in a previous scenario, based on</span>
-<span class="sd">    the quantile value of congestion duals. A quantile value of 0.95 obtains</span>
-<span class="sd">    the branches with highest dual in top 5% of hours.</span>
+<span class="sd">    the quantile value of congestion duals, where N is specified by ``upgrade_n``. A</span>
+<span class="sd">    quantile value of 0.95 obtains the branches with highest dual in top 5% of hours.</span>
 
 <span class="sd">    :param powersimdata.scenario.scenario.Scenario ref_scenario: the reference</span>
 <span class="sd">        scenario to be used to determine the most congested branches.</span>
 <span class="sd">    :param int upgrade_n: the number of branches to upgrade.</span>
-<span class="sd">    :param float quantile: the quantile to use to judge branch congestion.</span>
 <span class="sd">    :param list/set/tuple/None allow_list: only select from these branch IDs.</span>
 <span class="sd">    :param list/set/tuple/None deny_list: never select any of these branch IDs.</span>
-<span class="sd">    :param str method: prioritization method: &#39;branches&#39;, &#39;MW&#39;, or &#39;MWmiles&#39;.</span>
-<span class="sd">    :raises ValueError: if &#39;method&#39; not recognized, or not enough branches to</span>
-<span class="sd">        upgrade.</span>
+<span class="sd">    :param str congestion_metric: numerator method: &#39;quantile&#39; or &#39;mean&#39;.</span>
+<span class="sd">    :param str cost_metric: denominator method: &#39;branches&#39;, &#39;cost&#39;, &#39;MW&#39;, or</span>
+<span class="sd">        &#39;MWmiles&#39;.</span>
+<span class="sd">    :param float quantile: if ``congestion_metric`` == &#39;quantile&#39;, this is the quantile</span>
+<span class="sd">        to use to judge branch congestion (otherwise it is unused). If None, a default</span>
+<span class="sd">        value of 0.95 is used, i.e. we evaluate the shadow price for the worst 5% of</span>
+<span class="sd">        hours.</span>
+<span class="sd">    :raises ValueError: if ``congestion_metric`` or ``cost_metric`` is not recognized,</span>
+<span class="sd">        ``congestion_metric`` == &#39;mean&#39; but a ``quantile`` is specified, or</span>
+<span class="sd">        ``congestion_metric`` == &#39;quantile&#39; but there are not enough branches which are</span>
+<span class="sd">        congested at the desired frequency based on the ``quantile`` specified.</span>
 <span class="sd">    :return: (*set*) -- A set of ints representing branch indices.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -295,39 +313,61 @@
     <span class="n">cong_significance_cutoff</span> <span class="o">=</span> <span class="mf">1e-6</span>  <span class="c1"># $/MWh</span>
     <span class="c1"># If we rank by MW-miles, what &#39;length&#39; do we give to zero-length branches?</span>
     <span class="n">zero_length_value</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># miles</span>
+    <span class="c1"># If the quantile is not provided, what should we default to?</span>
+    <span class="n">default_quantile</span> <span class="o">=</span> <span class="mf">0.95</span>
 
-    <span class="c1"># Validate method input</span>
-    <span class="n">allowed_methods</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;branches&quot;</span><span class="p">,</span> <span class="s2">&quot;MW&quot;</span><span class="p">,</span> <span class="s2">&quot;MWmiles&quot;</span><span class="p">,</span> <span class="s2">&quot;cost&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed_methods</span><span class="p">:</span>
-        <span class="n">allowed_list</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">allowed_methods</span><span class="p">)</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;method must be one of: </span><span class="si">{</span><span class="n">allowed_list</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="c1"># Validate congestion_metric input</span>
+    <span class="n">allowed_congestion_metrics</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;quantile&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">congestion_metric</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed_congestion_metrics</span><span class="p">:</span>
+        <span class="n">allowed_list</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">allowed_congestion_metrics</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;congestion_metric must be one of: </span><span class="si">{</span><span class="n">allowed_list</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">congestion_metric</span> <span class="o">==</span> <span class="s2">&quot;mean&quot;</span> <span class="ow">and</span> <span class="n">quantile</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;quantile cannot be specified if congestion_metric is &#39;mean&#39;&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">congestion_metric</span> <span class="o">==</span> <span class="s2">&quot;quantile&quot;</span> <span class="ow">and</span> <span class="n">quantile</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">quantile</span> <span class="o">=</span> <span class="n">default_quantile</span>
+
+    <span class="c1"># Validate cost_metric input</span>
+    <span class="n">allowed_cost_metrics</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;branches&quot;</span><span class="p">,</span> <span class="s2">&quot;MW&quot;</span><span class="p">,</span> <span class="s2">&quot;MWmiles&quot;</span><span class="p">,</span> <span class="s2">&quot;cost&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">cost_metric</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed_cost_metrics</span><span class="p">:</span>
+        <span class="n">allowed_list</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">allowed_cost_metrics</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;cost_metric must be one of: </span><span class="si">{</span><span class="n">allowed_list</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="c1"># Get raw congestion dual values, add them</span>
     <span class="n">ref_cong_abs</span> <span class="o">=</span> <span class="n">ref_scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_congu</span><span class="p">()</span> <span class="o">+</span> <span class="n">ref_scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_congl</span><span class="p">()</span>
     <span class="n">all_branches</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">ref_cong_abs</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-    <span class="c1"># Create validated composite allow list</span>
+    <span class="c1"># Create validated composite allow list, and filter shadow price data frame</span>
     <span class="n">composite_allow_list</span> <span class="o">=</span> <span class="n">_construct_composite_allow_list</span><span class="p">(</span>
         <span class="n">all_branches</span><span class="p">,</span> <span class="n">allow_list</span><span class="p">,</span> <span class="n">deny_list</span>
     <span class="p">)</span>
-
-    <span class="c1"># Parse 2-D array to vector of quantile values</span>
     <span class="n">ref_cong_abs</span> <span class="o">=</span> <span class="n">ref_cong_abs</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">items</span><span class="o">=</span><span class="n">composite_allow_list</span><span class="p">)</span>
-    <span class="n">quantile_cong_abs</span> <span class="o">=</span> <span class="n">ref_cong_abs</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">quantile</span><span class="p">)</span>
-    <span class="c1"># Filter out insignificant values</span>
-    <span class="n">significance_bitmask</span> <span class="o">=</span> <span class="n">quantile_cong_abs</span> <span class="o">&gt;</span> <span class="n">cong_significance_cutoff</span>
-    <span class="n">quantile_cong_abs</span> <span class="o">=</span> <span class="n">quantile_cong_abs</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">significance_bitmask</span><span class="p">)</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">congestion_metric</span> <span class="o">==</span> <span class="s2">&quot;mean&quot;</span><span class="p">:</span>
+        <span class="n">congestion_metric_values</span> <span class="o">=</span> <span class="n">ref_cong_abs</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">congestion_metric</span> <span class="o">==</span> <span class="s2">&quot;quantile&quot;</span><span class="p">:</span>
+        <span class="n">congestion_metric_values</span> <span class="o">=</span> <span class="n">ref_cong_abs</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">quantile</span><span class="p">)</span>
+
+    <span class="c1"># Filter out &#39;insignificant&#39; values</span>
+    <span class="n">congestion_metric_values</span> <span class="o">=</span> <span class="n">congestion_metric_values</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+        <span class="n">congestion_metric_values</span> <span class="o">&gt;</span> <span class="n">cong_significance_cutoff</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
     <span class="c1"># Filter based on composite allow list</span>
-    <span class="n">congested_indices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">quantile_cong_abs</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="n">congested_indices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">congestion_metric_values</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
 
     <span class="c1"># Ensure that we have enough congested branches to upgrade</span>
-    <span class="n">num_congested</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">quantile_cong_abs</span><span class="p">)</span>
+    <span class="n">num_congested</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">congested_indices</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">num_congested</span> <span class="o">&lt;</span> <span class="n">upgrade_n</span><span class="p">:</span>
         <span class="n">err_msg</span> <span class="o">=</span> <span class="s2">&quot;not enough congested branches: &quot;</span>
         <span class="n">err_msg</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">upgrade_n</span><span class="si">}</span><span class="s2"> desired, but only </span><span class="si">{</span><span class="n">num_congested</span><span class="si">}</span><span class="s2"> congested.&quot;</span>
+        <span class="k">if</span> <span class="n">congestion_metric</span> <span class="o">==</span> <span class="s2">&quot;quantile&quot;</span><span class="p">:</span>
+            <span class="n">err_msg</span> <span class="o">+=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot; The quantile used is </span><span class="si">{</span><span class="n">quantile</span><span class="si">}</span><span class="s2">; increasing this value will increase&quot;</span>
+                <span class="s2">&quot; the number of branches which qualify as having &#39;frequent-enough&#39;&quot;</span>
+                <span class="s2">&quot; congestion and can be selected for upgrades.&quot;</span>
+            <span class="p">)</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
 
-    <span class="c1"># Calculate selected metric for congested branches</span>
-    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;cost&quot;</span><span class="p">:</span>
+    <span class="c1"># Calculate selected cost metric for congested branches</span>
+    <span class="k">if</span> <span class="n">cost_metric</span> <span class="o">==</span> <span class="s2">&quot;cost&quot;</span><span class="p">:</span>
         <span class="c1"># Calculate costs for an upgrade dataframe containing only composite_allow_list</span>
         <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
             <span class="n">ref_scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">],</span> <span class="n">ref_scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
@@ -336,7 +376,7 @@
         <span class="n">upgrade_costs</span> <span class="o">=</span> <span class="n">_calculate_ac_inv_costs</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="c1"># Merge the individual line/transformer data into a single Series</span>
         <span class="n">merged_upgrade_costs</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">upgrade_costs</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
-    <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;MW&quot;</span><span class="p">,</span> <span class="s2">&quot;MWmiles&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">cost_metric</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;MW&quot;</span><span class="p">,</span> <span class="s2">&quot;MWmiles&quot;</span><span class="p">):</span>
         <span class="n">ref_grid</span> <span class="o">=</span> <span class="n">ref_scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
         <span class="n">branch_ratings</span> <span class="o">=</span> <span class="n">ref_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">congested_indices</span><span class="p">,</span> <span class="s2">&quot;rateA&quot;</span><span class="p">]</span>
         <span class="c1"># Calculate &#39;original&#39; branch capacities, since that&#39;s our increment</span>
@@ -349,20 +389,21 @@
             <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="p">(</span><span class="n">branch_ct</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">branch_ct</span> <span class="k">else</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">congested_indices</span><span class="p">}</span>
         <span class="p">)</span>
         <span class="n">branch_ratings</span> <span class="o">=</span> <span class="n">branch_ratings</span> <span class="o">/</span> <span class="n">branch_prev_scaling</span>
-    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;MW&quot;</span><span class="p">:</span>
-        <span class="n">branch_metric</span> <span class="o">=</span> <span class="n">quantile_cong_abs</span> <span class="o">/</span> <span class="n">branch_ratings</span>
-    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;MWmiles&quot;</span><span class="p">:</span>
+    <span class="c1"># Then, apply this metric</span>
+    <span class="k">if</span> <span class="n">cost_metric</span> <span class="o">==</span> <span class="s2">&quot;MW&quot;</span><span class="p">:</span>
+        <span class="n">branch_metric</span> <span class="o">=</span> <span class="n">congestion_metric_values</span> <span class="o">/</span> <span class="n">branch_ratings</span>
+    <span class="k">elif</span> <span class="n">cost_metric</span> <span class="o">==</span> <span class="s2">&quot;MWmiles&quot;</span><span class="p">:</span>
         <span class="n">branch_lengths</span> <span class="o">=</span> <span class="n">ref_grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">congested_indices</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
             <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">haversine</span><span class="p">((</span><span class="n">x</span><span class="o">.</span><span class="n">from_lat</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">from_lon</span><span class="p">),</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_lat</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">to_lon</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
         <span class="p">)</span>
         <span class="c1"># Replace zero-length branches by designated default, don&#39;t divide by 0</span>
         <span class="n">branch_lengths</span> <span class="o">=</span> <span class="n">branch_lengths</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="n">zero_length_value</span><span class="p">)</span>
-        <span class="n">branch_metric</span> <span class="o">=</span> <span class="n">quantile_cong_abs</span> <span class="o">/</span> <span class="p">(</span><span class="n">branch_ratings</span> <span class="o">*</span> <span class="n">branch_lengths</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;cost&quot;</span><span class="p">:</span>
-        <span class="n">branch_metric</span> <span class="o">=</span> <span class="n">quantile_cong_abs</span> <span class="o">/</span> <span class="n">merged_upgrade_costs</span>
+        <span class="n">branch_metric</span> <span class="o">=</span> <span class="n">congestion_metric_values</span> <span class="o">/</span> <span class="p">(</span><span class="n">branch_ratings</span> <span class="o">*</span> <span class="n">branch_lengths</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">cost_metric</span> <span class="o">==</span> <span class="s2">&quot;cost&quot;</span><span class="p">:</span>
+        <span class="n">branch_metric</span> <span class="o">=</span> <span class="n">congestion_metric_values</span> <span class="o">/</span> <span class="n">merged_upgrade_costs</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="c1"># By process of elimination, all that&#39;s left is method &#39;branches&#39;</span>
-        <span class="n">branch_metric</span> <span class="o">=</span> <span class="n">quantile_cong_abs</span>
+        <span class="n">branch_metric</span> <span class="o">=</span> <span class="n">congestion_metric_values</span>
 
     <span class="c1"># Sort by our metric, grab indexes for N largest values (tail), return</span>
     <span class="n">ranked_branches</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">branch_metric</span><span class="o">.</span><span class="n">sort_values</span><span class="p">()</span><span class="o">.</span><span class="n">tail</span><span class="p">(</span><span class="n">upgrade_n</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>

@@ -32,10 +32,7 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.scenario.delete</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">posixpath</span>
-
-<span class="kn">from</span> <span class="nn">powersimdata.data_access.data_access</span> <span class="kn">import</span> <span class="n">LocalDataAccess</span>
+<span></span><span class="kn">from</span> <span class="nn">powersimdata.data_access.data_access</span> <span class="kn">import</span> <span class="n">LocalDataAccess</span>
 <span class="kn">from</span> <span class="nn">powersimdata.scenario.state</span> <span class="kn">import</span> <span class="n">State</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
 
@@ -75,26 +72,25 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_list_manager</span><span class="o">.</span><span class="n">delete_entry</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_execute_list_manager</span><span class="o">.</span><span class="n">delete_entry</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">)</span>
 
-        <span class="n">wildcard</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">_*&quot;</span>
-
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Deleting scenario input data on server&quot;</span><span class="p">)</span>
-        <span class="n">target</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_config</span><span class="o">.</span><span class="n">input_dir</span><span class="p">(),</span> <span class="n">wildcard</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Deleting scenario input data&quot;</span><span class="p">)</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">match_scenario_files</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">,</span> <span class="s2">&quot;input&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
 
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Deleting scenario output data on server&quot;</span><span class="p">)</span>
-        <span class="n">target</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path_config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">(),</span> <span class="n">wildcard</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Deleting scenario output data&quot;</span><span class="p">)</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">match_scenario_files</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">,</span> <span class="s2">&quot;output&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
 
         <span class="c1"># Delete temporary folder enclosing simulation inputs</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Deleting temporary folder on server&quot;</span><span class="p">)</span>
-        <span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">path_config</span><span class="o">.</span><span class="n">execute_dir</span><span class="p">(),</span> <span class="sa">f</span><span class="s2">&quot;scenario_</span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Deleting temporary folder&quot;</span><span class="p">)</span>
+        <span class="n">tmp_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">match_scenario_files</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">,</span> <span class="s2">&quot;tmp&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
 
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Deleting input and output data on local machine&quot;</span><span class="p">)</span>
-        <span class="n">target</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;**&quot;</span><span class="p">,</span> <span class="n">wildcard</span><span class="p">)</span>
-        <span class="n">LocalDataAccess</span><span class="p">()</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
+        <span class="n">local_data_access</span> <span class="o">=</span> <span class="n">LocalDataAccess</span><span class="p">()</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">local_data_access</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;**&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">_*&quot;</span>
+        <span class="p">)</span>
+        <span class="n">local_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
 
         <span class="c1"># Delete attributes</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_clean</span><span class="p">()</span></div>

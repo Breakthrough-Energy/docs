@@ -54,8 +54,8 @@ Emission
       :file: img/single/emission_map.html
 
 
-Generation
-##########
+Generator Capacity and Generation
+#################################
 - plot stacked generation time series in an area (`notebook
   <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/plot_generation_time_series_stack_demo.ipynb>`_)
 
@@ -126,6 +126,26 @@ Generation
       )
 
   .. image:: img/single/generation_stack_western_ts.png
+
+- plot capacity vs capacity factor of generators in an area (`notebook
+  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/scatter_capacity_vs_capacity_factor_demo.ipynb>`_)
+
+  .. code-block:: python
+
+      from powersimdata.scenario.scenario import Scenario
+      from powersimdata.utility.helpers import PrintManager
+      from postreise.plot.plot_scatter_capacity_vs_capacity_factor import (
+        plot_scatter_capacity_vs_capacity_factor
+      )
+
+      with PrintManager():
+        scenario = Scenario(1171)
+
+        plot_scatter_capacity_vs_capacity_factor(
+          scenario, "Western", "solar", percentage=True
+        )
+
+  .. image:: img/single/capacity_vs_cf_solar_western_scatter.png
 
 
 Curtailment

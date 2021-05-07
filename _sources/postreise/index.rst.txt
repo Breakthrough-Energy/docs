@@ -1,5 +1,5 @@
 PostREISE
-============
+=========
 This tutorial focuses on the analysis and plotting of scenario output data. PostREISE
 is an open source package written in Python that is available on `GitHub <https://github.com/Breakthrough-Energy/PostREISE>`_.
 

@@ -10,7 +10,7 @@ Single Scenario
 Transmission
 ############
 - get a power flow snapshot (`notebook
-  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/powerflow_snapshot_demo.py>`_)
+  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/powerflow_snapshot_demo.py>`__)
 
   .. code-block:: python
 
@@ -34,7 +34,7 @@ Transmission
 Emission
 ########
 - show carbon emission by generator type using circles overlay on a map
-  (`notebook <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/emissions_map_demo.ipynb>`_)
+  (`notebook <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/emissions_map_demo.ipynb>`__)
 
   .. code-block:: python
 
@@ -57,7 +57,7 @@ Emission
 Generator Capacity and Generation
 #################################
 - plot stacked generation time series in an area (`notebook
-  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/plot_generation_time_series_stack_demo.ipynb>`_)
+  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/plot_generation_time_series_stack_demo.ipynb>`__)
 
   .. code-block:: python
 
@@ -128,7 +128,7 @@ Generator Capacity and Generation
   .. image:: img/single/generation_stack_western_ts.png
 
 - plot capacity vs capacity factor of generators in an area (`notebook
-  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/scatter_capacity_vs_capacity_factor_demo.ipynb>`_)
+  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/scatter_capacity_vs_capacity_factor_demo.ipynb>`__)
 
   .. code-block:: python
 
@@ -147,11 +147,29 @@ Generator Capacity and Generation
 
   .. image:: img/single/capacity_vs_cf_solar_western_scatter.png
 
+- plot capacity vs cost curve slope of generators in an area (`notebook
+  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/scatter_capacity_vs_cost_curve_slope_demo.ipynb>`__)
+
+  .. code-block:: python
+
+      from powersimdata.scenario.scenario import Scenario
+      from powersimdata.utility.helpers import PrintManager
+      from postreise.plot.plot_scatter_capacity_vs_cost_curve_slope import (
+          plot_scatter_capacity_vs_cost_curve_slope
+      )
+
+      with PrintManager():
+        scenario = Scenario(3287)
+
+        plot_scatter_capacity_vs_cost_curve_slope(scenario, "Eastern", "coal")
+
+  .. image:: img/single/capacity_vs_cost_curve_slope_coal_eastern_scatter.png
+
 
 Curtailment
 ###########
 - plot renewable generators curtailment time series in an area (`notebook
-  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/plot_curtailment_time_series_demo.ipynb>`_)
+  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/plot_curtailment_time_series_demo.ipynb>`__)
 
   .. code-block:: python
 
@@ -177,7 +195,7 @@ Curtailment
 Price
 #####
 - map locational marginal price (`notebook
-  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/lmp_map_demo.ipynb>`_)
+  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/lmp_map_demo.ipynb>`__)
 
   .. code-block:: python
 
@@ -198,7 +216,7 @@ Price
 General
 #######
 - plot any time-series values using a heatmap where each column is one color-coded day
-  (`notebook <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/heatmap_demo.ipynb>`_)
+  (`notebook <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/heatmap_demo.ipynb>`__)
 
   .. code-block:: python
 
@@ -253,7 +271,7 @@ Scenarios Comparison
 Generator Capacity and Generation
 #################################
 - compare generation and capacity in various scenarios through bar charts (`notebook
-  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/bar_generation_vs_capacity_demo.ipynb>`_)
+  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/bar_generation_vs_capacity_demo.ipynb>`__)
 
   .. code-block:: python
 
@@ -276,7 +294,7 @@ Generator Capacity and Generation
   .. image:: img/comp/capacity_vs_generation_western_bar.png
 
 - compare generation and capacity in various scenarios through pie charts (`notebook
-  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/pie_generation_vs_capacity_demo.ipynb>`_)
+  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/pie_generation_vs_capacity_demo.ipynb>`__)
 
   .. code-block:: python
 
@@ -298,7 +316,7 @@ Generator Capacity and Generation
   .. image:: img/comp/capacity_vs_generation_western_pie.png
 
 - compare generation shortfall in various scenarios through bar charts (`notebook
-  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/bar_shortfall_demo.ipynb>`_)
+  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/bar_shortfall_demo.ipynb>`__)
 
   .. code-block:: python
 
@@ -337,7 +355,7 @@ Generator Capacity and Generation
 Emission
 ########
 - compare total carbon emissions by generator type for 1-to-n scenarios through bar
-  charts (`notebook <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/emissions_map_demo.ipynb>`_)
+  charts (`notebook <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/emissions_map_demo.ipynb>`__)
 
   .. code-block:: python
 
@@ -364,7 +382,7 @@ Emission
   .. image:: img/comp/emission_bar.png
 
 - compare carbon emission by generator type for two scenarios on a map (`notebook
-  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/emissions_map_demo.ipynb>`_)
+  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/emissions_map_demo.ipynb>`__)
 
   .. code-block:: python
 
@@ -385,7 +403,7 @@ Emission
       :file: img/comp/emission_map.html
 
 - plot stacked generation and carbon emission for 1-to-n scenarios side-by-side
-  (`notebook <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/energy_emissions_stack_bar_demo.ipynb>`_)
+  (`notebook <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/energy_emissions_stack_bar_demo.ipynb>`__)
 
   .. code-block:: python
 

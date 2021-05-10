@@ -23,7 +23,9 @@ Transmission
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.transmission.congestion import calculate_congestion_surplus
+
 
       scenario = Scenario(403)
       congestion_surplus = calculate_congestion_surplus(scenario)
@@ -34,7 +36,9 @@ Transmission
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.transmission.utilization import get_utilization
+
 
       scenario = Scenario(403)
       grid = scenario.get_grid()
@@ -47,7 +51,9 @@ Transmission
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.transmission.utilization import generate_cong_stats
+
 
       scenario = Scenario(403)
       grid = scenario.get_grid()
@@ -80,10 +86,13 @@ Generator Capacity and Generation
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.binding import (
-        pmin_constraints, pmax_constraints,
+        pmax_constraints,
+        pmin_constraints,
         ramp_constraints,
       )
+
 
       scenario = Scenario(3287)
       binding_pmin = pmin_constraints(scenario)
@@ -97,7 +106,9 @@ Generator Capacity and Generation
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.capacity import calculate_NLDC
+
 
       scenario = Scenario(3287)
       nldc = calculate_NLDC(scenario, {"ng", "coal"})
@@ -108,7 +119,9 @@ Generator Capacity and Generation
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.capacity import calculate_net_load_peak
+
 
       scenario = Scenario(3287)
       nlp = calculate_net_load_peak(scenario, {"nuclear", "hydro"}, hours=50)
@@ -118,7 +131,9 @@ Generator Capacity and Generation
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.capacity import get_capacity_by_resources
+
 
       scenario = Scenario(2497)
       resources_capacity = get_capacity_by_resources(scenario, "CA", {"solar", "wind"})
@@ -128,7 +143,9 @@ Generator Capacity and Generation
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.capacity import get_storage_capacity
+
 
       scenario = Scenario(1171)
       storage_capacity = get_storage_capacity(scenario, "CA")
@@ -139,7 +156,9 @@ Generator Capacity and Generation
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.capacity import sum_capacity_by_type_zone
+
 
       scenario = Scenario(2497)
       capacity = sum_capacity_by_type_zone(scenario)
@@ -149,7 +168,9 @@ Generator Capacity and Generation
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.capacity import get_capacity_factor_time_series
+
 
       scenario = Scenario(3287)
       capacity = get_capacity_factor_time_series(
@@ -161,7 +182,9 @@ Generator Capacity and Generation
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.summarize import sum_generation_by_type_zone
+
 
       scenario = Scenario(3101)
       generation = sum_generation_by_type_zone(scenario)
@@ -172,6 +195,7 @@ Generator Capacity and Generation
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.summarize import sum_generation_by_state
 
       scenario = Scenario(3101)
@@ -190,6 +214,7 @@ Generator Capacity and Generation
       import postreise
       from postreise.analyze.generation.summarize import summarize_hist_gen
 
+
       data = os.path.join(os.path.dirname(inspect.getfile(postreise)), "data")
         hist_gen = pd.read_csv(
         os.path.join(data, "2016_Historical_USA_TAMU_Generation_GWh.csv"), index_col=0
@@ -201,9 +226,11 @@ Generator Capacity and Generation
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.summarize import (
           get_generation_time_series_by_resources,
       )
+
 
       scenario = Scenario(3287)
       generation = get_generation_time_series_by_resources(
@@ -215,7 +242,9 @@ Generator Capacity and Generation
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.summarize import get_storage_time_series
+
 
       scenario = Scenario(1171)
       generation = get_storage_time_series(scenario, "Western")
@@ -228,7 +257,9 @@ Emission
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.emissions import generate_emissions_stats
+
 
       scenario = Scenario(403)
       emission = generate_emissions_stats(scenario, pollutant="carbon", method="simple")
@@ -253,10 +284,12 @@ Emission
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.emissions import (
         generate_emissions_stats,
         summarize_emissions_by_bus,
       )
+
 
       scenario = Scenario(403)
       grid = scenario.get_grid()
@@ -268,7 +301,9 @@ Emission
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.emissions import calculate_costs
+
 
       scenario = Scenario(403)
       costs = calculate_costs(scenario)
@@ -281,9 +316,11 @@ Curtailment
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.curtailment import (
         calculate_curtailment_time_series,
       )
+
 
       scenario = Scenario(403)
       curtailment = calculate_curtailment_time_series(scenario)
@@ -293,9 +330,11 @@ Curtailment
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.curtailment import (
         calculate_curtailment_time_series_by_resources,
       )
+
 
       scenario = Scenario(403)
       curtailment = calculate_curtailment_time_series_by_resources(
@@ -307,9 +346,11 @@ Curtailment
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.curtailment import (
         calculate_curtailment_time_series_by_areas,
       )
+
 
       scenario = Scenario(3287)
       curtailment = calculate_curtailment_time_series_by_areas(
@@ -321,9 +362,11 @@ Curtailment
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.curtailment import (
         calculate_curtailment_percentage_by_resources,
       )
+
 
       scenario = Scenario(3287)
       curtailment = calculate_curtailment_percentage_by_resources(
@@ -336,9 +379,11 @@ Curtailment
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.curtailment import (
         calculate_curtailment_time_series_by_areas_and_resources,
       )
+
 
       scenario = Scenario(3287)
       curtailment = calculate_curtailment_time_series_by_areas_and_resources(
@@ -350,9 +395,11 @@ Curtailment
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.curtailment import (
         calculate_curtailment_time_series_by_resources_and_areas,
       )
+
 
       scenario = Scenario(3287)
       curtailment = calculate_curtailment_time_series_by_resources_and_areas(
@@ -363,7 +410,9 @@ Curtailment
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.curtailment import summarize_curtailment_by_bus
+
 
       scenario = Scenario(403)
       curtailment = summarize_curtailment_by_bus(scenario)
@@ -373,9 +422,11 @@ Curtailment
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.curtailment import (
         summarize_curtailment_by_location,
       )
+
 
       scenario = Scenario(2497)
       curtailment = summarize_curtailment_by_location(scenario)
@@ -385,7 +436,9 @@ Curtailment
   .. code-block:: python
 
       from powersimdata import Scenario
+
       from postreise.analyze.generation.curtailment import get_curtailment_time_series
+
 
       scenario = Scenario(2497)
       curtailment = get_curtailment_time_series(scenario, "WA")

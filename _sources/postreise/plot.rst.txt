@@ -31,6 +31,22 @@ Transmission
 
   .. image:: img/single/pf_snapshot_map.png
 
+- get utilization map (`notebook
+  <https://github.com/Breakthrough-Energy/PostREISE/blob/develop/postreise/plot/demo/utilization_map_demo.ipynb>`__)
+
+  .. code-block:: python
+
+      from bokeh.io import show
+      from powersimdata import Scenario
+
+      from postreise.plot.plot_utilization_map import map_utilization
+
+      util_map = map_utilization(scenario, plot_states_kwargs={"background_map": False})
+      show(util_map)
+
+  .. raw:: html
+      :file: img/single/utilization_map.html
+
 
 Emission
 ########
@@ -136,7 +152,7 @@ Generator Capacity and Generation
 
   .. code-block:: python
 
-      from powersimdata.scenario.scenario import Scenario
+      from powersimdata import Scenario
       from powersimdata.utility.helpers import PrintManager
 
       from postreise.plot.plot_scatter_capacity_vs_capacity_factor import (
@@ -185,8 +201,8 @@ Curtailment
 
   .. code-block:: python
 
+      from powersimdata import Scenario
       from powersimdata.utility.helpers import PrintManager
-      from powersimdata.scenario.scenario import Scenario
 
       from postreise.plot.plot_scatter_capacity_vs_curtailment import (
           plot_scatter_capacity_vs_curtailment
@@ -230,7 +246,7 @@ Price
 
     .. code-block:: python
 
-        from powersimdata.scenario.scenario import Scenario
+        from powersimdata import Scenario
         from powersimdata.utility.helpers import PrintManager
 
         from postreise.plot.plot_scatter_capacity_vs_cost_curve_slope import (

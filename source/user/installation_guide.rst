@@ -51,7 +51,7 @@ On Server
   **INPUT_DIR**, **OUTPUT_DIR** and **MODEL_DIR**
 + Create the **ScenarioList.csv** and **ExecuteList.csv** files in **DATA_ROOT_DIR**
   on the server following templates in **powersimdata/utility/templates/**
-+ Fork `REISE.jl <https://github.com/Breakthrough-Energy/REISE.jl>`_ into **MODEL_DIR**
++ Fork `REISE.jl`_ into **MODEL_DIR**
   and install it following the instructions located in the :doc:`../reisejl_package`
   README
 
@@ -65,6 +65,52 @@ machine. In this case, the only system requirement is to have `docker`_,
 All the data and configuration needed to run a simulation are located in the `plug`_
 repository, along with usage examples.
 
+Natively
+--------
+
+The framework can be used natively after some initial setup. This first requires the following:
+
++ Install julia 1.5 and create an environment as described in `REISE.jl`_
++ Clone `PowerSimData`_ and `REISE.jl`_ (preferably in the same directory)
++ Install the solver you wish to use within your julia environment (either Gurobi or GLPK)
+
+Create a virtualenv and activate it using the following. For the activate step, it's important
+to follow exactly (instead of using the ``source`` command) - this ensures that ``sys.executable`` will give back the python
+interpreter within this environment.
+
+.. code-block:: console
+
+    python -m venv .env
+    . .env/bin/activate
+
+Install PowerSimData dependencies into a virtual environment, along with the requirements
+for REISE.jl:
+
+.. code-block:: console
+
+    pip install -r requirements.txt
+    pip install -r /path/to/REISE.jl/requirements.txt
+
+Some one time configuration is necessary as well. Within your PowerSimData repository,
+create a config file called ``config.ini`` with the following contents
+
+.. code-block:: console
+
+    [PowerSimData]
+    DEPLOYMENT_MODE = 2
+    ENGINE_DIR = /full/path/to/REISE.jl
+    JULIA_PROJECT = /full/path/to/REISE.jl
+
+The last step is provisioning a directory where data will be stored. Copy paste this command
+(still in your virtualenv):
+
+.. code-block:: console
+    
+    python -c "from powersimdata.utility.config import LocalConfig; LocalConfig().initialize()"
+
+
+You should now be able to run a scenario, per the following section.
+Note: when doing so, your working directory should be the root of the PowerSimData repository.
 
 How to Run Scenario
 -------------------
@@ -73,4 +119,6 @@ Follow the instructions in the :doc:`../powersimdata/scenario` tutorial.
 
 .. _GitHub: https://github.com/Breakthrough-Energy
 .. _plug: https://github.com/Breakthrough-Energy/plug
+.. _REISE.jl: https://github.com/Breakthrough-Energy/REISE.jl
+.. _PowerSimData: https://github.com/Breakthrough-Energy/PowerSimData
 .. _docker: https://docs.docker.com/get-docker/

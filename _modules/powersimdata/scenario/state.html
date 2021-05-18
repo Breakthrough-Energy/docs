@@ -32,13 +32,9 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.scenario.state</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">powersimdata.data_access.execute_list</span> <span class="kn">import</span> <span class="n">ExecuteListManager</span>
-<span class="kn">from</span> <span class="nn">powersimdata.data_access.scenario_list</span> <span class="kn">import</span> <span class="n">ScenarioListManager</span>
-
-
-<div class="viewcode-block" id="State"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.state.State">[docs]</a><span class="k">class</span> <span class="nc">State</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<div class="viewcode-block" id="State"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.state.State">[docs]</a><span></span><span class="k">class</span> <span class="nc">State</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Defines an interface for encapsulating the behavior associated with a</span>
-<span class="sd">        particular state of the Scenario object.</span>
+<span class="sd">    particular state of the Scenario object.</span>
 
 <span class="sd">    :param powrsimdata.scenario.scenario.Scenario scenario: scenario instance</span>
 <span class="sd">    :raise TypeError: if not instantiated through a derived class</span>
@@ -52,9 +48,19 @@
         <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">==</span> <span class="n">State</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Only subclasses of &#39;State&#39; can be instantiated directly&quot;</span><span class="p">)</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario</span> <span class="o">=</span> <span class="n">scenario</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">status</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">data_access</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_list_manager</span> <span class="o">=</span> <span class="n">ScenarioListManager</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_execute_list_manager</span> <span class="o">=</span> <span class="n">ExecuteListManager</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_list_manager</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">_scenario_list_manager</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_execute_list_manager</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">_execute_list_manager</span>
+
+<div class="viewcode-block" id="State.refresh"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.state.State.refresh">[docs]</a>    <span class="k">def</span> <span class="nf">refresh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Called during state changes to ensure instance is properly initialized</span>
+
+<span class="sd">        :param powrsimdata.scenario.scenario.Scenario scenario: scenario instance</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
 
 <div class="viewcode-block" id="State.switch"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.state.State.switch">[docs]</a>    <span class="k">def</span> <span class="nf">switch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Switches state.</span>
@@ -67,6 +73,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_leave</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span> <span class="o">=</span> <span class="n">state</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_enter</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">refresh</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
                 <span class="s2">&quot;State switching: </span><span class="si">%s</span><span class="s2"> --&gt; </span><span class="si">%s</span><span class="s2"> not permitted&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
@@ -81,11 +88,7 @@
 
     <span class="k">def</span> <span class="nf">_leave</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Cleans when leaving state.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;create&quot;</span><span class="p">:</span>
-            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;analyze&quot;</span><span class="p">:</span>
-            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
-            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span>
+        <span class="k">pass</span>
 
     <span class="k">def</span> <span class="nf">_enter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Initializes when entering state.&quot;&quot;&quot;</span>

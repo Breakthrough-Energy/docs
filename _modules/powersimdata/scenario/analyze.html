@@ -73,17 +73,16 @@
         <span class="s2">&quot;get_storage_pg&quot;</span><span class="p">,</span>
         <span class="s2">&quot;get_wind&quot;</span><span class="p">,</span>
         <span class="s2">&quot;print_infeasibilities&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;print_scenario_info&quot;</span><span class="p">,</span>
     <span class="p">}</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">info</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">status</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="s2">&quot;disk&quot;</span> <span class="k">if</span> <span class="n">scenario</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;moved&quot;</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">refresh</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
 
+<div class="viewcode-block" id="Analyze.refresh"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.analyze.Analyze.refresh">[docs]</a>    <span class="k">def</span> <span class="nf">refresh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario</span><span class="p">):</span>
         <span class="nb">print</span><span class="p">(</span>
             <span class="s2">&quot;SCENARIO: </span><span class="si">%s</span><span class="s2"> | </span><span class="si">%s</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;plan&quot;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">])</span>
@@ -91,12 +90,14 @@
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; State</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_allowed_state</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_set_ct_and_grid</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_ct_and_grid</span><span class="p">()</span></div>
 
     <span class="k">def</span> <span class="nf">_set_allowed_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Sets allowed state.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span> <span class="o">==</span> <span class="s2">&quot;extracted&quot;</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">allowed</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;delete&quot;</span><span class="p">,</span> <span class="s2">&quot;move&quot;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">allowed</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;delete&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">backup_root</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">allowed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;move&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_set_ct_and_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Sets change table and grid.&quot;&quot;&quot;</span>
@@ -354,7 +355,12 @@
 <span class="sd">        :return: (*pandas.DataFrame*) -- data frame of wind energy output.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">profile</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_grid</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_ct</span><span class="p">())</span>
-        <span class="k">return</span> <span class="n">profile</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">profile</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_leave</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Cleans when leaving state.&quot;&quot;&quot;</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span></div>
 </pre></div>
 
           </div>

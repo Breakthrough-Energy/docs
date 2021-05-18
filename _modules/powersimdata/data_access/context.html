@@ -33,8 +33,9 @@
             
   <h1>Source code for powersimdata.data_access.context</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">powersimdata.data_access.data_access</span> <span class="kn">import</span> <span class="n">LocalDataAccess</span><span class="p">,</span> <span class="n">SSHDataAccess</span>
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.launcher</span> <span class="kn">import</span> <span class="n">HttpLauncher</span><span class="p">,</span> <span class="n">NativeLauncher</span><span class="p">,</span> <span class="n">SSHLauncher</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
-<span class="kn">from</span> <span class="nn">powersimdata.utility.server_setup</span> <span class="kn">import</span> <span class="n">DeploymentMode</span><span class="p">,</span> <span class="n">get_deployment_mode</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility.config</span> <span class="kn">import</span> <span class="n">DeploymentMode</span><span class="p">,</span> <span class="n">get_deployment_mode</span>
 
 
 <div class="viewcode-block" id="Context"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.context.Context">[docs]</a><span class="k">class</span> <span class="nc">Context</span><span class="p">:</span>
@@ -47,6 +48,8 @@
 
 <span class="sd">        :param str data_loc: pass &quot;disk&quot; if using data from backup disk,</span>
 <span class="sd">            otherwise leave the default.</span>
+<span class="sd">        :return: (:class:`powersimdata.data_access.data_access.DataAccess`) -- a data access</span>
+<span class="sd">            instance</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">data_loc</span> <span class="o">==</span> <span class="s2">&quot;disk&quot;</span><span class="p">:</span>
             <span class="n">root</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">BACKUP_DATA_ROOT_DIR</span>
@@ -56,7 +59,21 @@
         <span class="n">mode</span> <span class="o">=</span> <span class="n">get_deployment_mode</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="n">DeploymentMode</span><span class="o">.</span><span class="n">Server</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">SSHDataAccess</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">LocalDataAccess</span><span class="p">(</span><span class="n">root</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">LocalDataAccess</span><span class="p">(</span><span class="n">root</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Context.get_launcher"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.context.Context.get_launcher">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_launcher</span><span class="p">(</span><span class="n">scenario</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return instance for interaction with simulation engine</span>
+
+<span class="sd">        :param powersimdata.scenario.scenario.Scenario scenario: a scenario object</span>
+<span class="sd">        :return: (:class:`powersimdata.data_access.launcher.Launcher`) -- a launcher instance</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">mode</span> <span class="o">=</span> <span class="n">get_deployment_mode</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="n">DeploymentMode</span><span class="o">.</span><span class="n">Server</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">SSHLauncher</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="n">DeploymentMode</span><span class="o">.</span><span class="n">Container</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">HttpLauncher</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">NativeLauncher</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>

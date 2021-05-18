@@ -1,0 +1,225 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.utility.config &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.utility.config</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">configparser</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">templates</span>
+
+<span class="n">INI_FILE</span> <span class="o">=</span> <span class="s2">&quot;config.ini&quot;</span>
+<span class="k">if</span> <span class="n">Path</span><span class="p">(</span><span class="n">INI_FILE</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+    <span class="n">conf</span> <span class="o">=</span> <span class="n">configparser</span><span class="o">.</span><span class="n">ConfigParser</span><span class="p">()</span>
+    <span class="n">conf</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">INI_FILE</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">conf</span><span class="p">[</span><span class="s2">&quot;PowerSimData&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">k</span><span class="o">.</span><span class="n">upper</span><span class="p">()]</span> <span class="o">=</span> <span class="n">v</span>
+
+
+<div class="viewcode-block" id="Config"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.config.Config">[docs]</a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">Config</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Base class for configuration data. It should contain all expected keys,</span>
+<span class="sd">    defaulting to None when not universally applicable.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">SERVER_ADDRESS</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">SERVER_SSH_PORT</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">BACKUP_DATA_ROOT_DIR</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">MODEL_DIR</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">ENGINE_DIR</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">DATA_ROOT_DIR</span> <span class="o">=</span> <span class="s2">&quot;/mnt/bes/pcm&quot;</span>
+    <span class="n">EXECUTE_DIR</span> <span class="o">=</span> <span class="s2">&quot;tmp&quot;</span>
+    <span class="n">INPUT_DIR</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;input&quot;</span><span class="p">)</span>
+    <span class="n">OUTPUT_DIR</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;output&quot;</span><span class="p">)</span>
+    <span class="n">LOCAL_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">(),</span> <span class="s2">&quot;ScenarioData&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ServerConfig"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.config.ServerConfig">[docs]</a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">ServerConfig</span><span class="p">(</span><span class="n">Config</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Values specific to internal client/server usage&quot;&quot;&quot;</span>
+
+    <span class="n">SERVER_ADDRESS</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;BE_SERVER_ADDRESS&quot;</span><span class="p">,</span> <span class="s2">&quot;becompute01.gatesventures.com&quot;</span><span class="p">)</span>
+    <span class="n">SERVER_SSH_PORT</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;BE_SERVER_SSH_PORT&quot;</span><span class="p">,</span> <span class="mi">22</span><span class="p">)</span>
+    <span class="n">MODEL_DIR</span> <span class="o">=</span> <span class="s2">&quot;/home/bes/pcm&quot;</span></div>
+
+
+<div class="viewcode-block" id="ContainerConfig"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.config.ContainerConfig">[docs]</a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">ContainerConfig</span><span class="p">(</span><span class="n">Config</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Values specific to containerized environment&quot;&quot;&quot;</span>
+
+    <span class="n">SERVER_ADDRESS</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;BE_SERVER_ADDRESS&quot;</span><span class="p">,</span> <span class="s2">&quot;reisejl&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LocalConfig"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.config.LocalConfig">[docs]</a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">LocalConfig</span><span class="p">(</span><span class="n">Config</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Values specific to native installation&quot;&quot;&quot;</span>
+
+    <span class="n">DATA_ROOT_DIR</span> <span class="o">=</span> <span class="n">Config</span><span class="o">.</span><span class="n">LOCAL_DIR</span>
+    <span class="n">ENGINE_DIR</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;ENGINE_DIR&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="LocalConfig.initialize"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.config.LocalConfig.initialize">[docs]</a>    <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create data directory with blank templates&quot;&quot;&quot;</span>
+        <span class="n">confirmed</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Provision directory </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="si">}</span><span class="s2">? [y/n] (default is &#39;n&#39;)&quot;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">confirmed</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Operation cancelled.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">fname</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;ScenarioList.csv&quot;</span><span class="p">,</span> <span class="s2">&quot;ExecuteList.csv&quot;</span><span class="p">):</span>
+            <span class="n">orig</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">templates</span><span class="o">.</span><span class="n">__path__</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">fname</span><span class="p">)</span>
+            <span class="n">dest</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">fname</span><span class="p">)</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">orig</span><span class="p">,</span> <span class="n">dest</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Done!&quot;</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="DeploymentMode"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.config.DeploymentMode">[docs]</a><span class="k">class</span> <span class="nc">DeploymentMode</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Constants representing the type of installation being used&quot;&quot;&quot;</span>
+
+    <span class="n">Server</span> <span class="o">=</span> <span class="s2">&quot;SERVER&quot;</span>
+    <span class="n">Container</span> <span class="o">=</span> <span class="s2">&quot;CONTAINER&quot;</span>
+    <span class="n">Local</span> <span class="o">=</span> <span class="s2">&quot;LOCAL&quot;</span>
+
+    <span class="n">CONFIG_MAP</span> <span class="o">=</span> <span class="p">{</span><span class="n">Server</span><span class="p">:</span> <span class="n">ServerConfig</span><span class="p">,</span> <span class="n">Container</span><span class="p">:</span> <span class="n">ContainerConfig</span><span class="p">,</span> <span class="n">Local</span><span class="p">:</span> <span class="n">LocalConfig</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="get_deployment_mode"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.config.get_deployment_mode">[docs]</a><span class="k">def</span> <span class="nf">get_deployment_mode</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Get the deployment mode used to determine various configuration values</span>
+
+<span class="sd">    :return: (*str*) -- the deployment mode</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mode</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;DEPLOYMENT_MODE&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">DeploymentMode</span><span class="o">.</span><span class="n">Server</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;1&quot;</span> <span class="ow">or</span> <span class="n">mode</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;container&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">DeploymentMode</span><span class="o">.</span><span class="n">Container</span>
+    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;2&quot;</span> <span class="ow">or</span> <span class="n">mode</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;local&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">DeploymentMode</span><span class="o">.</span><span class="n">Local</span></div>
+
+
+<div class="viewcode-block" id="get_config"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.config.get_config">[docs]</a><span class="k">def</span> <span class="nf">get_config</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Get a config instance based on the DEPLOYMENT_MODE environment variable</span>
+
+<span class="sd">    :return: (*powersimdata.utility.config.Config*) -- a config instance</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mode</span> <span class="o">=</span> <span class="n">get_deployment_mode</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">DeploymentMode</span><span class="o">.</span><span class="n">CONFIG_MAP</span><span class="p">[</span><span class="n">mode</span><span class="p">]()</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../communication/code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata/index.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise/index.html">PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reisejl_package.html">REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.0.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

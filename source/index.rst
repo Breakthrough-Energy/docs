@@ -48,6 +48,32 @@ team. Here is what you will find on GitHub:
 - The `REISE.jl <https://github.com/Breakthrough-Energy/REISE.jl>`_ package - this is
   our simulation engine
 
+.. mermaid::
+
+    flowchart TD
+        subgraph M[PreREISE]
+        B["Prepare time series .csv's
+        and other data input"]
+        end
+
+        subgraph N[PowerSimData]
+        C[Create] --> D[Execute]
+        D
+        E[Analyze]
+        end
+
+        B ----> N
+        subgraph O[REISE.jl]
+        F["Simulation Engine to translate
+        the optimization problem to solver"]
+        end
+        D --".mat and .csv"--> O
+        O --".pkl"--> E
+        subgraph P[PostREISE]
+        G["Optional output analysis and plotting"]
+        end
+        E ----> P	
+
 The first three packages are written in Python. The last one, the simulation engine, is
 written in Julia. You are welcome to contribute to any of these packages. In the next
 section we present the overall architecture and the installation. We wrote a

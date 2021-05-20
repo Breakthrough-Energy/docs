@@ -39,6 +39,7 @@ extensions = [
     "recommonmark",
     "sphinx_markdown_tables",
     "sphinx.ext.todo",
+    "sphinxcontrib.mermaid"
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -213,3 +214,7 @@ epub_exclude_files = ["search.html"]
 
 # -- Extension configuration -------------------------------------------------
 todo_include_todos = True
+
+import errno
+import sphinx.util.osutil
+sphinx.util.osutil.ENOENT = errno.ENOENT

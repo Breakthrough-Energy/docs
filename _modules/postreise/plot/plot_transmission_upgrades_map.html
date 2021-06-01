@@ -13,6 +13,7 @@
     <script src="../../../_static/underscore.js"></script>
     <script src="../../../_static/doctools.js"></script>
     <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
     <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
@@ -36,6 +37,7 @@
 <span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">bokeh.models</span> <span class="kn">import</span> <span class="n">ColumnDataSource</span>
 <span class="kn">from</span> <span class="nn">bokeh.plotting</span> <span class="kn">import</span> <span class="n">figure</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility.distance</span> <span class="kn">import</span> <span class="n">haversine</span>
 
 <span class="kn">from</span> <span class="nn">postreise.analyze.transmission.upgrades</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_branch_differences</span><span class="p">,</span>
@@ -46,7 +48,8 @@
 <span class="kn">from</span> <span class="nn">postreise.plot.projection_helpers</span> <span class="kn">import</span> <span class="n">project_branch</span>
 
 
-<span class="k">def</span> <span class="nf">_map_transmission_upgrades</span><span class="p">(</span>
+<div class="viewcode-block" id="add_transmission_upgrades"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_transmission_upgrades_map.add_transmission_upgrades">[docs]</a><span class="k">def</span> <span class="nf">add_transmission_upgrades</span><span class="p">(</span>
+    <span class="n">bokeh_figure</span><span class="p">,</span>
     <span class="n">branch_merge</span><span class="p">,</span>
     <span class="n">dc_merge</span><span class="p">,</span>
     <span class="n">b2b_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -56,13 +59,11 @@
     <span class="n">all_branch_min</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
     <span class="n">diff_branch_min</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
     <span class="n">b2b_scale</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">1400</span><span class="p">,</span> <span class="mi">800</span><span class="p">),</span>
-    <span class="n">x_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">y_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">plot_states_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">dcline_upgrade_dist_threshold</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Make map of branches showing upgrades.</span>
 
+<span class="sd">    :param bokeh.plotting.figure.Figure bokeh_figure: figure to add upgrades to.</span>
 <span class="sd">    :param pandas.DataFrame branch_merge: branch of scenarios 1 and 2</span>
 <span class="sd">    :param pandas.DataFrame dc_merge: dclines for scenarios 1 and 2</span>
 <span class="sd">    :param list/set/tuple b2b_indices: indices of HVDC lines which are back-to-backs.</span>
@@ -76,15 +77,11 @@
 <span class="sd">    :param int/float diff_branch_min: minimum width to plot branches with significant</span>
 <span class="sd">        differences.</span>
 <span class="sd">    :param int/float b2b_scale: scale factor for plotting b2b facilities (pixels/GW).</span>
-<span class="sd">    :param tuple figsize: size of the bokeh figure (in pixels).</span>
-<span class="sd">    :param tuple x_range: x range to zoom plot to (EPSG:3857).</span>
-<span class="sd">    :param tuple y_range: y range to zoom plot to (EPSG:3857).</span>
-<span class="sd">    :param dict plot_states_kwargs: keyword arguments to be passed to</span>
-<span class="sd">        :func:`postreise.plot.plot_states.plot_states`.</span>
+<span class="sd">    :param int/float dcline_upgrade_dist_threshold: minimum distance (miles) for</span>
+<span class="sd">        plotting DC line upgrades (if none are longer, no legend entry will be created).</span>
 <span class="sd">    :return: (*bokeh.plotting.figure.Figure*) -- Bokeh map plot of color-coded upgrades.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># plotting constants</span>
-    <span class="n">bokeh_tools</span> <span class="o">=</span> <span class="s2">&quot;pan,wheel_zoom,reset,save&quot;</span>
     <span class="n">legend_alpha</span> <span class="o">=</span> <span class="mf">0.9</span>
     <span class="n">all_elements_alpha</span> <span class="o">=</span> <span class="mf">0.5</span>
     <span class="n">differences_alpha</span> <span class="o">=</span> <span class="mf">0.8</span>
@@ -115,6 +112,12 @@
     <span class="n">b2b</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">b2b</span><span class="p">[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">diff_threshold</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">colors</span><span class="o">.</span><span class="n">be_purple</span>
     <span class="n">b2b</span> <span class="o">=</span> <span class="n">b2b</span><span class="p">[</span><span class="o">~</span><span class="n">b2b</span><span class="o">.</span><span class="n">color</span><span class="o">.</span><span class="n">isnull</span><span class="p">()]</span>
     <span class="c1"># Color DC lines based on upgraded capacity</span>
+    <span class="n">branch_dc_lines</span><span class="p">[</span><span class="s2">&quot;dist&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branch_dc_lines</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">haversine</span><span class="p">((</span><span class="n">x</span><span class="o">.</span><span class="n">from_lat</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">from_lon</span><span class="p">),</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_lat</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">to_lon</span><span class="p">)),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+    <span class="p">)</span>
+    <span class="n">branch_dc_lines</span> <span class="o">=</span> <span class="n">branch_dc_lines</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+        <span class="n">branch_dc_lines</span><span class="o">.</span><span class="n">dist</span> <span class="o">&gt;=</span> <span class="n">dcline_upgrade_dist_threshold</span>
+    <span class="p">]</span>
     <span class="n">branch_dc_lines</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
     <span class="n">branch_dc_lines</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_dc_lines</span><span class="p">[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">colors</span><span class="o">.</span><span class="n">be_green</span>
     <span class="n">branch_dc_lines</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch_dc_lines</span><span class="p">[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">colors</span><span class="o">.</span><span class="n">be_lightblue</span>
@@ -169,29 +172,13 @@
         <span class="p">}</span>
     <span class="p">)</span>
 
-    <span class="c1"># Set up figure</span>
-    <span class="n">p</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
-        <span class="n">tools</span><span class="o">=</span><span class="n">bokeh_tools</span><span class="p">,</span>
-        <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">plot_width</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-        <span class="n">plot_height</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-        <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
-        <span class="n">match_aspect</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;scale_both&quot;</span><span class="p">,</span>
-        <span class="n">x_range</span><span class="o">=</span><span class="n">x_range</span><span class="p">,</span>
-        <span class="n">y_range</span><span class="o">=</span><span class="n">y_range</span><span class="p">,</span>
-    <span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">xgrid</span><span class="o">.</span><span class="n">visible</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">ygrid</span><span class="o">.</span><span class="n">visible</span> <span class="o">=</span> <span class="kc">False</span>
-
     <span class="c1"># Build the legend</span>
     <span class="n">leg_x</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mf">8.1e6</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span>
     <span class="n">leg_y</span> <span class="o">=</span> <span class="p">[</span><span class="mf">5.2e6</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span>
 
     <span class="c1"># These are &#39;dummy&#39; series to populate the legend with</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">branch_dc_lines</span><span class="p">[</span><span class="n">branch_dc_lines</span><span class="p">[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+        <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
             <span class="n">leg_x</span><span class="p">,</span>
             <span class="n">leg_y</span><span class="p">,</span>
             <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="o">.</span><span class="n">be_green</span><span class="p">,</span>
@@ -200,7 +187,7 @@
             <span class="n">legend_label</span><span class="o">=</span><span class="s2">&quot;Additional HVDC Capacity&quot;</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">branch_dc_lines</span><span class="p">[</span><span class="n">branch_dc_lines</span><span class="p">[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+        <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
             <span class="n">leg_x</span><span class="p">,</span>
             <span class="n">leg_y</span><span class="p">,</span>
             <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="o">.</span><span class="n">be_lightblue</span><span class="p">,</span>
@@ -209,7 +196,7 @@
             <span class="n">legend_label</span><span class="o">=</span><span class="s2">&quot;Reduced HVDC Capacity&quot;</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">branch_all</span><span class="p">[</span><span class="n">branch_all</span><span class="p">[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+        <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
             <span class="n">leg_x</span><span class="p">,</span>
             <span class="n">leg_y</span><span class="p">,</span>
             <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="o">.</span><span class="n">be_purple</span><span class="p">,</span>
@@ -218,7 +205,7 @@
             <span class="n">legend_label</span><span class="o">=</span><span class="s2">&quot;Reduced AC Transmission&quot;</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">branch_all</span><span class="p">[</span><span class="n">branch_all</span><span class="p">[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+        <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
             <span class="n">leg_x</span><span class="p">,</span>
             <span class="n">leg_y</span><span class="p">,</span>
             <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="o">.</span><span class="n">be_blue</span><span class="p">,</span>
@@ -227,7 +214,7 @@
             <span class="n">legend_label</span><span class="o">=</span><span class="s2">&quot;Upgraded AC transmission&quot;</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">b2b</span><span class="p">[</span><span class="n">b2b</span><span class="p">[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">p</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+        <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
             <span class="n">x</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
             <span class="n">y</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_y</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
             <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="o">.</span><span class="n">be_magenta</span><span class="p">,</span>
@@ -236,31 +223,15 @@
             <span class="n">size</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
             <span class="n">alpha</span><span class="o">=</span><span class="n">legend_alpha</span><span class="p">,</span>
         <span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="s2">&quot;bottom_left&quot;</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">label_text_font_size</span> <span class="o">=</span> <span class="s2">&quot;20pt&quot;</span>
 
     <span class="c1"># Everything below gets plotted into the &#39;main&#39; figure</span>
-    <span class="c1"># state outlines</span>
-    <span class="n">default_plot_states_kwargs</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;colors&quot;</span><span class="p">:</span> <span class="s2">&quot;white&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;line_color&quot;</span><span class="p">:</span> <span class="s2">&quot;slategrey&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;line_width&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
-        <span class="s2">&quot;fill_alpha&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
-        <span class="s2">&quot;background_map&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
-    <span class="p">}</span>
-    <span class="k">if</span> <span class="n">plot_states_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">all_plot_states_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">default_plot_states_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_states_kwargs</span><span class="p">}</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">all_plot_states_kwargs</span> <span class="o">=</span> <span class="n">default_plot_states_kwargs</span>
-    <span class="n">plot_states</span><span class="p">(</span><span class="n">bokeh_figure</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="o">**</span><span class="n">all_plot_states_kwargs</span><span class="p">)</span>
-
     <span class="n">background_plot_dicts</span> <span class="o">=</span> <span class="p">[</span>
         <span class="p">{</span><span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">source_all_ac</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="s2">&quot;gray&quot;</span><span class="p">,</span> <span class="s2">&quot;line_width&quot;</span><span class="p">:</span> <span class="s2">&quot;cap&quot;</span><span class="p">},</span>
         <span class="p">{</span><span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">source_all_dc</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="s2">&quot;gray&quot;</span><span class="p">,</span> <span class="s2">&quot;line_width&quot;</span><span class="p">:</span> <span class="s2">&quot;cap&quot;</span><span class="p">},</span>
         <span class="p">{</span><span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">source_pseudoac</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="s2">&quot;gray&quot;</span><span class="p">,</span> <span class="s2">&quot;line_width&quot;</span><span class="p">:</span> <span class="s2">&quot;cap&quot;</span><span class="p">},</span>
     <span class="p">]</span>
     <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">background_plot_dicts</span><span class="p">:</span>
-        <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+        <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
             <span class="s2">&quot;xs&quot;</span><span class="p">,</span>
             <span class="s2">&quot;ys&quot;</span><span class="p">,</span>
             <span class="n">color</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;color&quot;</span><span class="p">],</span>
@@ -270,7 +241,7 @@
         <span class="p">)</span>
 
     <span class="c1"># all B2Bs</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+    <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
         <span class="n">x</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_x</span><span class="p">,</span>
         <span class="n">y</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_y</span><span class="p">,</span>
         <span class="n">color</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">,</span>
@@ -286,7 +257,7 @@
     <span class="p">]</span>
 
     <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">difference_plot_dicts</span><span class="p">:</span>
-        <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+        <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
             <span class="s2">&quot;xs&quot;</span><span class="p">,</span>
             <span class="s2">&quot;ys&quot;</span><span class="p">,</span>
             <span class="n">color</span><span class="o">=</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;color&quot;</span><span class="p">],</span>
@@ -296,7 +267,7 @@
         <span class="p">)</span>
 
     <span class="c1"># B2Bs with differences</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+    <span class="n">bokeh_figure</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
         <span class="n">x</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_x</span><span class="p">,</span>
         <span class="n">y</span><span class="o">=</span><span class="n">b2b</span><span class="o">.</span><span class="n">from_y</span><span class="p">,</span>
         <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="o">.</span><span class="n">be_magenta</span><span class="p">,</span>
@@ -304,31 +275,89 @@
         <span class="n">size</span><span class="o">=</span><span class="n">b2b</span><span class="p">[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span> <span class="o">*</span> <span class="n">b2b_scale_MW</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">p</span>
+    <span class="k">return</span> <span class="n">bokeh_figure</span></div>
 
 
-<div class="viewcode-block" id="map_transmission_upgrades"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_transmission_upgrades_map.map_transmission_upgrades">[docs]</a><span class="k">def</span> <span class="nf">map_transmission_upgrades</span><span class="p">(</span><span class="n">scenario1</span><span class="p">,</span> <span class="n">scenario2</span><span class="p">,</span> <span class="n">b2b_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="map_transmission_upgrades"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_transmission_upgrades_map.map_transmission_upgrades">[docs]</a><span class="k">def</span> <span class="nf">map_transmission_upgrades</span><span class="p">(</span>
+    <span class="n">scenario1</span><span class="p">,</span>
+    <span class="n">scenario2</span><span class="p">,</span>
+    <span class="n">b2b_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">1400</span><span class="p">,</span> <span class="mi">800</span><span class="p">),</span>
+    <span class="n">x_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">y_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">plot_states_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">legend_font_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">legend_location</span><span class="o">=</span><span class="s2">&quot;bottom_left&quot;</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">plot_kwargs</span><span class="p">,</span>
+<span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Plot capacity differences for branches &amp; HVDC lines between two scenarios.</span>
 
 <span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario1: first scenario.</span>
 <span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario2: second scenario.</span>
 <span class="sd">    :param list/set/tuple b2b_indices: indices of HVDC lines which are back-to-backs.</span>
+<span class="sd">    :param tuple figsize: size of the bokeh figure (in pixels).</span>
+<span class="sd">    :param tuple x_range: x range to zoom plot to (EPSG:3857).</span>
+<span class="sd">    :param tuple y_range: y range to zoom plot to (EPSG:3857).</span>
+<span class="sd">    :param dict plot_states_kwargs: keyword arguments to be passed to</span>
+<span class="sd">        :func:`postreise.plot.plot_states.plot_states`.</span>
+<span class="sd">    :param int/float legend_font_size: font size for legend.</span>
+<span class="sd">    :param str legend_location: location for legend.</span>
 <span class="sd">    :param \\*\\*plot_kwargs: collected keyword arguments to be passed to</span>
-<span class="sd">        :func:`_map_transmission_upgrades`.</span>
+<span class="sd">        :func:`add_transmission_upgrades`.</span>
+<span class="sd">    :raises ValueError: if ``scenario1`` and ``scenario2`` do not match both grid_model</span>
+<span class="sd">        and interconnect.</span>
 <span class="sd">    :return: (*bokeh.plotting.figure.Figure*) -- Bokeh map plot of color-coded upgrades.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Validate inputs</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
         <span class="n">scenario1</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">scenario2</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
         <span class="ow">and</span> <span class="n">scenario1</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">scenario2</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
     <span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Scenarios to compare must be same grid_model &amp; interconnect&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Pre-plot data processing</span>
     <span class="n">grid1</span> <span class="o">=</span> <span class="n">scenario1</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
     <span class="n">grid2</span> <span class="o">=</span> <span class="n">scenario2</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
     <span class="n">branch_merge</span> <span class="o">=</span> <span class="n">get_branch_differences</span><span class="p">(</span><span class="n">grid1</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="n">grid2</span><span class="o">.</span><span class="n">branch</span><span class="p">)</span>
     <span class="n">dc_merge</span> <span class="o">=</span> <span class="n">get_dcline_differences</span><span class="p">(</span><span class="n">grid1</span><span class="p">,</span> <span class="n">grid2</span><span class="p">)</span>
-    <span class="n">map_plot</span> <span class="o">=</span> <span class="n">_map_transmission_upgrades</span><span class="p">(</span>
-        <span class="n">branch_merge</span><span class="p">,</span> <span class="n">dc_merge</span><span class="p">,</span> <span class="n">b2b_indices</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_kwargs</span>
+
+    <span class="c1"># Set up figure</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
+        <span class="n">tools</span><span class="o">=</span><span class="s2">&quot;pan,wheel_zoom,reset,save&quot;</span><span class="p">,</span>
+        <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">plot_width</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="n">plot_height</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+        <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
+        <span class="n">match_aspect</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;scale_both&quot;</span><span class="p">,</span>
+        <span class="n">x_range</span><span class="o">=</span><span class="n">x_range</span><span class="p">,</span>
+        <span class="n">y_range</span><span class="o">=</span><span class="n">y_range</span><span class="p">,</span>
     <span class="p">)</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">xgrid</span><span class="o">.</span><span class="n">visible</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">ygrid</span><span class="o">.</span><span class="n">visible</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># Add state outlines</span>
+    <span class="n">default_plot_states_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;colors&quot;</span><span class="p">:</span> <span class="s2">&quot;white&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;line_color&quot;</span><span class="p">:</span> <span class="s2">&quot;slategrey&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;line_width&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;fill_alpha&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;background_map&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">plot_states_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">all_plot_states_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">default_plot_states_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_states_kwargs</span><span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">all_plot_states_kwargs</span> <span class="o">=</span> <span class="n">default_plot_states_kwargs</span>
+    <span class="n">plot_states</span><span class="p">(</span><span class="n">bokeh_figure</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="o">**</span><span class="n">all_plot_states_kwargs</span><span class="p">)</span>
+
+    <span class="n">map_plot</span> <span class="o">=</span> <span class="n">add_transmission_upgrades</span><span class="p">(</span>
+        <span class="n">p</span><span class="p">,</span> <span class="n">branch_merge</span><span class="p">,</span> <span class="n">dc_merge</span><span class="p">,</span> <span class="n">b2b_indices</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_kwargs</span>
+    <span class="p">)</span>
+
+    <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="n">legend_location</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">label_text_font_size</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">legend_font_size</span><span class="si">}</span><span class="s2">pt&quot;</span>
+
     <span class="k">return</span> <span class="n">map_plot</span></div>
 </pre></div>
 

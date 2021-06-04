@@ -1,0 +1,324 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.input.check &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.input.check</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+
+
+<div class="viewcode-block" id="check_grid"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.check.check_grid">[docs]</a><span class="k">def</span> <span class="nf">check_grid</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check whether an object is an internally-consistent Grid object.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid or grid-like object to check.</span>
+<span class="sd">    :raises TypeError: if ``grid`` is not a Grid object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">error_messages</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">Grid</span><span class="p">):</span>
+        <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;grid must be a Grid object&quot;</span><span class="p">)</span>
+    <span class="n">_check_attributes</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
+    <span class="n">_check_for_islanded_buses</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
+    <span class="n">_check_for_undescribed_buses</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
+    <span class="n">_check_bus_against_bus2sub</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
+    <span class="n">_check_ac_interconnects</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
+    <span class="n">_check_transformer_substations</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
+    <span class="n">_check_line_voltages</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
+    <span class="n">_check_plant_against_gencost</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
+    <span class="n">_check_connected_components</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">error_messages</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">collected</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">error_messages</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Problem(s) found with grid:</span><span class="se">\n</span><span class="si">{</span><span class="n">collected</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_check_attributes</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check whether a Grid object has the required attributes.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid or grid-like object to check.</span>
+<span class="sd">    :param list error_messages: list, to be appended to with a str if:</span>
+<span class="sd">        ``grid`` is missing one or more required attributes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">required</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;branch&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;bus&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;bus2sub&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;dcline&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;data_loc&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;gencost&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;grid_model&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;model_immutables&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;plant&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;storage&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sub&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">required</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+            <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;grid object must have attribute </span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_for_islanded_buses</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check whether a transmission network (AC &amp; DC) does not connect to one or more</span>
+<span class="sd">    buses.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid or grid-like object to check.</span>
+<span class="sd">    :param list error_messages: list, to be appended to with a str if:</span>
+<span class="sd">        branches/DC lines exist in the ``grid``, but one or more buses are islanded.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">connected_buses</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+            <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">),</span>
+            <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">to_bus_id</span><span class="p">),</span>
+            <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">),</span>
+            <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">to_bus_id</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">isolated_buses</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="o">-</span> <span class="n">connected_buses</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">isolated_buses</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;islanded buses detected: </span><span class="si">{</span><span class="n">isolated_buses</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_for_undescribed_buses</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check whether any transmission elements are connected to buses that are not</span>
+<span class="sd">    described in the bus table.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid or grid-like object to check.</span>
+<span class="sd">    :param list error_messages: list, to be appended to with a str if:</span>
+<span class="sd">        any transmission elements are connected to buses that are not described in the</span>
+<span class="sd">        bus table of the ``grid``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">expected_buses</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+        <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">),</span>
+        <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">to_bus_id</span><span class="p">),</span>
+        <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">from_bus_id</span><span class="p">),</span>
+        <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">to_bus_id</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">undescribed_buses</span> <span class="o">=</span> <span class="n">expected_buses</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">undescribed_buses</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="s2">&quot;buses present in transmission network but missing from bus table: &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">undescribed_buses</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_bus_against_bus2sub</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check whether indices of bus and bus2sub tables match.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid or grid-like object to check.</span>
+<span class="sd">    :param list error_messages: list, to be appended to with a str if:</span>
+<span class="sd">        indices of bus and bus2sub tables of the ``grid`` don&#39;t match.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="o">==</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">bus2sub</span><span class="o">.</span><span class="n">index</span><span class="p">):</span>
+        <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;indices for bus and bus2sub don&#39;t match.&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_ac_interconnects</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check whether any AC branches bridge across interconnections.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid or grid-like object to check.</span>
+<span class="sd">    :param list error_messages: list, to be appended to with a str if:</span>
+<span class="sd">        any AC branches bridge across interconnections of the ``grid``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">from_interconnect</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">from_bus_id</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">interconnect</span><span class="p">)</span>
+    <span class="n">to_interconnect</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">to_bus_id</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">interconnect</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">from_interconnect</span> <span class="o">==</span> <span class="n">to_interconnect</span><span class="p">):</span>
+        <span class="n">non_matching_ids</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="n">from_interconnect</span> <span class="o">!=</span> <span class="n">to_interconnect</span><span class="p">]</span>
+        <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="s2">&quot;branch(es) connected across multiple interconnections: &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">non_matching_ids</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_transformer_substations</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check whether any transformers are are not within exactly one same substation.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid or grid-like object to check.</span>
+<span class="sd">    :param list error_messages: list, to be appended to with a str if:</span>
+<span class="sd">        any transformers in the ``grid`` are not within exactly one same substation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">txfmr_branch_types</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Transformer&quot;</span><span class="p">,</span> <span class="s2">&quot;TransformerWinding&quot;</span><span class="p">}</span>
+    <span class="n">branch</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span>
+    <span class="n">transformers</span> <span class="o">=</span> <span class="n">branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">branch</span><span class="o">.</span><span class="n">branch_device_type</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">txfmr_branch_types</span><span class="p">)]</span>
+    <span class="n">from_sub</span> <span class="o">=</span> <span class="n">transformers</span><span class="o">.</span><span class="n">from_bus_id</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">bus2sub</span><span class="o">.</span><span class="n">sub_id</span><span class="p">)</span>
+    <span class="n">to_sub</span> <span class="o">=</span> <span class="n">transformers</span><span class="o">.</span><span class="n">to_bus_id</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">bus2sub</span><span class="o">.</span><span class="n">sub_id</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">from_sub</span> <span class="o">==</span> <span class="n">to_sub</span><span class="p">):</span>
+        <span class="n">non_matching_transformers</span> <span class="o">=</span> <span class="n">transformers</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="n">from_sub</span> <span class="o">!=</span> <span class="n">to_sub</span><span class="p">]</span>
+        <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="s2">&quot;transformer(s) connected across multiple substations: &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">non_matching_transformers</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_line_voltages</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check whether any lines connect across different voltage levels.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid or grid-like object to check.</span>
+<span class="sd">    :param list error_messages: list, to be appended to with a str if:</span>
+<span class="sd">        any lines in the ``grid`` connect across different voltage levels.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;branch_device_type == &#39;Line&#39;&quot;</span><span class="p">)</span>
+    <span class="n">from_kV</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">from_bus_id</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">baseKV</span><span class="p">)</span>  <span class="c1"># noqa: N806</span>
+    <span class="n">to_kV</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">to_bus_id</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">baseKV</span><span class="p">)</span>  <span class="c1"># noqa: N806</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">from_kV</span> <span class="o">==</span> <span class="n">to_kV</span><span class="p">):</span>
+        <span class="n">non_matching_lines</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="n">from_kV</span> <span class="o">!=</span> <span class="n">to_kV</span><span class="p">]</span>
+        <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;line(s) connected across multiple voltages: </span><span class="si">{</span><span class="n">non_matching_lines</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_plant_against_gencost</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check whether indices of plant and gencost tables match.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid or grid-like object to check.</span>
+<span class="sd">    :param list error_messages: list, to be appended to with a str if:</span>
+<span class="sd">        indices of plant and gencost tables of the ``grid`` don&#39;t match.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
+        <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="o">==</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="o">==</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;after&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;indices for plant and gencost don&#39;t match.&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_connected_components</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check whether connected components and listed interconnects of a grid match.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: grid or grid-like object to check.</span>
+<span class="sd">    :param list error_messages: list, to be appended to with a str if:</span>
+<span class="sd">        connected components and listed interconnects of a ``grid`` don&#39;t match.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">from_pandas_edgelist</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="s2">&quot;from_bus_id&quot;</span><span class="p">,</span> <span class="s2">&quot;to_bus_id&quot;</span><span class="p">)</span>
+    <span class="n">num_connected_components</span> <span class="o">=</span> <span class="nb">len</span><span class="p">([</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">nx</span><span class="o">.</span><span class="n">connected_components</span><span class="p">(</span><span class="n">g</span><span class="p">)])</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># Check for e.g. [&#39;USA&#39;] interconnect, which is really three interconnects</span>
+        <span class="n">interconnect_aliases</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect_combinations&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="n">interconnect_aliases</span><span class="p">:</span>
+            <span class="n">num_interconnects</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">interconnect_aliases</span><span class="p">[</span><span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">num_interconnects</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">num_interconnects</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">num_interconnects</span> <span class="o">!=</span> <span class="n">num_connected_components</span><span class="p">:</span>
+        <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;This grid contains </span><span class="si">{</span><span class="n">num_connected_components</span><span class="si">}</span><span class="s2"> connected components, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;but is specified as having </span><span class="si">{</span><span class="n">num_interconnects</span><span class="si">}</span><span class="s2"> interconnects: &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../communication/code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">Working with Git</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata/index.html">PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise_package.html">PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise/index.html">PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reisejl_package.html">REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.0.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

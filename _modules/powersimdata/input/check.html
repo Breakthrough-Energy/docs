@@ -34,7 +34,9 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.input.check</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
+<span></span><span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
 
@@ -44,19 +46,28 @@
 
 <span class="sd">    :param powersimdata.input.grid.Grid grid: grid or grid-like object to check.</span>
 <span class="sd">    :raises TypeError: if ``grid`` is not a Grid object.</span>
+<span class="sd">    :raises ValueError: if ``grid`` has any inconsistency</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">error_messages</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">Grid</span><span class="p">):</span>
-        <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;grid must be a Grid object&quot;</span><span class="p">)</span>
-    <span class="n">_check_attributes</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
-    <span class="n">_check_for_islanded_buses</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
-    <span class="n">_check_for_undescribed_buses</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
-    <span class="n">_check_bus_against_bus2sub</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
-    <span class="n">_check_ac_interconnects</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
-    <span class="n">_check_transformer_substations</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
-    <span class="n">_check_line_voltages</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
-    <span class="n">_check_plant_against_gencost</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
-    <span class="n">_check_connected_components</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;grid must be a Grid object&quot;</span><span class="p">)</span>
+    <span class="n">error_messages</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">check</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="n">_check_attributes</span><span class="p">,</span>
+        <span class="n">_check_for_islanded_buses</span><span class="p">,</span>
+        <span class="n">_check_for_undescribed_buses</span><span class="p">,</span>
+        <span class="n">_check_bus_against_bus2sub</span><span class="p">,</span>
+        <span class="n">_check_ac_interconnects</span><span class="p">,</span>
+        <span class="n">_check_transformer_substations</span><span class="p">,</span>
+        <span class="n">_check_line_voltages</span><span class="p">,</span>
+        <span class="n">_check_plant_against_gencost</span><span class="p">,</span>
+        <span class="n">_check_connected_components</span><span class="p">,</span>
+    <span class="p">]:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">check</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">error_messages</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Exception during </span><span class="si">{</span><span class="n">check</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="si">!r}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">error_messages</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">collected</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">error_messages</span><span class="p">)</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Problem(s) found with grid:</span><span class="se">\n</span><span class="si">{</span><span class="n">collected</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>

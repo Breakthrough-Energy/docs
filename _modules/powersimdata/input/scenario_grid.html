@@ -40,6 +40,7 @@
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">from</span> <span class="nn">scipy.io</span> <span class="kn">import</span> <span class="n">loadmat</span>
 
+<span class="kn">from</span> <span class="nn">powersimdata.input</span> <span class="kn">import</span> <span class="n">const</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.abstract_grid</span> <span class="kn">import</span> <span class="n">AbstractGrid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.helpers</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">add_coord_to_grid_data_frames</span><span class="p">,</span>
@@ -254,111 +255,14 @@
 
 <span class="sd">    :return: (*dict*) -- dictionary of data frame columns name.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">col_name_sub</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect_sub_id&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
-    <span class="n">col_name_bus</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">&quot;bus_id&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;type&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Pd&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Qd&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Gs&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Bs&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;zone_id&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Vm&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Va&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;baseKV&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;loss_zone&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Vmax&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Vmin&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;lam_P&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;lam_Q&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;mu_Vmax&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;mu_Vmin&quot;</span><span class="p">,</span>
-    <span class="p">]</span>
-    <span class="n">col_name_bus2sub</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sub_id&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
-    <span class="n">col_name_branch</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">&quot;from_bus_id&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;to_bus_id&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;r&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;x&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;b&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;rateA&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;rateB&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;rateC&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;ratio&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;angle&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;status&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;angmin&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;angmax&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Pf&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Qf&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Pt&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Qt&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;mu_Sf&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;mu_St&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;mu_angmin&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;mu_angmax&quot;</span><span class="p">,</span>
-    <span class="p">]</span>
-    <span class="n">col_name_dcline</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">&quot;from_bus_id&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;to_bus_id&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;status&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Pf&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Pt&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Qf&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Qt&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Vf&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Vt&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Pmin&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Pmax&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;QminF&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;QmaxF&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;QminT&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;QmaxT&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;loss0&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;loss1&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;muPmin&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;muPmax&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;muQminF&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;muQmaxF&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;muQminT&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;muQmaxT&quot;</span><span class="p">,</span>
-    <span class="p">]</span>
-    <span class="n">col_name_plant</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">&quot;bus_id&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Pg&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Qg&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Qmax&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Qmin&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Vg&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;mBase&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;status&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Pmax&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Pmin&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Pc1&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Pc2&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Qc1min&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Qc1max&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Qc2min&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;Qc2max&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;ramp_agc&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;ramp_10&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;ramp_30&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;ramp_q&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;apf&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;mu_Pmax&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;mu_Pmin&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;mu_Qmax&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;mu_Qmin&quot;</span><span class="p">,</span>
-    <span class="p">]</span>
-    <span class="n">col_name_heat_rate_curve</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;GenIOB&quot;</span><span class="p">,</span> <span class="s2">&quot;GenIOC&quot;</span><span class="p">,</span> <span class="s2">&quot;GenIOD&quot;</span><span class="p">]</span>
     <span class="n">col_name</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;sub&quot;</span><span class="p">:</span> <span class="n">col_name_sub</span><span class="p">,</span>
-        <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="n">col_name_bus</span><span class="p">,</span>
-        <span class="s2">&quot;bus2sub&quot;</span><span class="p">:</span> <span class="n">col_name_bus2sub</span><span class="p">,</span>
-        <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="n">col_name_branch</span><span class="p">,</span>
-        <span class="s2">&quot;dcline&quot;</span><span class="p">:</span> <span class="n">col_name_dcline</span><span class="p">,</span>
-        <span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">col_name_plant</span><span class="p">,</span>
-        <span class="s2">&quot;heat_rate_curve&quot;</span><span class="p">:</span> <span class="n">col_name_heat_rate_curve</span><span class="p">,</span>
+        <span class="s2">&quot;sub&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_name_sub</span><span class="p">,</span>
+        <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_name_bus</span><span class="p">,</span>
+        <span class="s2">&quot;bus2sub&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_name_bus2sub</span><span class="p">,</span>
+        <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_name_branch</span><span class="p">,</span>
+        <span class="s2">&quot;dcline&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_name_dcline</span><span class="p">,</span>
+        <span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_name_plant</span><span class="p">,</span>
+        <span class="s2">&quot;heat_rate_curve&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_name_heat_rate_curve</span><span class="p">,</span>
     <span class="p">}</span>
     <span class="k">return</span> <span class="n">col_name</span></div>
 
@@ -368,111 +272,14 @@
 
 <span class="sd">    :return: (*dict*) -- dictionary of data frame columns type.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">col_type_sub</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;str&quot;</span><span class="p">,</span> <span class="s2">&quot;int&quot;</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">,</span> <span class="s2">&quot;str&quot;</span><span class="p">]</span>
-    <span class="n">col_type_bus</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-    <span class="p">]</span>
-    <span class="n">col_type_bus2sub</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;int&quot;</span><span class="p">,</span> <span class="s2">&quot;str&quot;</span><span class="p">]</span>
-    <span class="n">col_type_branch</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-    <span class="p">]</span>
-    <span class="n">col_type_dcline</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-    <span class="p">]</span>
-    <span class="n">col_type_plant</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;int&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-    <span class="p">]</span>
-    <span class="n">col_type_heat_rate_curve</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;float&quot;</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">]</span>
     <span class="n">col_type</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;sub&quot;</span><span class="p">:</span> <span class="n">col_type_sub</span><span class="p">,</span>
-        <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="n">col_type_bus</span><span class="p">,</span>
-        <span class="s2">&quot;bus2sub&quot;</span><span class="p">:</span> <span class="n">col_type_bus2sub</span><span class="p">,</span>
-        <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="n">col_type_branch</span><span class="p">,</span>
-        <span class="s2">&quot;dcline&quot;</span><span class="p">:</span> <span class="n">col_type_dcline</span><span class="p">,</span>
-        <span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">col_type_plant</span><span class="p">,</span>
-        <span class="s2">&quot;heat_rate_curve&quot;</span><span class="p">:</span> <span class="n">col_type_heat_rate_curve</span><span class="p">,</span>
+        <span class="s2">&quot;sub&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_type_sub</span><span class="p">,</span>
+        <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_type_bus</span><span class="p">,</span>
+        <span class="s2">&quot;bus2sub&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_type_bus2sub</span><span class="p">,</span>
+        <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_type_branch</span><span class="p">,</span>
+        <span class="s2">&quot;dcline&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_type_dcline</span><span class="p">,</span>
+        <span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_type_plant</span><span class="p">,</span>
+        <span class="s2">&quot;heat_rate_curve&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_type_heat_rate_curve</span><span class="p">,</span>
     <span class="p">}</span>
     <span class="k">return</span> <span class="n">col_type</span></div>
 

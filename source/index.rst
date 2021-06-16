@@ -112,6 +112,6 @@ Please review our :doc:`communication/code_of_conduct` before contributing.
    dev/contribution_guide
    user/git_guide
    powersimdata/index
-   prereise_package.md
+   prereise/index
    postreise/index
    reisejl_package.md

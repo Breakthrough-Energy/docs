@@ -1,5 +1,5 @@
-Working with Git
-================
+Working with Git/GitHub
+=======================
 
 
 Setup Git
@@ -8,15 +8,36 @@ If not already done:
 
 + Download and install the latest version of Git. Follow the instructions on the
   `Git website <https://git-scm.com/downloads>`_
++ Create a GitHub account
 + Set your `username
   <https://docs.github.com/en/github/getting-started-with-github/setting-your-username-in-git>`_
 + Set your `commit email address
   <https://docs.github.com/en/github/setting-up-and-managing-your-github-user-account/setting-your-commit-email-address>`_
 
 
-Fork
-----
-GitHub has a good `tutorial <https://docs.github.com/en/free-pro-team@latest/github/getting-started-with-github/fork-a-repo>`_ on forks and their utilities.
+For Users
+---------
+If you only plan to use the framework, you can clone the repositories using:
+
+.. code-block:: console
+
+    git clone https://github.com/Breakthrough-Energy/REPO_NAME.git
+
+and keep the repository up-to-date via:
+
+.. code-block:: console
+
+    git pull origin develop
+
+
+For Contributors
+----------------
+You will work with forks. GitHub has a good `tutorial <https://docs.github.com/en/free-pro-team@latest/github/getting-started-with-github/fork-a-repo>`_ on their utilities.
+You will find below a drawing summarizing the workflow.
+
+.. figure:: /_static/img/fork_and_clone.png
+
+    The image is taken from the Peer Production (Open Source Software, Wikipedia, and Beyond) course by James Howison available `here <https://jameshowison.github.io/peer_production_course/pp_syllabus.html>`_.
 
 
 Get the Repository
@@ -43,17 +64,7 @@ Configure Git to sync your fork with the original repository:
 
     git remote add upstream https://github.com/Breakthrough-Energy/REPO_NAME.git
 
-and keep it up-to-date with:
 
-.. code-block:: console
-
-    git fetch upstream
-    git checkout develop
-    git merge upstream/develop
-
-
-For Contributors
-----------------
 Branching
 +++++++++
 We recommend that you follow this `branching model
@@ -65,11 +76,11 @@ We recommend that you follow this `branching model
 
       git checkout -b YOUR_USERNAME/FEATURE_NAME upstream/develop
 
-+ After syncing your fork, move your branch to the newest ``HEAD`` of `develop` using:
++ Keep it up-to-date, i.e., move your branch to the newest ``HEAD`` of ``develop`` via:
 
   .. code-block:: console
 
-      git pull --rebase origin develop
+      git pull --rebase upstream develop
 
   Note that the more you wait to rebase the more you risk to deal with merge conflicts.
   We recommend that you rebase onto ``develop`` frequently.

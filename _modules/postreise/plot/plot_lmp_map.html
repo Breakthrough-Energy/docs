@@ -45,11 +45,12 @@
     <span class="n">LinearColorMapper</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">bokeh.palettes</span> <span class="kn">import</span> <span class="n">Turbo256</span>
-<span class="kn">from</span> <span class="nn">bokeh.plotting</span> <span class="kn">import</span> <span class="n">figure</span>
 <span class="kn">from</span> <span class="nn">matplotlib.colors</span> <span class="kn">import</span> <span class="n">BoundaryNorm</span>
 
 <span class="kn">from</span> <span class="nn">postreise.analyze.check</span> <span class="kn">import</span> <span class="n">_check_scenario_is_in_analyze_state</span>
-<span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">plot_states</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.canvas</span> <span class="kn">import</span> <span class="n">create_map_canvas</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.check</span> <span class="kn">import</span> <span class="n">_check_func_kwargs</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">add_state_borders</span>
 <span class="kn">from</span> <span class="nn">postreise.plot.projection_helpers</span> <span class="kn">import</span> <span class="n">project_bus</span>
 
 
@@ -61,7 +62,7 @@
     <span class="n">num_ticks</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
     <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">1400</span><span class="p">,</span> <span class="mi">800</span><span class="p">),</span>
     <span class="n">scale_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-    <span class="n">background_map</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">state_borders_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Plot average LMP at bus level.</span>
 
@@ -72,21 +73,19 @@
 <span class="sd">    :param int num_ticks: number of ticks to display on the color bar.</span>
 <span class="sd">    :param tuple figsize: size of the bokeh figure (in pixels).</span>
 <span class="sd">    :param int/float scale_factor: scaling factor for size of circles centered on buses.</span>
-<span class="sd">    :param bool background_map: whether to plot map tiles behind figure.</span>
+<span class="sd">    :param dict state_borders_kwargs: keyword arguments to be passed to</span>
+<span class="sd">        :func:`postreise.plot.plot_states.add_state_borders`.</span>
 <span class="sd">    :return: (*bokeh.plotting.figure*) -- LMP map.</span>
 <span class="sd">    :raises TypeError:</span>
 <span class="sd">        if ``coordinate_rounding`` is not ``int``.</span>
 <span class="sd">        if ``lmp_min`` and ``lmp_max`` are not ``int``.</span>
 <span class="sd">        if ``num_ticks`` is not ``int``.</span>
-<span class="sd">        if ``figsize`` is not a tuple.</span>
 <span class="sd">        if ``scale_factor`` is not ``int`` or ``float``.</span>
-<span class="sd">        if ``background_map`` is not a ``bool``.</span>
 <span class="sd">    :raises ValueError:</span>
 <span class="sd">        if ``coordinate_rounding`` is not positive.</span>
 <span class="sd">        if ``num_ticks`` is negative.</span>
-<span class="sd">        if ``lmp_min`` or ``lmp_min`` is negative or ``lmp_min`` &gt;= ``lmp_max``.</span>
+<span class="sd">        if ``lmp_min`` or ``lmp_max`` is negative or ``lmp_min`` &gt;= ``lmp_max``.</span>
 <span class="sd">        if ``scale_factor`` is negative.</span>
-<span class="sd">        if both elements of ``figsize`` are not positive.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coordinate_rounding</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
@@ -99,23 +98,17 @@
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;lmp_max must be a int&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">lmp_min</span> <span class="o">&gt;=</span> <span class="n">lmp_max</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must have lmp_min &lt; lmp_max&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">figsize</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;figsize must be a tuple&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">figsize</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="n">e</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">figsize</span><span class="p">)):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;both elemets of figsize must be positive&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scale_factor</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;scale_factor must be a int/float&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">scale_factor</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;scale_factor must be positive&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">background_map</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;background_map must be a bool&quot;</span><span class="p">)</span>
 
     <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
     <span class="n">lmp</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_lmp</span><span class="p">()</span>
     <span class="n">bus_with_lmp</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">bus_with_lmp</span><span class="p">[</span><span class="s2">&quot;lmp&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lmp</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
 
-    <span class="k">return</span> <span class="n">construct_lmp_visuals</span><span class="p">(</span>
+    <span class="k">return</span> <span class="n">add_lmp</span><span class="p">(</span>
         <span class="n">bus_with_lmp</span><span class="p">,</span>
         <span class="n">coordinate_rounding</span><span class="p">,</span>
         <span class="n">lmp_min</span><span class="p">,</span>
@@ -123,8 +116,99 @@
         <span class="n">num_ticks</span><span class="p">,</span>
         <span class="n">figsize</span><span class="p">,</span>
         <span class="n">scale_factor</span><span class="p">,</span>
-        <span class="n">background_map</span><span class="p">,</span>
+        <span class="n">state_borders_kwargs</span><span class="p">,</span>
     <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="add_lmp"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_lmp_map.add_lmp">[docs]</a><span class="k">def</span> <span class="nf">add_lmp</span><span class="p">(</span>
+    <span class="n">bus_with_lmp</span><span class="p">,</span>
+    <span class="n">coordinate_rounding</span><span class="p">,</span>
+    <span class="n">lmp_min</span><span class="p">,</span>
+    <span class="n">lmp_max</span><span class="p">,</span>
+    <span class="n">num_ticks</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="p">,</span>
+    <span class="n">scale_factor</span><span class="p">,</span>
+    <span class="n">state_borders_kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Add LMP to canvas.</span>
+
+<span class="sd">    :param list bus_with_lmp: bus data frame with LMP values.</span>
+<span class="sd">    :param int coordinate_rounding: number of digits to round lat/lon for aggregation.</span>
+<span class="sd">    :param str file_name: name for output png file.</span>
+<span class="sd">    :param int lmp_min: minimum LMP to clamp plot range to.</span>
+<span class="sd">    :param int lmp_max: maximum LMP to clamp plot range to.</span>
+<span class="sd">    :param int num_ticks: number of ticks to display on the color bar.</span>
+<span class="sd">    :param tuple figsize: size of the bokeh figure (in pixels).</span>
+<span class="sd">    :param int/float scale_factor: scaling factor for size of circles centered on buses.</span>
+<span class="sd">    :param dict state_borders_kwargs: keyword arguments to be passed to</span>
+<span class="sd">        :func:`postreise.plot.plot_states.add_state_borders`.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure*) -- canvas with LMP..</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># create canvas</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">create_map_canvas</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+
+    <span class="c1"># add state borders</span>
+    <span class="n">default_state_borders_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;line_color&quot;</span><span class="p">:</span> <span class="s2">&quot;gray&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;line_width&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="s2">&quot;fill_alpha&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;background_map&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">all_state_borders_kwargs</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">{</span><span class="o">**</span><span class="n">default_state_borders_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">state_borders_kwargs</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">state_borders_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="n">default_state_borders_kwargs</span>
+    <span class="p">)</span>
+    <span class="n">_check_func_kwargs</span><span class="p">(</span>
+        <span class="n">add_state_borders</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">all_state_borders_kwargs</span><span class="p">),</span> <span class="s2">&quot;state_borders_kwargs&quot;</span>
+    <span class="p">)</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_state_borders</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="o">**</span><span class="n">all_state_borders_kwargs</span><span class="p">)</span>
+
+    <span class="c1"># aggregate buses by lat/lon</span>
+    <span class="n">grouped_bus</span> <span class="o">=</span> <span class="n">aggregate_bus_lmp</span><span class="p">(</span><span class="n">bus_with_lmp</span><span class="p">,</span> <span class="n">coordinate_rounding</span><span class="p">)</span>
+
+    <span class="c1"># assign color</span>
+    <span class="n">norm</span> <span class="o">=</span> <span class="n">BoundaryNorm</span><span class="p">(</span><span class="n">boundaries</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="n">lmp_min</span><span class="p">,</span> <span class="n">lmp_max</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">ncolors</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">clip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">norm</span><span class="p">(</span><span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;lmp&quot;</span><span class="p">])</span>
+    <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">Turbo256</span><span class="p">[</span><span class="n">x</span><span class="p">])</span>
+
+    <span class="n">grouped_bus_info</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;col&quot;</span><span class="p">:</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;lmp&quot;</span><span class="p">:</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;lmp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
+    <span class="p">}</span>
+
+    <span class="n">circle</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span>
+        <span class="s2">&quot;x&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;y&quot;</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="s2">&quot;col&quot;</span><span class="p">,</span>
+        <span class="n">size</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="n">scale_factor</span><span class="p">,</span>
+        <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">ColumnDataSource</span><span class="p">(</span><span class="n">grouped_bus_info</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">hover</span> <span class="o">=</span> <span class="n">HoverTool</span><span class="p">(</span>
+        <span class="n">tooltips</span><span class="o">=</span><span class="p">[</span>
+            <span class="p">(</span><span class="s2">&quot;$/MWh&quot;</span><span class="p">,</span> <span class="s2">&quot;@lmp</span><span class="si">{1.11}</span><span class="s2">&quot;</span><span class="p">),</span>
+        <span class="p">],</span>
+        <span class="n">renderers</span><span class="o">=</span><span class="p">[</span><span class="n">circle</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">add_tools</span><span class="p">(</span><span class="n">hover</span><span class="p">)</span>
+
+    <span class="c1"># Add color bar</span>
+    <span class="n">cm</span> <span class="o">=</span> <span class="n">LinearColorMapper</span><span class="p">(</span><span class="n">palette</span><span class="o">=</span><span class="s2">&quot;Turbo256&quot;</span><span class="p">,</span> <span class="n">low</span><span class="o">=</span><span class="n">norm</span><span class="o">.</span><span class="n">vmin</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">norm</span><span class="o">.</span><span class="n">vmax</span><span class="p">)</span>
+    <span class="n">cb</span> <span class="o">=</span> <span class="n">ColorBar</span><span class="p">(</span>
+        <span class="n">color_mapper</span><span class="o">=</span><span class="n">cm</span><span class="p">,</span>
+        <span class="n">ticker</span><span class="o">=</span><span class="n">BasicTicker</span><span class="p">(</span><span class="n">desired_num_ticks</span><span class="o">=</span><span class="n">num_ticks</span><span class="p">),</span>
+        <span class="n">title</span><span class="o">=</span><span class="s2">&quot;$/MWh&quot;</span><span class="p">,</span>
+        <span class="n">title_standoff</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+        <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;vertical&quot;</span><span class="p">,</span>
+        <span class="n">location</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">cb</span><span class="p">,</span> <span class="s2">&quot;left&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">canvas</span></div>
 
 
 <div class="viewcode-block" id="aggregate_bus_lmp"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_lmp_map.aggregate_bus_lmp">[docs]</a><span class="k">def</span> <span class="nf">aggregate_bus_lmp</span><span class="p">(</span><span class="n">bus</span><span class="p">,</span> <span class="n">coordinate_rounding</span><span class="p">):</span>
@@ -142,90 +226,6 @@
     <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">aggregated</span></div>
-
-
-<div class="viewcode-block" id="construct_lmp_visuals"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_lmp_map.construct_lmp_visuals">[docs]</a><span class="k">def</span> <span class="nf">construct_lmp_visuals</span><span class="p">(</span>
-    <span class="n">bus_with_lmp</span><span class="p">,</span>
-    <span class="n">coordinate_rounding</span><span class="p">,</span>
-    <span class="n">lmp_min</span><span class="p">,</span>
-    <span class="n">lmp_max</span><span class="p">,</span>
-    <span class="n">num_ticks</span><span class="p">,</span>
-    <span class="n">figsize</span><span class="p">,</span>
-    <span class="n">scale_factor</span><span class="p">,</span>
-    <span class="n">background_map</span><span class="p">,</span>
-<span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Use bokeh to plot formatted data. Make map showing LMP using color.</span>
-
-<span class="sd">    :param list bus_with_lmp: bus data frame with LMP values.</span>
-<span class="sd">    :param int coordinate_rounding: number of digits to round lat/lon for aggregation.</span>
-<span class="sd">    :param str file_name: name for output png file.</span>
-<span class="sd">    :param int lmp_min: minimum LMP to clamp plot range to.</span>
-<span class="sd">    :param int lmp_max: maximum LMP to clamp plot range to.</span>
-<span class="sd">    :param int num_ticks: number of ticks to display on the color bar.</span>
-<span class="sd">    :param tuple figsize: size of the bokeh figure (in pixels).</span>
-<span class="sd">    :param int/float scale_factor: scaling factor for size of circles centered on buses.</span>
-<span class="sd">    :param bool background_map: whether to plot map tiles behind figure.</span>
-<span class="sd">    :return: (*bokeh.plotting.figure*) -- bokeh LMP map.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">p</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
-        <span class="n">tools</span><span class="o">=</span><span class="s2">&quot;pan,wheel_zoom,reset,save&quot;</span><span class="p">,</span>
-        <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">plot_width</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-        <span class="n">plot_height</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-        <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
-        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;scale_both&quot;</span><span class="p">,</span>
-        <span class="n">match_aspect</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">xgrid</span><span class="o">.</span><span class="n">visible</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">ygrid</span><span class="o">.</span><span class="n">visible</span> <span class="o">=</span> <span class="kc">False</span>
-
-    <span class="n">plot_states</span><span class="p">(</span><span class="n">bokeh_figure</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="n">background_map</span><span class="o">=</span><span class="n">background_map</span><span class="p">)</span>
-
-    <span class="c1"># aggregate buses by lat/lon</span>
-    <span class="n">grouped_bus</span> <span class="o">=</span> <span class="n">aggregate_bus_lmp</span><span class="p">(</span><span class="n">bus_with_lmp</span><span class="p">,</span> <span class="n">coordinate_rounding</span><span class="p">)</span>
-
-    <span class="c1"># assign color</span>
-    <span class="n">norm</span> <span class="o">=</span> <span class="n">BoundaryNorm</span><span class="p">(</span><span class="n">boundaries</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="n">lmp_min</span><span class="p">,</span> <span class="n">lmp_max</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">ncolors</span><span class="o">=</span><span class="mi">256</span><span class="p">,</span> <span class="n">clip</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">norm</span><span class="p">(</span><span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;lmp&quot;</span><span class="p">])</span>
-    <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">Turbo256</span><span class="p">[</span><span class="n">x</span><span class="p">])</span>
-
-    <span class="n">grouped_bus_info</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span>
-        <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span>
-        <span class="s2">&quot;col&quot;</span><span class="p">:</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;col&quot;</span><span class="p">],</span>
-        <span class="s2">&quot;lmp&quot;</span><span class="p">:</span> <span class="n">grouped_bus</span><span class="p">[</span><span class="s2">&quot;lmp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
-    <span class="p">}</span>
-
-    <span class="n">circle</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span>
-        <span class="s2">&quot;x&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;y&quot;</span><span class="p">,</span>
-        <span class="n">color</span><span class="o">=</span><span class="s2">&quot;col&quot;</span><span class="p">,</span>
-        <span class="n">size</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="n">scale_factor</span><span class="p">,</span>
-        <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
-        <span class="n">source</span><span class="o">=</span><span class="n">ColumnDataSource</span><span class="p">(</span><span class="n">grouped_bus_info</span><span class="p">),</span>
-    <span class="p">)</span>
-    <span class="n">hover</span> <span class="o">=</span> <span class="n">HoverTool</span><span class="p">(</span>
-        <span class="n">tooltips</span><span class="o">=</span><span class="p">[</span>
-            <span class="p">(</span><span class="s2">&quot;$/MWh&quot;</span><span class="p">,</span> <span class="s2">&quot;@lmp</span><span class="si">{1.11}</span><span class="s2">&quot;</span><span class="p">),</span>
-        <span class="p">],</span>
-        <span class="n">renderers</span><span class="o">=</span><span class="p">[</span><span class="n">circle</span><span class="p">],</span>
-    <span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_tools</span><span class="p">(</span><span class="n">hover</span><span class="p">)</span>
-
-    <span class="n">cm</span> <span class="o">=</span> <span class="n">LinearColorMapper</span><span class="p">(</span><span class="n">palette</span><span class="o">=</span><span class="s2">&quot;Turbo256&quot;</span><span class="p">,</span> <span class="n">low</span><span class="o">=</span><span class="n">norm</span><span class="o">.</span><span class="n">vmin</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">norm</span><span class="o">.</span><span class="n">vmax</span><span class="p">)</span>
-    <span class="n">cb</span> <span class="o">=</span> <span class="n">ColorBar</span><span class="p">(</span>
-        <span class="n">color_mapper</span><span class="o">=</span><span class="n">cm</span><span class="p">,</span>
-        <span class="n">ticker</span><span class="o">=</span><span class="n">BasicTicker</span><span class="p">(</span><span class="n">desired_num_ticks</span><span class="o">=</span><span class="n">num_ticks</span><span class="p">),</span>
-        <span class="n">title</span><span class="o">=</span><span class="s2">&quot;$/MWh&quot;</span><span class="p">,</span>
-        <span class="n">title_standoff</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
-        <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;vertical&quot;</span><span class="p">,</span>
-        <span class="n">location</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-    <span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">cb</span><span class="p">,</span> <span class="s2">&quot;left&quot;</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">p</span></div>
 </pre></div>
 
           </div>

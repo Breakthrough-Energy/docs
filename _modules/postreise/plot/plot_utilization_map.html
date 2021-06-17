@@ -40,15 +40,16 @@
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">from</span> <span class="nn">bokeh.models</span> <span class="kn">import</span> <span class="n">ColorBar</span><span class="p">,</span> <span class="n">ColumnDataSource</span><span class="p">,</span> <span class="n">HoverTool</span>
-<span class="kn">from</span> <span class="nn">bokeh.plotting</span> <span class="kn">import</span> <span class="n">figure</span>
 <span class="kn">from</span> <span class="nn">bokeh.transform</span> <span class="kn">import</span> <span class="n">linear_cmap</span>
 
 <span class="kn">from</span> <span class="nn">postreise.analyze.transmission.utilization</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">generate_cong_stats</span><span class="p">,</span>
     <span class="n">get_utilization</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.canvas</span> <span class="kn">import</span> <span class="n">create_map_canvas</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.check</span> <span class="kn">import</span> <span class="n">_check_func_kwargs</span>
 <span class="kn">from</span> <span class="nn">postreise.plot.colors</span> <span class="kn">import</span> <span class="n">traffic_palette</span>
-<span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">plot_states</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">add_state_borders</span>
 <span class="kn">from</span> <span class="nn">postreise.plot.projection_helpers</span> <span class="kn">import</span> <span class="n">project_branch</span>
 
 
@@ -68,9 +69,9 @@
     <span class="n">select_branch_min_width</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
     <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">1400</span><span class="p">,</span> <span class="mi">800</span><span class="p">),</span>
     <span class="n">show_color_bar</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">plot_states_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">state_borders_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Makes map showing risk or binding incidents on US states map.</span>
+    <span class="sd">&quot;&quot;&quot;Make map showing risk or binding incidents on US states map.</span>
 <span class="sd">    Either ``scenario`` XOR (``congestion_stats`` AND ``branch``) must be specified.</span>
 
 <span class="sd">    :param str risk_or_bind: specify plotting &quot;risk&quot; or &quot;bind&quot;.</span>
@@ -94,8 +95,8 @@
 <span class="sd">        (pixels).</span>
 <span class="sd">    :param tuple(int, int) figsize: size of the bokeh figure (in pixels).</span>
 <span class="sd">    :param bool show_color_bar: whether to render the color bar on the figure.</span>
-<span class="sd">    :param dict plot_states_kwargs: keyword arguments to be passed to</span>
-<span class="sd">        :func:`postreise.plot.plot_states.plot_states`.</span>
+<span class="sd">    :param dict state_borders_kwargs: keyword arguments to be passed to</span>
+<span class="sd">        :func:`postreise.plot.plot_states.add_state_borders`.</span>
 <span class="sd">    :raises ValueError: if (``scenario`` XOR (``congestion_stats`` AND ``branch``)) are</span>
 <span class="sd">        not properly specified.</span>
 <span class="sd">    :return: (*bokeh.plotting.figure*) -- map of lines with risk and bind incidents</span>
@@ -149,17 +150,22 @@
         <span class="p">}</span>
     <span class="p">)</span>
 
-    <span class="c1"># Set up figure</span>
-    <span class="n">p</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
-        <span class="n">tools</span><span class="o">=</span><span class="s2">&quot;pan,wheel_zoom,reset,save&quot;</span><span class="p">,</span>
-        <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">plot_width</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-        <span class="n">plot_height</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-        <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
-        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;scale_both&quot;</span><span class="p">,</span>
-        <span class="n">match_aspect</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># Create canvas</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">create_map_canvas</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+
+    <span class="c1"># Add state borders</span>
+    <span class="n">default_state_borders_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;fill_alpha&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;background_map&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+    <span class="n">all_state_borders_kwargs</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">{</span><span class="o">**</span><span class="n">default_state_borders_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">state_borders_kwargs</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">state_borders_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="n">default_state_borders_kwargs</span>
     <span class="p">)</span>
+    <span class="n">_check_func_kwargs</span><span class="p">(</span>
+        <span class="n">add_state_borders</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">all_state_borders_kwargs</span><span class="p">),</span> <span class="s2">&quot;state_borders_kwargs&quot;</span>
+    <span class="p">)</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_state_borders</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="o">**</span><span class="n">all_state_borders_kwargs</span><span class="p">)</span>
+
+    <span class="c1"># Add color bar</span>
     <span class="k">if</span> <span class="n">show_color_bar</span><span class="p">:</span>
         <span class="n">color_bar</span> <span class="o">=</span> <span class="n">ColorBar</span><span class="p">(</span>
             <span class="n">color_mapper</span><span class="o">=</span><span class="n">mapper</span><span class="p">[</span><span class="s2">&quot;transform&quot;</span><span class="p">],</span>
@@ -170,14 +176,9 @@
             <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;horizontal&quot;</span><span class="p">,</span>
             <span class="n">padding</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">p</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">color_bar</span><span class="p">,</span> <span class="s2">&quot;center&quot;</span><span class="p">)</span>
-    <span class="n">default_plot_states_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;fill_alpha&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;background_map&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
-    <span class="k">if</span> <span class="n">plot_states_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">all_plot_states_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">default_plot_states_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_states_kwargs</span><span class="p">}</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">all_plot_states_kwargs</span> <span class="o">=</span> <span class="n">default_plot_states_kwargs</span>
-    <span class="n">plot_states</span><span class="p">(</span><span class="n">bokeh_figure</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="o">**</span><span class="n">all_plot_states_kwargs</span><span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+        <span class="n">canvas</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">color_bar</span><span class="p">,</span> <span class="s2">&quot;center&quot;</span><span class="p">)</span>
+
+    <span class="n">canvas</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
         <span class="n">branch_map_all</span><span class="p">[[</span><span class="s2">&quot;from_x&quot;</span><span class="p">,</span> <span class="s2">&quot;to_x&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
         <span class="n">branch_map_all</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
         <span class="n">color</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">,</span>
@@ -187,7 +188,7 @@
         <span class="p">),</span>
         <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">lines</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
         <span class="s2">&quot;xs&quot;</span><span class="p">,</span> <span class="s2">&quot;ys&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">mapper</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="s2">&quot;cap&quot;</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">multi_line_source</span>
     <span class="p">)</span>
     <span class="n">hover</span> <span class="o">=</span> <span class="n">HoverTool</span><span class="p">(</span>
@@ -197,8 +198,8 @@
         <span class="p">],</span>
         <span class="n">renderers</span><span class="o">=</span><span class="p">[</span><span class="n">lines</span><span class="p">],</span>
     <span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_tools</span><span class="p">(</span><span class="n">hover</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">p</span></div>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">add_tools</span><span class="p">(</span><span class="n">hover</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">canvas</span></div>
 
 
 <div class="viewcode-block" id="map_utilization"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_utilization_map.map_utilization">[docs]</a><span class="k">def</span> <span class="nf">map_utilization</span><span class="p">(</span>
@@ -213,9 +214,9 @@
     <span class="n">branch_min_width</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
     <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">1400</span><span class="p">,</span> <span class="mi">800</span><span class="p">),</span>
     <span class="n">show_color_bar</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">plot_states_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">state_borders_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Makes map showing utilization. Utilization input can either be medians</span>
+    <span class="sd">&quot;&quot;&quot;Make map showing utilization. Utilization input can either be medians</span>
 <span class="sd">    only, or can be normalized utilization dataframe.</span>
 <span class="sd">    Either ``scenario`` XOR (``utilization_df`` AND ``branch``) must be specified.</span>
 
@@ -232,8 +233,8 @@
 <span class="sd">    :param int/float branch_scale_factor: scale factor for branches (pixels/GW).</span>
 <span class="sd">    :param int/float branch_min_width: minimum width for branches (pixels).</span>
 <span class="sd">    :param tuple(int, int) figsize: size of the bokeh figure (in pixels).</span>
-<span class="sd">    :param dict plot_states_kwargs: keyword arguments to be passed to</span>
-<span class="sd">        :func:`postreise.plot.plot_states.plot_states`.</span>
+<span class="sd">    :param dict state_borders_kwargs: keyword arguments to be passed to</span>
+<span class="sd">        :func:`postreise.plot.plot_states.add_state_borders`.</span>
 <span class="sd">    :raises ValueError: if (``scenario`` XOR (``utilization_df`` AND ``branch``)) are</span>
 <span class="sd">        not properly specified.</span>
 <span class="sd">    :return: (*bokeh.plotting.figure*) -- map of lines with median utilization color</span>
@@ -286,16 +287,22 @@
         <span class="p">}</span>
     <span class="p">)</span>
 
-    <span class="n">p</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
-        <span class="n">tools</span><span class="o">=</span><span class="s2">&quot;pan,wheel_zoom,reset,save&quot;</span><span class="p">,</span>
-        <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">plot_width</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-        <span class="n">plot_height</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-        <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
-        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;scale_both&quot;</span><span class="p">,</span>
-        <span class="n">match_aspect</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># Create canvas</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">create_map_canvas</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+
+    <span class="c1"># Add state borders</span>
+    <span class="n">default_state_borders_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;fill_alpha&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;line_width&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+    <span class="n">all_state_borders_kwargs</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">{</span><span class="o">**</span><span class="n">default_state_borders_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">state_borders_kwargs</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">state_borders_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="n">default_state_borders_kwargs</span>
     <span class="p">)</span>
+    <span class="n">_check_func_kwargs</span><span class="p">(</span>
+        <span class="n">add_state_borders</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">all_state_borders_kwargs</span><span class="p">),</span> <span class="s2">&quot;state_borders_kwargs&quot;</span>
+    <span class="p">)</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_state_borders</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="o">**</span><span class="n">all_state_borders_kwargs</span><span class="p">)</span>
+
+    <span class="c1"># Add color bar</span>
     <span class="k">if</span> <span class="n">show_color_bar</span><span class="p">:</span>
         <span class="n">color_bar</span> <span class="o">=</span> <span class="n">ColorBar</span><span class="p">(</span>
             <span class="n">color_mapper</span><span class="o">=</span><span class="n">mapper</span><span class="p">[</span><span class="s2">&quot;transform&quot;</span><span class="p">],</span>
@@ -306,14 +313,9 @@
             <span class="n">orientation</span><span class="o">=</span><span class="s2">&quot;horizontal&quot;</span><span class="p">,</span>
             <span class="n">padding</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">p</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">color_bar</span><span class="p">,</span> <span class="s2">&quot;center&quot;</span><span class="p">)</span>
-    <span class="n">default_plot_states_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;fill_alpha&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;line_width&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
-    <span class="k">if</span> <span class="n">plot_states_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">all_plot_states_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">default_plot_states_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_states_kwargs</span><span class="p">}</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">all_plot_states_kwargs</span> <span class="o">=</span> <span class="n">default_plot_states_kwargs</span>
-    <span class="n">plot_states</span><span class="p">(</span><span class="n">bokeh_figure</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="o">**</span><span class="n">all_plot_states_kwargs</span><span class="p">)</span>
-    <span class="n">lines</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+        <span class="n">canvas</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">color_bar</span><span class="p">,</span> <span class="s2">&quot;center&quot;</span><span class="p">)</span>
+
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
         <span class="s2">&quot;xs&quot;</span><span class="p">,</span> <span class="s2">&quot;ys&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">mapper</span><span class="p">,</span> <span class="n">line_width</span><span class="o">=</span><span class="s2">&quot;width&quot;</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">multi_line_source</span>
     <span class="p">)</span>
     <span class="n">hover</span> <span class="o">=</span> <span class="n">HoverTool</span><span class="p">(</span>
@@ -323,8 +325,8 @@
         <span class="p">],</span>
         <span class="n">renderers</span><span class="o">=</span><span class="p">[</span><span class="n">lines</span><span class="p">],</span>
     <span class="p">)</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">add_tools</span><span class="p">(</span><span class="n">hover</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">p</span></div>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">add_tools</span><span class="p">(</span><span class="n">hover</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">canvas</span></div>
 </pre></div>
 
           </div>

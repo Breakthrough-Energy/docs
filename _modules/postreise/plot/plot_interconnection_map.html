@@ -35,12 +35,13 @@
             
   <h1>Source code for postreise.plot.plot_interconnection_map</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">from</span> <span class="nn">bokeh.plotting</span> <span class="kn">import</span> <span class="n">figure</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">distance</span>
 
 <span class="kn">from</span> <span class="nn">postreise.analyze.check</span> <span class="kn">import</span> <span class="n">_check_grid</span>
-<span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">plot_states</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.canvas</span> <span class="kn">import</span> <span class="n">create_map_canvas</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.check</span> <span class="kn">import</span> <span class="n">_check_func_kwargs</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">add_state_borders</span><span class="p">,</span> <span class="n">add_state_tooltips</span>
 <span class="kn">from</span> <span class="nn">postreise.plot.projection_helpers</span> <span class="kn">import</span> <span class="n">project_branch</span>
 
 
@@ -50,7 +51,7 @@
 <span class="sd">    :param powersimdata.input.grid.Grid grid: grid object.</span>
 <span class="sd">    :return: (*pandas.Series*) -- index: state names, values: number of nodes.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">id2state</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">get_grid_model</span><span class="p">())</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;id2abv&quot;</span><span class="p">]</span>
+    <span class="n">id2state</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">grid_model</span><span class="p">)</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;id2abv&quot;</span><span class="p">]</span>
     <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">id2state</span><span class="p">)</span>
     <span class="n">counts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">())</span>
 
@@ -64,7 +65,7 @@
     <span class="n">branch_width_scale_factor</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
     <span class="n">hvdc_width_scale_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
     <span class="n">b2b_size_scale_factor</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
-    <span class="n">background_map</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">state_borders_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Map transmission lines color coded by interconnection.</span>
 
@@ -74,18 +75,16 @@
 <span class="sd">    :param int/float branch_width_scale_factor: scale factor for branch capacities.</span>
 <span class="sd">    :param int/float hvdc_width_scale_factor: scale factor for hvdc capacities.</span>
 <span class="sd">    :param int/float b2b_size_scale_factor: scale factor for back-to_back capacities.</span>
-<span class="sd">    :param bool background_map: whether to plot map tiles behind figure.</span>
-<span class="sd">    :return: (*bokeh.plotting.figure*) -- map of transmission lines.</span>
+<span class="sd">    :param dict state_borders_kwargs: keyword arguments to be passed to</span>
+<span class="sd">        :func:`postreise.plot.plot_states.add_state_borders`.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure*) -- interconnection map with lines and nodes.</span>
 <span class="sd">    :raises TypeError:</span>
 <span class="sd">        if ``branch_device_cutoff`` is not ``float``.</span>
-<span class="sd">        if ``figsize`` is not a tuple.</span>
 <span class="sd">        if ``branch_width_scale_factor`` is not ``int`` or ``float``.</span>
 <span class="sd">        if ``hvdc_width_scale_factor`` is not ``int`` or ``float``.</span>
 <span class="sd">        if ``b2b_size_scale_factor`` is not ``int`` or ``float``.</span>
-<span class="sd">        if ``background_map`` is not a ``bool``.</span>
 <span class="sd">    :raises ValueError:</span>
 <span class="sd">        if ``branch_device_cutoff`` is negative.</span>
-<span class="sd">        if both elements of ``figsize`` are not positive.</span>
 <span class="sd">        if ``branch_width_scale_factor`` is negative.</span>
 <span class="sd">        if ``hvdc_width_scale_factor`` is negative.</span>
 <span class="sd">        if ``b2b_size_scale_factor`` is negative.</span>
@@ -96,10 +95,6 @@
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;branch_distance_cutoff must be an int&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">branch_distance_cutoff</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;branch_distance_cutoff must be strictly positive&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">figsize</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;figsize must be a tuple&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">figsize</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="n">e</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">figsize</span><span class="p">)):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;both elemets of figsize must be positive&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">branch_width_scale_factor</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;branch_width_scale_factor must be a int/float&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">branch_width_scale_factor</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
@@ -112,8 +107,6 @@
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;b2b_size_scale_factor must be a int/float&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">b2b_size_scale_factor</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;b2b_size_scale_factor must be positive&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">background_map</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;background_map must be a bool&quot;</span><span class="p">)</span>
 
     <span class="c1"># branches</span>
     <span class="n">branch</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -137,37 +130,38 @@
     <span class="n">all_dcline</span><span class="p">[</span><span class="s2">&quot;to_lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">all_dcline</span><span class="p">[</span><span class="s2">&quot;to_bus_id&quot;</span><span class="p">],</span> <span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
     <span class="n">all_dcline</span> <span class="o">=</span> <span class="n">project_branch</span><span class="p">(</span><span class="n">all_dcline</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">grid</span><span class="o">.</span><span class="n">get_grid_model</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;usa_tamu&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">grid</span><span class="o">.</span><span class="n">grid_model</span> <span class="o">==</span> <span class="s2">&quot;usa_tamu&quot;</span><span class="p">:</span>
         <span class="n">b2b_id</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">9</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;grid model is not supported&quot;</span><span class="p">)</span>
     <span class="n">dcline</span> <span class="o">=</span> <span class="n">all_dcline</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">~</span><span class="n">all_dcline</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">b2b_id</span><span class="p">)]</span>
     <span class="n">b2b</span> <span class="o">=</span> <span class="n">all_dcline</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">b2b_id</span><span class="p">]</span>
 
-    <span class="n">p</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
-        <span class="n">tools</span><span class="o">=</span><span class="s2">&quot;pan,wheel_zoom,reset,save&quot;</span><span class="p">,</span>
-        <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">plot_width</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-        <span class="n">plot_height</span><span class="o">=</span><span class="n">figsize</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
-        <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
-        <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;scale_both&quot;</span><span class="p">,</span>
-        <span class="n">match_aspect</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># create canvas</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">create_map_canvas</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+
+    <span class="c1"># add state borders</span>
+    <span class="n">default_state_borders_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;line_width&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="s2">&quot;fill_alpha&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;background_map&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">all_state_borders_kwargs</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">{</span><span class="o">**</span><span class="n">default_state_borders_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">state_borders_kwargs</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">state_borders_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="n">default_state_borders_kwargs</span>
     <span class="p">)</span>
+    <span class="n">_check_func_kwargs</span><span class="p">(</span>
+        <span class="n">add_state_borders</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">all_state_borders_kwargs</span><span class="p">),</span> <span class="s2">&quot;state_borders_kwargs&quot;</span>
+    <span class="p">)</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_state_borders</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="o">**</span><span class="n">all_state_borders_kwargs</span><span class="p">)</span>
 
-    <span class="n">p</span><span class="o">.</span><span class="n">xgrid</span><span class="o">.</span><span class="n">visible</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">ygrid</span><span class="o">.</span><span class="n">visible</span> <span class="o">=</span> <span class="kc">False</span>
-
+    <span class="c1"># add state tooltips</span>
     <span class="n">state_counts</span> <span class="o">=</span> <span class="n">count_nodes_per_state</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
-    <span class="n">plot_states</span><span class="p">(</span>
-        <span class="n">bokeh_figure</span><span class="o">=</span><span class="n">p</span><span class="p">,</span>
-        <span class="n">background_map</span><span class="o">=</span><span class="n">background_map</span><span class="p">,</span>
-        <span class="n">state_list</span><span class="o">=</span><span class="n">state_counts</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
-        <span class="n">labels_list</span><span class="o">=</span><span class="n">state_counts</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
-        <span class="n">tooltip_name</span><span class="o">=</span><span class="s2">&quot;nodes&quot;</span><span class="p">,</span>
-    <span class="p">)</span>
+    <span class="n">state2label</span> <span class="o">=</span> <span class="p">{</span><span class="n">s</span><span class="p">:</span> <span class="n">c</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">state_counts</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">state_counts</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())}</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_state_tooltips</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="s2">&quot;nodes&quot;</span><span class="p">,</span> <span class="n">state2label</span><span class="p">)</span>
 
-    <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
         <span class="n">branch_west</span><span class="p">[[</span><span class="s2">&quot;from_x&quot;</span><span class="p">,</span> <span class="s2">&quot;to_x&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
         <span class="n">branch_west</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
         <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#006ff9&quot;</span><span class="p">,</span>
@@ -175,7 +169,7 @@
         <span class="n">legend_label</span><span class="o">=</span><span class="s2">&quot;Western&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
         <span class="n">branch_east</span><span class="p">[[</span><span class="s2">&quot;from_x&quot;</span><span class="p">,</span> <span class="s2">&quot;to_x&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
         <span class="n">branch_east</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
         <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#8B36FF&quot;</span><span class="p">,</span>
@@ -183,7 +177,7 @@
         <span class="n">legend_label</span><span class="o">=</span><span class="s2">&quot;Eastern&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
         <span class="n">branch_tx</span><span class="p">[[</span><span class="s2">&quot;from_x&quot;</span><span class="p">,</span> <span class="s2">&quot;to_x&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
         <span class="n">branch_tx</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
         <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#01D4ED&quot;</span><span class="p">,</span>
@@ -191,7 +185,7 @@
         <span class="n">legend_label</span><span class="o">=</span><span class="s2">&quot;Texas&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="n">p</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">multi_line</span><span class="p">(</span>
         <span class="n">dcline</span><span class="p">[[</span><span class="s2">&quot;from_x&quot;</span><span class="p">,</span> <span class="s2">&quot;to_x&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
         <span class="n">dcline</span><span class="p">[[</span><span class="s2">&quot;from_y&quot;</span><span class="p">,</span> <span class="s2">&quot;to_y&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
         <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#FF2370&quot;</span><span class="p">,</span>
@@ -199,7 +193,7 @@
         <span class="n">legend_label</span><span class="o">=</span><span class="s2">&quot;HVDC&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="n">p</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
         <span class="n">x</span><span class="o">=</span><span class="n">b2b</span><span class="p">[</span><span class="s2">&quot;from_x&quot;</span><span class="p">],</span>
         <span class="n">y</span><span class="o">=</span><span class="n">b2b</span><span class="p">[</span><span class="s2">&quot;from_y&quot;</span><span class="p">],</span>
         <span class="n">color</span><span class="o">=</span><span class="s2">&quot;#FF2370&quot;</span><span class="p">,</span>
@@ -208,10 +202,10 @@
         <span class="n">legend_label</span><span class="o">=</span><span class="s2">&quot;Back-to-Back&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="s2">&quot;bottom_left&quot;</span>
-    <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">label_text_font_size</span> <span class="o">=</span> <span class="s2">&quot;12pt&quot;</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="s2">&quot;bottom_left&quot;</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">label_text_font_size</span> <span class="o">=</span> <span class="s2">&quot;12pt&quot;</span>
 
-    <span class="k">return</span> <span class="n">p</span></div>
+    <span class="k">return</span> <span class="n">canvas</span></div>
 </pre></div>
 
           </div>

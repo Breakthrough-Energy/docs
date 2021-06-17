@@ -38,11 +38,13 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">urllib</span>
 
-<span class="kn">from</span> <span class="nn">bokeh.models</span> <span class="kn">import</span> <span class="n">ColumnDataSource</span><span class="p">,</span> <span class="n">HoverTool</span><span class="p">,</span> <span class="n">Label</span>
-<span class="kn">from</span> <span class="nn">bokeh.plotting</span> <span class="kn">import</span> <span class="n">figure</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">bokeh.models</span> <span class="kn">import</span> <span class="n">ColumnDataSource</span><span class="p">,</span> <span class="n">HoverTool</span><span class="p">,</span> <span class="n">Legend</span><span class="p">,</span> <span class="n">LegendItem</span>
 <span class="kn">from</span> <span class="nn">bokeh.sampledata</span> <span class="kn">import</span> <span class="n">us_states</span>
 <span class="kn">from</span> <span class="nn">bokeh.tile_providers</span> <span class="kn">import</span> <span class="n">Vendors</span><span class="p">,</span> <span class="n">get_provider</span>
 
+<span class="kn">from</span> <span class="nn">postreise.plot.canvas</span> <span class="kn">import</span> <span class="n">create_map_canvas</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.check</span> <span class="kn">import</span> <span class="n">_check_func_kwargs</span>
 <span class="kn">from</span> <span class="nn">postreise.plot.projection_helpers</span> <span class="kn">import</span> <span class="n">project_borders</span>
 
 
@@ -100,160 +102,249 @@
     <span class="k">return</span> <span class="n">us_states_dat</span></div>
 
 
-<div class="viewcode-block" id="plot_states"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_states.plot_states">[docs]</a><span class="k">def</span> <span class="nf">plot_states</span><span class="p">(</span>
+<div class="viewcode-block" id="expand_data_source"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_states.expand_data_source">[docs]</a><span class="k">def</span> <span class="nf">expand_data_source</span><span class="p">(</span><span class="n">patches</span><span class="p">,</span> <span class="n">state2data</span><span class="p">,</span> <span class="n">key_name</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Add data to a bokeh patch object</span>
+
+<span class="sd">    :param bokeh.models.renderers.GlyphRenderer patches: states as glyphs.</span>
+<span class="sd">    :param dict state2data: keys are states abbreviation and values are data.</span>
+<span class="sd">    :param str key_name: name to use for the key in data source.</span>
+<span class="sd">    :return: (*bokeh.models.renderers.GlyphRenderer*) -- updated patches.</span>
+<span class="sd">    :raises TypeError:</span>
+<span class="sd">        if ``state2data`` is not a dict.</span>
+<span class="sd">        if ``key_name`` is not a str.</span>
+<span class="sd">    :raises ValueError:</span>
+<span class="sd">        if states in ``state2data`` and  ``patches`` differ.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">state2data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;state2data must be a dict&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;key_name must be a str&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">patches</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;state_name&quot;</span><span class="p">])</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">state2data</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;states in patches are missing from state2data&quot;</span><span class="p">)</span>
+
+    <span class="n">patches</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">key_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">state2data</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">patches</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;state_name&quot;</span><span class="p">]</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="n">patches</span></div>
+
+
+<div class="viewcode-block" id="add_state_borders"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_states.add_state_borders">[docs]</a><span class="k">def</span> <span class="nf">add_state_borders</span><span class="p">(</span>
+    <span class="n">canvas</span><span class="p">,</span>
     <span class="n">state_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">colors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">background_map</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="n">line_color</span><span class="o">=</span><span class="s2">&quot;grey&quot;</span><span class="p">,</span>
     <span class="n">line_width</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
     <span class="n">fill_alpha</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-    <span class="n">labels_list</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">legend_colors</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">legend_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">legend_title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">font_size</span><span class="o">=</span><span class="s2">&quot;10pt&quot;</span><span class="p">,</span>
-    <span class="n">bokeh_figure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">tooltip_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">us_states_dat</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">background_map</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Plots US state borders and allows color coding by state,</span>
-<span class="sd">    for example to represent different emissions goals.</span>
+    <span class="sd">&quot;&quot;&quot;Add state borders onto canvas.</span>
 
-<span class="sd">    :param list state_list: list of us states to color code.</span>
-<span class="sd">    :param str/iterable colors: color or colors associated with states in state_list.</span>
+<span class="sd">    :param bokeh.plotting.figure canvas: canvas.</span>
+<span class="sd">    :param list state_list: list of states to display, default to continental US.</span>
+<span class="sd">    :param bool background_map: add background behind state borders.</span>
 <span class="sd">    :param str line_color: color of state outlines.</span>
 <span class="sd">    :param int/float line_width: thickness of state outlines.</span>
-<span class="sd">    :param int/float fill_alpha: fill opaqueness for state patches.</span>
-<span class="sd">    :param iterable labels_list: list of labels for us states.</span>
-<span class="sd">    :param iterable legend_colors: list of colors for legend.</span>
-<span class="sd">    :param iterable legend_labels: list of labels for colors in legend.</span>
-<span class="sd">    :param str legend_title: title for legend.</span>
-<span class="sd">    :param float font_size: citation font size, for non web version only</span>
-<span class="sd">    :param bokeh.plotting.figure.Figure bokeh_figure: figure to plot onto, if provided.</span>
-<span class="sd">        If not, a new figure will be created.</span>
-<span class="sd">    :param str tooltip_name: name for the web tooltip. Trigger web version.</span>
-<span class="sd">    :param dict us_states_dat: dictionary of state border lats/lons. If None, get</span>
-<span class="sd">        from :func:`postreise.plot.plot_states.get_state_borders`.</span>
-<span class="sd">    :param bool background_map: if True, plot a map background behind state borders.</span>
-<span class="sd">    :raises TypeError: if inputs are wrong type.</span>
-<span class="sd">    :raises ValueError: if inputs have wrong values.</span>
-<span class="sd">    :return: (*bokeh.plotting.figure.Figure*) -- map of us states with option to color</span>
-<span class="sd">        by value.</span>
+<span class="sd">    :param int/float fill_alpha: opaqueness for state patches.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure.Figure*) -- canvas with state borders.</span>
+<span class="sd">    :raises TypeError:</span>
+<span class="sd">        if ``background_map`` is not a boolean.</span>
+<span class="sd">        if ``line_color`` is not a str.</span>
+<span class="sd">        if ``line_width`` is not a int or float.</span>
+<span class="sd">        if ``fill_alpha`` is not a int or float.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># Get state borders data if necessary</span>
-    <span class="k">if</span> <span class="n">us_states_dat</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">us_states_dat</span> <span class="o">=</span> <span class="n">get_state_borders</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">background_map</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;background map must be a bool&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">line_color</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;line_color must be a str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">line_width</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;line_width must be a int or float&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fill_alpha</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;fill_alpha must be a int or float&quot;</span><span class="p">)</span>
+
+    <span class="n">us_states_dat</span> <span class="o">=</span> <span class="n">get_state_borders</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">state_list</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="c1"># Default to continental US from state borders data, w/ no colors, no labels.</span>
-        <span class="k">if</span> <span class="n">labels_list</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Cannot specify labels_list without state_list&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">colors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">colors</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Cannot specify list of colors without state_list&quot;</span><span class="p">)</span>
-        <span class="n">state_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">us_states_dat</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;AK&quot;</span><span class="p">,</span> <span class="s2">&quot;HI&quot;</span><span class="p">,</span> <span class="s2">&quot;DC&quot;</span><span class="p">,</span> <span class="s2">&quot;PR&quot;</span><span class="p">})</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">colors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">colors</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">state_list</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">colors</span><span class="p">):</span>
-                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;state_list and colors must be same length&quot;</span><span class="p">)</span>
-                <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;colors must be str or iterable&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">labels_list</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">state_list</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels_list</span><span class="p">):</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;state_list and labels_list must be same length&quot;</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;labels_list must be an iterable&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">legend_colors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">legend_labels</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">legend_colors</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">legend_labels</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Length of legend_colors and legend_labels must match&quot;</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;legend_colors and legend_labels must be iterables or None&quot;</span><span class="p">)</span>
-    <span class="c1"># If no color specified, default to white. Either way, apply to all states.</span>
-    <span class="n">colors</span> <span class="o">=</span> <span class="s2">&quot;white&quot;</span> <span class="k">if</span> <span class="n">colors</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">colors</span>
-    <span class="n">colors</span> <span class="o">=</span> <span class="p">[</span><span class="n">colors</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">state_list</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">colors</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">colors</span>
+        <span class="n">state_list</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">us_states_dat</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;AK&quot;</span><span class="p">,</span> <span class="s2">&quot;HI&quot;</span><span class="p">,</span> <span class="s2">&quot;DC&quot;</span><span class="p">,</span> <span class="s2">&quot;PR&quot;</span><span class="p">}</span>
     <span class="n">all_state_xs</span><span class="p">,</span> <span class="n">all_state_ys</span> <span class="o">=</span> <span class="n">project_borders</span><span class="p">(</span><span class="n">us_states_dat</span><span class="p">,</span> <span class="n">state_list</span><span class="o">=</span><span class="n">state_list</span><span class="p">)</span>
-    <span class="c1"># Initialize figure if necessary</span>
-    <span class="k">if</span> <span class="n">bokeh_figure</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">p</span> <span class="o">=</span> <span class="n">figure</span><span class="p">(</span>
-            <span class="n">tools</span><span class="o">=</span><span class="s2">&quot;pan,wheel_zoom,reset,save&quot;</span><span class="p">,</span>
-            <span class="n">x_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-            <span class="n">y_axis_location</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-            <span class="n">plot_width</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
-            <span class="n">plot_height</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span>
-            <span class="n">output_backend</span><span class="o">=</span><span class="s2">&quot;webgl&quot;</span><span class="p">,</span>
-            <span class="n">sizing_mode</span><span class="o">=</span><span class="s2">&quot;stretch_both&quot;</span><span class="p">,</span>
-            <span class="n">match_aspect</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-        <span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">p</span> <span class="o">=</span> <span class="n">bokeh_figure</span>
-    <span class="c1"># if legend info is passed, plot legend squares behind graph so they&#39;re hidden</span>
-    <span class="k">if</span> <span class="n">legend_colors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">legend_colors</span><span class="p">):</span>
-            <span class="n">p</span><span class="o">.</span><span class="n">square</span><span class="p">(</span>
-                <span class="o">-</span><span class="mf">8.1e6</span><span class="p">,</span>
-                <span class="p">[</span><span class="mf">5.2e6</span><span class="p">,</span> <span class="mf">5.3e6</span><span class="p">],</span>
-                <span class="n">fill_color</span><span class="o">=</span><span class="n">c</span><span class="p">,</span>
-                <span class="n">color</span><span class="o">=</span><span class="n">c</span><span class="p">,</span>
-                <span class="n">size</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span>
-                <span class="n">legend_label</span><span class="o">=</span><span class="n">legend_labels</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
-            <span class="p">)</span>
-    <span class="c1"># Tiles for map background</span>
+
     <span class="k">if</span> <span class="n">background_map</span><span class="p">:</span>
-        <span class="n">p</span><span class="o">.</span><span class="n">add_tile</span><span class="p">(</span><span class="n">get_provider</span><span class="p">(</span><span class="n">Vendors</span><span class="o">.</span><span class="n">CARTODBPOSITRON_RETINA</span><span class="p">))</span>
-    <span class="c1"># State patches</span>
-    <span class="n">state_patch_info</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="n">all_state_xs</span><span class="p">,</span>
-        <span class="s2">&quot;ys&quot;</span><span class="p">:</span> <span class="n">all_state_ys</span><span class="p">,</span>
-        <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="n">colors</span><span class="p">,</span>
-        <span class="s2">&quot;state_name&quot;</span><span class="p">:</span> <span class="n">state_list</span><span class="p">,</span>
-    <span class="p">}</span>
-    <span class="k">if</span> <span class="n">labels_list</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">state_patch_info</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">labels_list</span>
-    <span class="n">patch</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">patches</span><span class="p">(</span>
+        <span class="n">canvas</span><span class="o">.</span><span class="n">add_tile</span><span class="p">(</span><span class="n">get_provider</span><span class="p">(</span><span class="n">Vendors</span><span class="o">.</span><span class="n">CARTODBPOSITRON_RETINA</span><span class="p">))</span>
+
+    <span class="n">canvas</span><span class="o">.</span><span class="n">patches</span><span class="p">(</span>
         <span class="s2">&quot;xs&quot;</span><span class="p">,</span>
         <span class="s2">&quot;ys&quot;</span><span class="p">,</span>
-        <span class="n">source</span><span class="o">=</span><span class="n">ColumnDataSource</span><span class="p">(</span><span class="n">state_patch_info</span><span class="p">),</span>
-        <span class="n">fill_alpha</span><span class="o">=</span><span class="n">fill_alpha</span><span class="p">,</span>
-        <span class="n">fill_color</span><span class="o">=</span><span class="s2">&quot;color&quot;</span><span class="p">,</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">ColumnDataSource</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="n">all_state_xs</span><span class="p">,</span>
+                <span class="s2">&quot;ys&quot;</span><span class="p">:</span> <span class="n">all_state_ys</span><span class="p">,</span>
+                <span class="s2">&quot;state_color&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;white&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">state_list</span><span class="p">),</span>
+                <span class="s2">&quot;state_name&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">state_list</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">),</span>
+        <span class="n">fill_color</span><span class="o">=</span><span class="s2">&quot;state_color&quot;</span><span class="p">,</span>
         <span class="n">line_color</span><span class="o">=</span><span class="n">line_color</span><span class="p">,</span>
+        <span class="n">fill_alpha</span><span class="o">=</span><span class="n">fill_alpha</span><span class="p">,</span>
         <span class="n">line_width</span><span class="o">=</span><span class="n">line_width</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;states&quot;</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="k">if</span> <span class="n">labels_list</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">tooltip_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="c1"># For the web, add hover-over functionality</span>
-            <span class="n">hover</span> <span class="o">=</span> <span class="n">HoverTool</span><span class="p">(</span>
-                <span class="n">tooltips</span><span class="o">=</span><span class="p">[(</span><span class="s2">&quot;State&quot;</span><span class="p">,</span> <span class="s2">&quot;@state_name&quot;</span><span class="p">),</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">tooltip_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;@label&quot;</span><span class="p">)],</span>
-                <span class="n">renderers</span><span class="o">=</span><span class="p">[</span><span class="n">patch</span><span class="p">],</span>
-            <span class="p">)</span>
-            <span class="n">p</span><span class="o">.</span><span class="n">add_tools</span><span class="p">(</span><span class="n">hover</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># For not the web, add static labels</span>
-            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">state</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">state_list</span><span class="p">):</span>
-                <span class="n">a1</span><span class="p">,</span> <span class="n">b1</span> <span class="o">=</span> <span class="n">project_borders</span><span class="p">(</span><span class="n">us_states_dat</span><span class="p">,</span> <span class="n">state_list</span><span class="o">=</span><span class="p">[</span><span class="n">state</span><span class="p">])</span>
-                <span class="n">citation</span> <span class="o">=</span> <span class="n">Label</span><span class="p">(</span>
-                    <span class="n">x</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="n">a1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="mi">100000</span><span class="p">,</span>
-                    <span class="n">y</span><span class="o">=</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">b1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="nb">min</span><span class="p">(</span><span class="n">b1</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
-                    <span class="n">x_units</span><span class="o">=</span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
-                    <span class="n">y_units</span><span class="o">=</span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
-                    <span class="n">text_font_size</span><span class="o">=</span><span class="n">font_size</span><span class="p">,</span>
-                    <span class="n">text</span><span class="o">=</span><span class="n">labels_list</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
-                    <span class="n">render_mode</span><span class="o">=</span><span class="s2">&quot;css&quot;</span><span class="p">,</span>
-                    <span class="n">border_line_color</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span>
-                    <span class="n">border_line_alpha</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-                    <span class="n">background_fill_color</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span>
-                    <span class="n">background_fill_alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
-                <span class="p">)</span>
-                <span class="n">p</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">citation</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">legend_colors</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">legend_title</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">legend_title</span>
-        <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="s2">&quot;bottom_right&quot;</span>
-        <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">label_text_font_size</span> <span class="o">=</span> <span class="s2">&quot;12pt&quot;</span>
-        <span class="n">p</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">title_text_font_size</span> <span class="o">=</span> <span class="s2">&quot;12pt&quot;</span>
-    <span class="k">return</span> <span class="n">p</span></div>
+    <span class="k">return</span> <span class="n">canvas</span></div>
+
+
+<div class="viewcode-block" id="add_state_tooltips"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_states.add_state_tooltips">[docs]</a><span class="k">def</span> <span class="nf">add_state_tooltips</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="n">tooltip_title</span><span class="p">,</span> <span class="n">state2label</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Add tooltip to states.</span>
+
+<span class="sd">    :param bokeh.plotting.figure canvas: canvas.</span>
+<span class="sd">    :param dict state2label: keys are states abbreviation and values are labels.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure.Figure*) -- canvas with toolips.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tooltip_title</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;tooltip title must be a str&quot;</span><span class="p">)</span>
+
+    <span class="n">patches</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">select_one</span><span class="p">({</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;states&quot;</span><span class="p">})</span>
+    <span class="n">patches</span> <span class="o">=</span> <span class="n">expand_data_source</span><span class="p">(</span><span class="n">patches</span><span class="p">,</span> <span class="n">state2label</span><span class="p">,</span> <span class="s2">&quot;state_label&quot;</span><span class="p">)</span>
+
+    <span class="n">hover</span> <span class="o">=</span> <span class="n">HoverTool</span><span class="p">(</span>
+        <span class="n">tooltips</span><span class="o">=</span><span class="p">[(</span><span class="s2">&quot;State&quot;</span><span class="p">,</span> <span class="s2">&quot;@state_name&quot;</span><span class="p">),</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">tooltip_title</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;@state_label&quot;</span><span class="p">)],</span>
+        <span class="n">renderers</span><span class="o">=</span><span class="p">[</span><span class="n">patches</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">add_tools</span><span class="p">(</span><span class="n">hover</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">canvas</span></div>
+
+
+<div class="viewcode-block" id="add_state_colors"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_states.add_state_colors">[docs]</a><span class="k">def</span> <span class="nf">add_state_colors</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="n">state2color</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Color states.</span>
+
+<span class="sd">    :param bokeh.plotting.figure canvas: canvas.</span>
+<span class="sd">    :param dict state2color: keys are states abbreviation and values are colors.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure.Figure*) -- canvas with colored state.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">patches</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">select_one</span><span class="p">({</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;states&quot;</span><span class="p">})</span>
+    <span class="n">patches</span> <span class="o">=</span> <span class="n">expand_data_source</span><span class="p">(</span><span class="n">patches</span><span class="p">,</span> <span class="n">state2color</span><span class="p">,</span> <span class="s2">&quot;state_color&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">canvas</span></div>
+
+
+<div class="viewcode-block" id="add_state_legends"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_states.add_state_legends">[docs]</a><span class="k">def</span> <span class="nf">add_state_legends</span><span class="p">(</span>
+    <span class="n">canvas</span><span class="p">,</span>
+    <span class="n">state2label</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">location</span><span class="o">=</span><span class="s2">&quot;bottom_right&quot;</span><span class="p">,</span>
+    <span class="n">title_size</span><span class="o">=</span><span class="s2">&quot;12pt&quot;</span><span class="p">,</span>
+    <span class="n">label_size</span><span class="o">=</span><span class="s2">&quot;12pt&quot;</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Add legend.</span>
+
+<span class="sd">    :param bokeh.plotting.figure canvas: canvas.</span>
+<span class="sd">    :param dict state2label: keys are states abbreviation and values are labels.</span>
+<span class="sd">    :param str title: title for legend.</span>
+<span class="sd">    :param str location: legend location on canvas. Default is bottom right.</span>
+<span class="sd">    :param str title_size: legend title font size. Default is 12pt.</span>
+<span class="sd">    :param str label_size: legend labels font size. Default is 12pt.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure.Figure*) -- canvas with colored state.</span>
+<span class="sd">    :raises TypeError:</span>
+<span class="sd">        if ``title`` is not None or str.</span>
+<span class="sd">        if ``location`` is not a str.</span>
+<span class="sd">        if ``title_size`` is not a str.</span>
+<span class="sd">        if ``label_size`` is not a str.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">title</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;title must be a str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">location</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">location</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;location must be a str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">title_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">title_size</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;title_size must be a str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">label_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">label_size</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;label_size must be a str&quot;</span><span class="p">)</span>
+
+    <span class="n">patches</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">select_one</span><span class="p">({</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;states&quot;</span><span class="p">})</span>
+    <span class="n">patches</span> <span class="o">=</span> <span class="n">expand_data_source</span><span class="p">(</span><span class="n">patches</span><span class="p">,</span> <span class="n">state2label</span><span class="p">,</span> <span class="s2">&quot;state_legend&quot;</span><span class="p">)</span>
+
+    <span class="n">group_legend</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;legend&quot;</span><span class="p">:</span> <span class="n">patches</span><span class="o">.</span><span class="n">data_source</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;state_legend&quot;</span><span class="p">]})</span>
+        <span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;legend&quot;</span><span class="p">])</span>
+        <span class="o">.</span><span class="n">groups</span>
+    <span class="p">)</span>
+
+    <span class="n">legend</span> <span class="o">=</span> <span class="n">Legend</span><span class="p">(</span>
+        <span class="n">items</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">LegendItem</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="n">l</span><span class="p">,</span> <span class="n">renderers</span><span class="o">=</span><span class="p">[</span><span class="n">patches</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">group_legend</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">add_layout</span><span class="p">(</span><span class="n">legend</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">title</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">canvas</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="n">location</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">label_text_font_size</span> <span class="o">=</span> <span class="n">label_size</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">title_text_font_size</span> <span class="o">=</span> <span class="n">title_size</span>
+
+    <span class="k">return</span> <span class="n">canvas</span></div>
+
+
+<div class="viewcode-block" id="plot_states"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_states.plot_states">[docs]</a><span class="k">def</span> <span class="nf">plot_states</span><span class="p">(</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">1400</span><span class="p">,</span> <span class="mi">800</span><span class="p">),</span>
+    <span class="n">state_borders_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">state_colors_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">state_tooltips_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">state_legends_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Add states on canvas and optionally add colors, tooltips and legends.</span>
+
+<span class="sd">    :param tuple figsize: size of the bokeh figure (in pixels).</span>
+<span class="sd">    :param dict state_borders_kwargs: keyword argument(s) to be passed to</span>
+<span class="sd">        :func:`postreise.add_state_borders`.</span>
+<span class="sd">    :param dict state_colors_args: arguments to be passed to</span>
+<span class="sd">        :func:`postreise.add_state_colors`.</span>
+<span class="sd">    :param dict state_tooltips_args: argument(s) to be passed to</span>
+<span class="sd">        :func:`postreise.add_state_tooltips`.</span>
+<span class="sd">    :param dict state_legends_kwargs: keyword argument(s) to be passed to</span>
+<span class="sd">        :func:`postreise.add_state_legends`.</span>
+<span class="sd">    :raises TypeError:</span>
+<span class="sd">        if ``state_borders_kwargs`` is not None or dict.</span>
+<span class="sd">        if ``state_colors_args`` is not None or dict.</span>
+<span class="sd">        if ``state_tooltips_args`` is not None or dict.</span>
+<span class="sd">        if ``state_legends_kwargs`` is not None or dict.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure.Figure*) -- map of us states.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="s2">&quot;state_borders_kwargs&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;state_colors_args&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;state_tooltips_args&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;state_legends_kwargs&quot;</span><span class="p">,</span>
+    <span class="p">]:</span>
+        <span class="n">var</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">var</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2"> must be a dict&quot;</span><span class="p">)</span>
+
+    <span class="c1"># create canvas</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">create_map_canvas</span><span class="p">(</span><span class="n">figsize</span><span class="p">)</span>
+
+    <span class="c1"># add state borders</span>
+    <span class="k">if</span> <span class="n">state_borders_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_check_func_kwargs</span><span class="p">(</span>
+            <span class="n">add_state_borders</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">state_borders_kwargs</span><span class="p">),</span> <span class="s2">&quot;state_borders_kwargs&quot;</span>
+        <span class="p">)</span>
+        <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_state_borders</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="o">**</span><span class="n">state_borders_kwargs</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_state_borders</span><span class="p">(</span><span class="n">canvas</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">state_colors_args</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_state_colors</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="n">state_colors_args</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">state_tooltips_args</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_state_tooltips</span><span class="p">(</span>
+            <span class="n">canvas</span><span class="p">,</span> <span class="n">state_tooltips_args</span><span class="p">[</span><span class="s2">&quot;title&quot;</span><span class="p">],</span> <span class="n">state_tooltips_args</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">state_legends_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_check_func_kwargs</span><span class="p">(</span>
+            <span class="n">add_state_legends</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">state_legends_kwargs</span><span class="p">),</span> <span class="s2">&quot;state_legends_kwargs&quot;</span>
+        <span class="p">)</span>
+        <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_state_legends</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="o">**</span><span class="n">state_legends_kwargs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">canvas</span></div>
 </pre></div>
 
           </div>

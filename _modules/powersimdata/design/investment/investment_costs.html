@@ -46,6 +46,7 @@
     <span class="n">bus_to_reeds_reg</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">powersimdata.design.investment.inflation</span> <span class="kn">import</span> <span class="n">calculate_inflation</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.check</span> <span class="kn">import</span> <span class="n">_check_grid_models_match</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.distance</span> <span class="kn">import</span> <span class="n">haversine</span>
 
@@ -76,22 +77,32 @@
     <span class="k">return</span> <span class="n">new_df</span></div>
 
 
-<div class="viewcode-block" id="calculate_ac_inv_costs"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.investment_costs.calculate_ac_inv_costs">[docs]</a><span class="k">def</span> <span class="nf">calculate_ac_inv_costs</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exclude_branches</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="calculate_ac_inv_costs"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.investment_costs.calculate_ac_inv_costs">[docs]</a><span class="k">def</span> <span class="nf">calculate_ac_inv_costs</span><span class="p">(</span>
+    <span class="n">scenario</span><span class="p">,</span>
+    <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">exclude_branches</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">base_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Calculate cost of upgrading AC lines and/or transformers in a scenario.</span>
 <span class="sd">    NEEM regions are used to find regional multipliers.</span>
 
 <span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
 <span class="sd">    :param bool sum_results: whether to sum data frame for each branch type. Defaults to</span>
 <span class="sd">        True.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid base_grid: a Grid to compare against. If None,</span>
+<span class="sd">        the grid model and interconnect from the ``scenario`` are used to instantiate a</span>
+<span class="sd">        corresponding unmodified Grid.</span>
 <span class="sd">    :return: (*dict*) -- keys are {&#39;line_cost&#39;, &#39;transformer_cost&#39;}, values are either</span>
 <span class="sd">        float if ``sum_results``, or pandas Series indexed by branch ID.</span>
 <span class="sd">        Whether summed or not, values are $USD, inflation-adjusted to today.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
-        <span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">),</span> <span class="n">source</span><span class="o">=</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
-    <span class="p">)</span>
     <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">base_grid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
+            <span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">),</span> <span class="n">source</span><span class="o">=</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_check_grid_models_match</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
 
     <span class="c1"># find upgraded AC lines</span>
     <span class="n">grid_new</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
@@ -293,20 +304,26 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;line_cost&quot;</span><span class="p">:</span> <span class="n">lines</span><span class="o">.</span><span class="n">cost</span><span class="p">,</span> <span class="s2">&quot;transformer_cost&quot;</span><span class="p">:</span> <span class="n">transformers</span><span class="o">.</span><span class="n">cost</span><span class="p">}</span>
 
 
-<div class="viewcode-block" id="calculate_dc_inv_costs"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.investment_costs.calculate_dc_inv_costs">[docs]</a><span class="k">def</span> <span class="nf">calculate_dc_inv_costs</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="calculate_dc_inv_costs"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.investment_costs.calculate_dc_inv_costs">[docs]</a><span class="k">def</span> <span class="nf">calculate_dc_inv_costs</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">base_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Calculate cost of upgrading HVDC lines in a scenario.</span>
 
 <span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
 <span class="sd">    :param bool sum_results: whether to sum series to return total cost. Defaults to</span>
 <span class="sd">        True.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid base_grid: a Grid to compare against. If None,</span>
+<span class="sd">        the grid model and interconnect from the ``scenario`` are used to instantiate a</span>
+<span class="sd">        corresponding unmodified Grid.</span>
 <span class="sd">    :return: (*pandas.Series/float*) -- cost of upgrading HVDC lines, in $USD,</span>
 <span class="sd">        inflation-adjusted to today. If ``sum_results``, a float is returned, otherwise</span>
 <span class="sd">        a Series.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
-        <span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">),</span> <span class="n">source</span><span class="o">=</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
-    <span class="p">)</span>
     <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">base_grid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
+            <span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">),</span> <span class="n">source</span><span class="o">=</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_check_grid_models_match</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
 
     <span class="n">grid_new</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
     <span class="c1"># Reindex so that we don&#39;t get NaN when calculating upgrades for new DC lines</span>
@@ -365,7 +382,13 @@
         <span class="k">return</span> <span class="mf">0.0</span>
 
 
-<div class="viewcode-block" id="calculate_gen_inv_costs"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.investment_costs.calculate_gen_inv_costs">[docs]</a><span class="k">def</span> <span class="nf">calculate_gen_inv_costs</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">cost_case</span><span class="p">,</span> <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="calculate_gen_inv_costs"><a class="viewcode-back" href="../../../../powersimdata.design.investment.html#powersimdata.design.investment.investment_costs.calculate_gen_inv_costs">[docs]</a><span class="k">def</span> <span class="nf">calculate_gen_inv_costs</span><span class="p">(</span>
+    <span class="n">scenario</span><span class="p">,</span>
+    <span class="n">year</span><span class="p">,</span>
+    <span class="n">cost_case</span><span class="p">,</span>
+    <span class="n">sum_results</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">base_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Calculate cost of upgrading generators in a scenario. ReEDS regions are used to</span>
 <span class="sd">    find regional multipliers.</span>
 
@@ -375,6 +398,9 @@
 <span class="sd">        *&#39;Conservative&#39;*: generally higher costs, *&#39;Advanced&#39;*: generally lower costs</span>
 <span class="sd">    :param bool sum_results: whether to sum data frame for plant costs. Defaults to</span>
 <span class="sd">        True.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid base_grid: a Grid to compare against. If None,</span>
+<span class="sd">        the grid model and interconnect from the ``scenario`` are used to instantiate a</span>
+<span class="sd">        corresponding unmodified Grid.</span>
 <span class="sd">    :return: (*pandas.Series*) -- Overnight generation investment cost.</span>
 <span class="sd">        If ``sum_results``, indices are technologies and values are total cost.</span>
 <span class="sd">        Otherwise, indices are IDs of plants (including storage, which is given</span>
@@ -385,11 +411,13 @@
 <span class="sd">        are dropped. Wind and solar will need to be fixed based on the resource supply</span>
 <span class="sd">        curves.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
-        <span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">),</span> <span class="n">source</span><span class="o">=</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
-    <span class="p">)</span>
     <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">base_grid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
+            <span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">),</span> <span class="n">source</span><span class="o">=</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">_check_grid_models_match</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
 
     <span class="c1"># Find change in generation capacity</span>
     <span class="n">grid_new</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>

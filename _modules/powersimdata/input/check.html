@@ -34,23 +34,26 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.input.check</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">sys</span>
+<span></span><span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">sys</span>
 
 <span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
 
 
 <div class="viewcode-block" id="check_grid"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.check.check_grid">[docs]</a><span class="k">def</span> <span class="nf">check_grid</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Check whether an object is an internally-consistent Grid object.</span>
 
 <span class="sd">    :param powersimdata.input.grid.Grid grid: grid or grid-like object to check.</span>
-<span class="sd">    :raises TypeError: if ``grid`` is not a Grid object.</span>
 <span class="sd">    :raises ValueError: if ``grid`` has any inconsistency</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">Grid</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;grid must be a Grid object&quot;</span><span class="p">)</span>
+    <span class="n">_check_grid_type</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
     <span class="n">error_messages</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># Run all checks which operate on a Grid object</span>
     <span class="k">for</span> <span class="n">check</span> <span class="ow">in</span> <span class="p">[</span>
         <span class="n">_check_attributes</span><span class="p">,</span>
         <span class="n">_check_for_islanded_buses</span><span class="p">,</span>
@@ -67,6 +70,15 @@
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Exception during </span><span class="si">{</span><span class="n">check</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="si">!r}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+    <span class="c1"># Run checks which operate on a pandas data frame</span>
+    <span class="k">for</span> <span class="n">gencost_key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;before&quot;</span><span class="p">,</span> <span class="s2">&quot;after&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">_check_gencost</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="n">gencost_key</span><span class="p">],</span> <span class="n">error_messages</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Exception during </span><span class="si">{</span><span class="n">check</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">gencost_key</span><span class="si">}</span><span class="s2">: &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="si">!r}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">error_messages</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">collected</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">error_messages</span><span class="p">)</span>
@@ -255,10 +267,371 @@
 <span class="sd">    :param powersimdata.input.grid.Grid grid2: second Grid instance.</span>
 <span class="sd">    :raises ValueError: if the grid models don&#39;t match.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_grid_type</span><span class="p">(</span><span class="n">grid1</span><span class="p">)</span>
+    <span class="n">_check_grid_type</span><span class="p">(</span><span class="n">grid2</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">grid1</span><span class="o">.</span><span class="n">grid_model</span> <span class="o">==</span> <span class="n">grid2</span><span class="o">.</span><span class="n">grid_model</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Grid models don&#39;t match: </span><span class="si">{</span><span class="n">grid1</span><span class="o">.</span><span class="n">grid_model</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">grid2</span><span class="o">.</span><span class="n">grid_model</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_data_frame</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">label</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ensure that input is a pandas data frame.</span>
+
+<span class="sd">    :param pandas.DataFrame df: a data frame.</span>
+<span class="sd">    :param str label: name of data frame (used for error messages).</span>
+<span class="sd">    :raises TypeError: if df is not a data frame or label is not a str.</span>
+<span class="sd">    :raises ValueError: if data frame is empty.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;label must be a str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">label</span> <span class="o">+</span> <span class="s2">&quot; must be a pandas.DataFrame object&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">label</span> <span class="o">+</span> <span class="s2">&quot; must have at least one row&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">label</span> <span class="o">+</span> <span class="s2">&quot; must have at least one column&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_time_series</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">label</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check that a time series is specified properly.</span>
+
+<span class="sd">    :param pandas.DataFrame/pandas.Series ts: time series to check.</span>
+<span class="sd">    :param str label: name of time series (used for error messages).</span>
+<span class="sd">    :raises TypeError: if ts is not a data frame/time series or label is not a str.</span>
+<span class="sd">    :raises ValueError: if indices are not timestamps.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;label must be a str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">label</span> <span class="o">+</span> <span class="s2">&quot; must be a pandas.DataFrame or pandas.Series object&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">ts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">label</span> <span class="o">+</span> <span class="s2">&quot; must have at least one row&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DatetimeIndex</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">label</span> <span class="o">+</span> <span class="s2">&quot; must be a time series&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_grid_type</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ensure that ``grid`` is a Grid object.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: a Grid instance.</span>
+<span class="sd">    :raises TypeError: if input is not a Grid instance.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">Grid</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;grid must be a </span><span class="si">{</span><span class="n">Grid</span><span class="si">}</span><span class="s2"> object&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_areas_and_format</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="n">grid_model</span><span class="o">=</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ensure that areas are valid. Duplicates are removed and state abbreviations are</span>
+<span class="sd">    converted to their actual name.</span>
+
+<span class="sd">    :param str/list/tuple/set areas: areas(s) to check. Could be load zone name(s),</span>
+<span class="sd">        state name(s)/abbreviation(s) or interconnect(s).</span>
+<span class="sd">    :param str grid_model: grid model.</span>
+<span class="sd">    :raises TypeError: if areas is not a list/tuple/set of str.</span>
+<span class="sd">    :raises ValueError: if areas is empty or not valid.</span>
+<span class="sd">    :return: (*set*) -- areas as a set. State abbreviations are converted to state</span>
+<span class="sd">        names.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mi</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">grid_model</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">areas</span> <span class="o">=</span> <span class="p">{</span><span class="n">areas</span><span class="p">}</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">set</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">areas</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;all areas must be str&quot;</span><span class="p">)</span>
+        <span class="n">areas</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">areas</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;areas must be a str or a list/tuple/set of str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">areas</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;areas must be non-empty&quot;</span><span class="p">)</span>
+    <span class="n">all_areas</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;loadzone&quot;</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;abv&quot;</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">areas</span> <span class="o">&lt;=</span> <span class="n">all_areas</span><span class="p">:</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="n">areas</span> <span class="o">-</span> <span class="n">all_areas</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;invalid area(s): </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">diff</span><span class="p">))</span>
+
+    <span class="n">abv_in_areas</span> <span class="o">=</span> <span class="p">[</span><span class="n">z</span> <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">areas</span> <span class="k">if</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;abv&quot;</span><span class="p">]]</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">abv_in_areas</span><span class="p">:</span>
+        <span class="n">areas</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">areas</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;abv2state&quot;</span><span class="p">][</span><span class="n">a</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">areas</span>
+
+
+<span class="k">def</span> <span class="nf">_check_resources_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">grid_model</span><span class="o">=</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ensure that resources are valid and convert variable to a set.</span>
+
+<span class="sd">    :param str/list/tuple/set resources: resource(s) to check.</span>
+<span class="sd">    :param str grid_model: grid model.</span>
+<span class="sd">    :raises TypeError: if resources is not a list/tuple/set of str.</span>
+<span class="sd">    :raises ValueError: if resources is empty or not valid.</span>
+<span class="sd">    :return: (*set*) -- resources as a set.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mi</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">grid_model</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">resources</span> <span class="o">=</span> <span class="p">{</span><span class="n">resources</span><span class="p">}</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">set</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">resources</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;all resources must be str&quot;</span><span class="p">)</span>
+        <span class="n">resources</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">resources</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;resources must be a str or a list/tuple/set of str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">resources</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;resources must be non-empty&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">resources</span> <span class="o">&lt;=</span> <span class="n">mi</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;all_resources&quot;</span><span class="p">]:</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="n">resources</span> <span class="o">-</span> <span class="n">mi</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;all_resources&quot;</span><span class="p">]</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;invalid resource(s): </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">diff</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">resources</span>
+
+
+<span class="k">def</span> <span class="nf">_check_resources_are_renewable_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">grid_model</span><span class="o">=</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ensure that resources are valid renewable resources and convert variable to</span>
+<span class="sd">    a set.</span>
+
+<span class="sd">    :param str/list/tuple/set resources: resource(s) to analyze.</span>
+<span class="sd">    :param str grid_model: grid model.</span>
+<span class="sd">    :raises ValueError: if resources are not renewables.</span>
+<span class="sd">    return: (*set*) -- resources as a set</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mi</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">grid_model</span><span class="p">)</span>
+    <span class="n">resources</span> <span class="o">=</span> <span class="n">_check_resources_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">grid_model</span><span class="o">=</span><span class="n">grid_model</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">resources</span> <span class="o">&lt;=</span> <span class="n">mi</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;renewable_resources&quot;</span><span class="p">]:</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="n">resources</span> <span class="o">-</span> <span class="n">mi</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;all_resources&quot;</span><span class="p">]</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;invalid renewable resource(s): </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">diff</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">resources</span>
+
+
+<span class="k">def</span> <span class="nf">_check_areas_are_in_grid_and_format</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ensure that list of areas are in grid.</span>
+
+<span class="sd">    :param dict areas: keys are area types: &#39;*loadzone*&#39;, &#39;*state*&#39; or &#39;*interconnect*&#39;.</span>
+<span class="sd">        Values are str/list/tuple/set of areas.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance.</span>
+<span class="sd">    :return: (*dict*) -- modified areas dictionary. Keys are area types (&#39;*loadzone*&#39;,</span>
+<span class="sd">        &#39;*state*&#39; or &#39;*interconnect*&#39;). State abbreviations, if present, are converted</span>
+<span class="sd">        to state names. Values are areas as a set.</span>
+<span class="sd">    :raises TypeError: if areas is not a dict or its keys are not str.</span>
+<span class="sd">    :raises ValueError: if area type is invalid, an area in not in grid or an</span>
+<span class="sd">        invalid loadzone/state/interconnect is passed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_grid_type</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;areas must be a dict&quot;</span><span class="p">)</span>
+
+    <span class="n">mi</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span>
+    <span class="n">areas_formatted</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">areas</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">a</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;loadzone&quot;</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">]:</span>
+            <span class="n">areas_formatted</span><span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="n">all_loadzones</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">areas</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;area type must be a str&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">:</span>
+            <span class="n">interconnects</span> <span class="o">=</span> <span class="n">_check_areas_and_format</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">interconnects</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">all_loadzones</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect2loadzone&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;invalid interconnect: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">i</span><span class="p">)</span>
+            <span class="n">areas_formatted</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">interconnects</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;state&quot;</span><span class="p">:</span>
+            <span class="n">states</span> <span class="o">=</span> <span class="n">_check_areas_and_format</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">states</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">all_loadzones</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;state2loadzone&quot;</span><span class="p">][</span><span class="n">s</span><span class="p">])</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;invalid state: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">s</span><span class="p">)</span>
+            <span class="n">areas_formatted</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">states</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;loadzone&quot;</span><span class="p">:</span>
+            <span class="n">loadzones</span> <span class="o">=</span> <span class="n">_check_areas_and_format</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">loadzones</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">l</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;loadzone&quot;</span><span class="p">]:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;invalid load zone: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">l</span><span class="p">)</span>
+            <span class="n">all_loadzones</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">loadzones</span><span class="p">)</span>
+            <span class="n">areas_formatted</span><span class="p">[</span><span class="s2">&quot;loadzone&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">loadzones</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;invalid area type&quot;</span><span class="p">)</span>
+
+    <span class="n">valid_loadzones</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">all_loadzones</span> <span class="o">&lt;=</span> <span class="n">valid_loadzones</span><span class="p">:</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="n">all_loadzones</span> <span class="o">-</span> <span class="n">valid_loadzones</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not in in grid&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">diff</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">areas_formatted</span>
+
+
+<span class="k">def</span> <span class="nf">_check_resources_are_in_grid_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ensure that resource(s) is represented in at least one generator in the grid</span>
+<span class="sd">    used for the scenario.</span>
+
+<span class="sd">    :param str/list/tuple/set resources: resource(s) to analyze.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: a Grid instance.</span>
+<span class="sd">    :return: (*set*) -- resources as a set.</span>
+<span class="sd">    :raises ValueError: if resources is not used in scenario.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_grid_type</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="n">resources</span> <span class="o">=</span> <span class="n">_check_resources_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">)</span>
+    <span class="n">valid_resources</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">resources</span> <span class="o">&lt;=</span> <span class="n">valid_resources</span><span class="p">:</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="n">resources</span> <span class="o">-</span> <span class="n">valid_resources</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not in in grid&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">diff</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">resources</span>
+
+
+<span class="k">def</span> <span class="nf">_check_plants_are_in_grid</span><span class="p">(</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ensure that list of plant id are in grid.</span>
+
+<span class="sd">    :param list/tuple/set plant_id: list of plant id.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance.</span>
+<span class="sd">    :raises TypeError: if plant_id is not a list of int or str.</span>
+<span class="sd">    :raises ValueError: if plant id is not in network.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_grid_type</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
+        <span class="nb">isinstance</span><span class="p">(</span><span class="n">plant_id</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="nb">set</span><span class="p">))</span>
+        <span class="ow">and</span> <span class="nb">all</span><span class="p">([</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">plant_id</span><span class="p">])</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;plant_id must be a a list/tuple/set of int or str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">plant_id</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;plant_id must be subset of plant index&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_number_hours_to_analyze</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">hours</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ensure that number of hours is greater than simulation length.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param int hours: number of hours to analyze.</span>
+<span class="sd">    :raises TypeError: if hours is not int.</span>
+<span class="sd">    :raises ValueError: if hours is negative or greater than simulation length</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">start_date</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;start_date&quot;</span><span class="p">])</span>
+    <span class="n">end_date</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;end_date&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">hours</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;hours must be an int&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">hours</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;hours must be positive&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">hours</span> <span class="o">&gt;</span> <span class="p">(</span><span class="n">end_date</span> <span class="o">-</span> <span class="n">start_date</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">/</span> <span class="mi">3600</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;hours must not be greater than simulation length&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_date</span><span class="p">(</span><span class="n">date</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check date is valid.</span>
+
+<span class="sd">    :param pandas.Timestamp/numpy.datetime64/datetime.datetime date: timestamp.</span>
+<span class="sd">    :raises TypeError: if date is improperly formatted.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">date</span><span class="p">,</span> <span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="s2">&quot;date must be a pandas.Timestamp, a numpy.datetime64 or a datetime.datetime object&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_date_range_in_scenario</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check if start time and end time define a valid time range of the given scenario.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param pandas.Timestamp/numpy.datetime64/datetime.datetime start: start date.</span>
+<span class="sd">    :param pandas.Timestamp/numpy.datetime64/datetime.datetime end: end date.</span>
+<span class="sd">    :raises ValueError: if the date range is invalid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_date</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+    <span class="n">_check_date</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
+    <span class="n">scenario_start</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;start_date&quot;</span><span class="p">])</span>
+    <span class="n">scenario_end</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;end_date&quot;</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">scenario_start</span> <span class="o">&lt;=</span> <span class="n">start</span> <span class="o">&lt;=</span> <span class="n">end</span> <span class="o">&lt;=</span> <span class="n">scenario_end</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must have scenario_start &lt;= start &lt;= end &lt;= scenario_end&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_date_range_in_time_series</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check if start time and end time define a valid time range of the time series.</span>
+
+<span class="sd">    :param pandas.DataFrame/pandas.Series ts: a time series with timestamp as indices.</span>
+<span class="sd">    :param pandas.Timestamp/numpy.datetime64/datetime.datetime start: start date.</span>
+<span class="sd">    :param pandas.Timestamp/numpy.datetime64/datetime.datetime end: end date.</span>
+<span class="sd">    :raises ValueError: if the date range is invalid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_time_series</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="s2">&quot;time series&quot;</span><span class="p">)</span>
+    <span class="n">_check_date</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+    <span class="n">_check_date</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">ts</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">start</span> <span class="o">&lt;=</span> <span class="n">end</span> <span class="o">&lt;=</span> <span class="n">ts</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Must have time_series_start &lt;= start &lt;= end &lt;= time_series_end&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_epsilon</span><span class="p">(</span><span class="n">epsilon</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ensure epsilon is valid.</span>
+
+<span class="sd">    :param float/int epsilon: precision for binding constraints.</span>
+<span class="sd">    :raises TypeError: if epsilon is not a float or an int.</span>
+<span class="sd">    :raises ValueError: if epsilon is negative.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">epsilon</span><span class="p">,</span> <span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;epsilon must be numeric&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">epsilon</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;epsilon must be non-negative&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_check_gencost</span><span class="p">(</span><span class="n">gencost</span><span class="p">,</span> <span class="n">error_messages</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check that gencost is valid.</span>
+
+<span class="sd">    :param pandas.DataFrame gencost: cost curve polynomials.</span>
+<span class="sd">    :param list error_messages: list to append error messages to. If `error_messages``</span>
+<span class="sd">        is None and an error is encountered, an Exception will be raised instead.</span>
+<span class="sd">    :raises TypeError: if ``error_messages`` is None and: gencost is not a data frame,</span>
+<span class="sd">        or polynomial degree is not an int.</span>
+<span class="sd">    :raises ValueError: if data frame has no rows, does not have the required columns,</span>
+<span class="sd">        curves are not polynomials and have not the appropriate coefficients.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># check for nonempty dataframe</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">gencost</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+            <span class="n">_check_data_frame</span><span class="p">(</span><span class="n">gencost</span><span class="p">,</span> <span class="s2">&quot;gencost&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">gencost</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;gencost must be a pandas.DataFrame object&quot;</span><span class="p">)</span>
+
+        <span class="c1"># check for proper columns</span>
+        <span class="n">required_columns</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">required_columns</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">r</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">gencost</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;gencost must have column &quot;</span> <span class="o">+</span> <span class="n">r</span><span class="p">)</span>
+
+        <span class="c1"># check that gencosts are all specified as type 2 (polynomial)</span>
+        <span class="n">cost_type</span> <span class="o">=</span> <span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cost_type</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cost_type</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">cost_type</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;each gencost must be type 2 (polynomial)&quot;</span><span class="p">)</span>
+
+        <span class="c1"># check that all gencosts are specified as same order polynomial</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;n&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;all polynomials must be of same order&quot;</span><span class="p">)</span>
+
+        <span class="c1"># check that this order is an integer &gt; 0</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;n&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">integer</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;polynomial degree must be specified as an int&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;polynomial must be at least of order 1 (constant)&quot;</span><span class="p">)</span>
+
+        <span class="c1"># check that the right columns are here for this dataframe</span>
+        <span class="n">coef_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;c&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">coef_columns</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">gencost</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;gencost of order </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> must have column </span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">error_messages</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">error_messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">exc_info</span><span class="p">()[</span><span class="mi">1</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span>
 </pre></div>
 
           </div>

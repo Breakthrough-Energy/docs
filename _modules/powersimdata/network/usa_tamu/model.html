@@ -113,7 +113,7 @@
 <div class="viewcode-block" id="check_and_format_interconnect"><a class="viewcode-back" href="../../../../powersimdata.network.usa_tamu.html#powersimdata.network.usa_tamu.model.check_and_format_interconnect">[docs]</a><span class="k">def</span> <span class="nf">check_and_format_interconnect</span><span class="p">(</span><span class="n">interconnect</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Checks interconnect.</span>
 
-<span class="sd">    :param str/list interconnect: interconnect name(s).</span>
+<span class="sd">    :param str/iterable interconnect: interconnect name(s).</span>
 <span class="sd">    :return: (*list*) -- interconnect(s)</span>
 <span class="sd">    :raises TypeError: if parameter has wrong type.</span>
 <span class="sd">    :raises ValueError: if interconnect not found or combination of interconnect is not</span>
@@ -121,18 +121,15 @@
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
         <span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="n">interconnect</span><span class="p">]</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;interconnect must be a str or list of str&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">interconnect</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">interconnect</span><span class="p">))</span>
+    <span class="k">except</span><span class="p">:</span>  <span class="c1"># noqa</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;interconnect must be either str or an iterable of str&quot;</span><span class="p">)</span>
 
     <span class="n">possible</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Eastern&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;USA&quot;</span><span class="p">]</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">interconnect</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Wrong interconnect. Choose from </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">)</span>
-            <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">interconnect</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Wrong interconnect. Choose from </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">))</span>
     <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;List of interconnects contains duplicate values&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="s2">&quot;USA&quot;</span> <span class="ow">in</span> <span class="n">interconnect</span> <span class="ow">and</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;USA cannot be paired&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>

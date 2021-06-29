@@ -35,8 +35,18 @@
             
   <h1>Source code for powersimdata.input.helpers</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
 
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.input.check</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_check_areas_are_in_grid_and_format</span><span class="p">,</span>
+    <span class="n">_check_data_frame</span><span class="p">,</span>
+    <span class="n">_check_grid_type</span><span class="p">,</span>
+    <span class="n">_check_plants_are_in_grid</span><span class="p">,</span>
+    <span class="n">_check_resources_are_in_grid_and_format</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">area_to_loadzone</span>
 
 
 <div class="viewcode-block" id="csv_to_data_frame"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.csv_to_data_frame">[docs]</a><span class="k">def</span> <span class="nf">csv_to_data_frame</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
@@ -156,6 +166,325 @@
         <span class="s2">&quot;to_interconnect&quot;</span><span class="p">:</span> <span class="n">get_interconnect</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">to_bus_id</span><span class="p">),</span>
     <span class="p">}</span>
     <span class="n">add_column_to_data_frame</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="p">,</span> <span class="n">extra_col_dcline</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_resources_in_grid"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.get_resources_in_grid">[docs]</a><span class="k">def</span> <span class="nf">get_resources_in_grid</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get resources in grid.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: a Grid instance.</span>
+<span class="sd">    :return: (*set*) -- name of all resources in grid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_grid_type</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="n">resources</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">resources</span></div>
+
+
+<div class="viewcode-block" id="get_active_resources_in_grid"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.get_active_resources_in_grid">[docs]</a><span class="k">def</span> <span class="nf">get_active_resources_in_grid</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get active resources in grid.</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: a Grid instance.</span>
+<span class="sd">    :return: (*set*) -- name of active resources in grid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_grid_type</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="n">active_resources</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">active_resources</span></div>
+
+
+<div class="viewcode-block" id="get_plant_id_for_resources"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.get_plant_id_for_resources">[docs]</a><span class="k">def</span> <span class="nf">get_plant_id_for_resources</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get plant id for plants fueled by resource(s).</span>
+
+<span class="sd">    :param str/list/tuple/set resources: name of resource(s).</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance.</span>
+<span class="sd">    :return: (*set*) -- list of plant id.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">resources</span> <span class="o">=</span> <span class="n">_check_resources_are_in_grid_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+    <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="n">plant</span><span class="p">[(</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">resources</span><span class="p">))]</span><span class="o">.</span><span class="n">index</span>
+    <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">plant_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_plant_id_in_loadzones"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.get_plant_id_in_loadzones">[docs]</a><span class="k">def</span> <span class="nf">get_plant_id_in_loadzones</span><span class="p">(</span><span class="n">loadzones</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get plant id for plants in loadzone(s).</span>
+
+<span class="sd">    :param str/list/tuple/set loadzones: name of load zone(s).</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance.</span>
+<span class="sd">    :return: (*set*) -- list of plant id.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">areas</span> <span class="o">=</span> <span class="n">_check_areas_are_in_grid_and_format</span><span class="p">({</span><span class="s2">&quot;loadzone&quot;</span><span class="p">:</span> <span class="n">loadzones</span><span class="p">},</span> <span class="n">grid</span><span class="p">)</span>
+    <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="n">plant</span><span class="p">[(</span><span class="n">plant</span><span class="o">.</span><span class="n">zone_name</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">areas</span><span class="p">[</span><span class="s2">&quot;loadzone&quot;</span><span class="p">]))]</span><span class="o">.</span><span class="n">index</span>
+    <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">plant_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_plant_id_in_interconnects"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.get_plant_id_in_interconnects">[docs]</a><span class="k">def</span> <span class="nf">get_plant_id_in_interconnects</span><span class="p">(</span><span class="n">interconnects</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get plant id for plants in interconnect(s).</span>
+
+<span class="sd">    :param str/list/tuple/set interconnects: name of interconnect(s).</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance.</span>
+<span class="sd">    :return: (*set*) -- list of plant id</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">areas</span> <span class="o">=</span> <span class="n">_check_areas_are_in_grid_and_format</span><span class="p">({</span><span class="s2">&quot;interconnect&quot;</span><span class="p">:</span> <span class="n">interconnects</span><span class="p">},</span> <span class="n">grid</span><span class="p">)</span>
+    <span class="n">loadzones</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+        <span class="o">*</span><span class="p">(</span>
+            <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect2loadzone&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">areas</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="n">plant</span><span class="p">[(</span><span class="n">plant</span><span class="o">.</span><span class="n">zone_name</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">loadzones</span><span class="p">))]</span><span class="o">.</span><span class="n">index</span>
+    <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">plant_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_plant_id_in_states"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.get_plant_id_in_states">[docs]</a><span class="k">def</span> <span class="nf">get_plant_id_in_states</span><span class="p">(</span><span class="n">states</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get plant id for plants in state(s).</span>
+
+<span class="sd">    :param str/list/tuple/set states: states(s) name or abbreviation(s).</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance.</span>
+<span class="sd">    :return: (*set*) -- list of plant id.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">areas</span> <span class="o">=</span> <span class="n">_check_areas_are_in_grid_and_format</span><span class="p">({</span><span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="n">states</span><span class="p">},</span> <span class="n">grid</span><span class="p">)</span>
+    <span class="n">loadzones</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+        <span class="o">*</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;state2loadzone&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">areas</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">])</span>
+    <span class="p">)</span>
+
+    <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="n">plant</span><span class="p">[(</span><span class="n">plant</span><span class="o">.</span><span class="n">zone_name</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">loadzones</span><span class="p">))]</span><span class="o">.</span><span class="n">index</span>
+    <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">plant_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_plant_id_for_resources_in_loadzones"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.get_plant_id_for_resources_in_loadzones">[docs]</a><span class="k">def</span> <span class="nf">get_plant_id_for_resources_in_loadzones</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">loadzones</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get plant id for plants fueled by resource(s) in load zone(s).</span>
+
+<span class="sd">    :param str/list/tuple/set resources: name of resource(s).</span>
+<span class="sd">    :param str/list/tuple/set loadzones: name of load zone(s).</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: a Grid instance.</span>
+<span class="sd">    :return: (*set*) -- list of plant id.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="n">get_plant_id_for_resources</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">get_plant_id_in_loadzones</span><span class="p">(</span>
+        <span class="n">loadzones</span><span class="p">,</span> <span class="n">grid</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">plant_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_plant_id_for_resources_in_interconnects"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.get_plant_id_for_resources_in_interconnects">[docs]</a><span class="k">def</span> <span class="nf">get_plant_id_for_resources_in_interconnects</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">interconnects</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get plant id for for plants fueled by resource(s) in interconnect(s).</span>
+
+<span class="sd">    :param str/list/tuple/set resources: name of resource(s).</span>
+<span class="sd">    :param str/list/tuple/set interconnects: name of interconnect(s).</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: a Grid instance.</span>
+<span class="sd">    :return: (*set*) -- list of plant id.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="n">get_plant_id_for_resources</span><span class="p">(</span>
+        <span class="n">resources</span><span class="p">,</span> <span class="n">grid</span>
+    <span class="p">)</span> <span class="o">&amp;</span> <span class="n">get_plant_id_in_interconnects</span><span class="p">(</span><span class="n">interconnects</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">plant_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_plant_id_for_resources_in_states"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.get_plant_id_for_resources_in_states">[docs]</a><span class="k">def</span> <span class="nf">get_plant_id_for_resources_in_states</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">states</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get plant id for for plants fueled by resource(s) in state(s).</span>
+
+<span class="sd">    :param str/list/tuple/set resources: name of resource(s).</span>
+<span class="sd">    :param str/list/tuple/set states: state(s) name or abbreviation.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: a Grid instance.</span>
+<span class="sd">    :return: (*set*) -- list of plant id</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="n">get_plant_id_for_resources</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">get_plant_id_in_states</span><span class="p">(</span>
+        <span class="n">states</span><span class="p">,</span> <span class="n">grid</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">plant_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="decompose_plant_data_frame_into_resources"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.decompose_plant_data_frame_into_resources">[docs]</a><span class="k">def</span> <span class="nf">decompose_plant_data_frame_into_resources</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">resources</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Take a plant-column data frame and decompose it into plant-column data frames</span>
+<span class="sd">    for each resource.</span>
+
+<span class="sd">    :param pandas.DataFrame df: data frame, columns are plant id in grid.</span>
+<span class="sd">    :param str/list/tuple/set resources: resource(s) to use for decomposition.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance.</span>
+<span class="sd">    :return: (*dict*) -- keys are resources, values are plant-column data frames.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_data_frame</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="s2">&quot;PG&quot;</span><span class="p">)</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+    <span class="n">_check_plants_are_in_grid</span><span class="p">(</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+    <span class="n">resources</span> <span class="o">=</span> <span class="n">_check_resources_are_in_grid_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+
+    <span class="n">df_resources</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">r</span><span class="p">:</span> <span class="n">df</span><span class="p">[</span><span class="n">get_plant_id_for_resources</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">sort_index</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">resources</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">df_resources</span></div>
+
+
+<div class="viewcode-block" id="decompose_plant_data_frame_into_areas"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.decompose_plant_data_frame_into_areas">[docs]</a><span class="k">def</span> <span class="nf">decompose_plant_data_frame_into_areas</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">areas</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Take a plant-column data frame and decompose it into plant-column data frames</span>
+<span class="sd">    for areas.</span>
+
+<span class="sd">    :param pandas.DataFrame df: data frame, columns are plant id in grid.</span>
+<span class="sd">    :param dict areas: areas to use for decomposition. Keys are area types</span>
+<span class="sd">        (&#39;*loadzone*&#39;, &#39;*state*&#39;, or &#39;*interconnect*&#39;), values are</span>
+<span class="sd">        str/list/tuple/set of areas.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance.</span>
+<span class="sd">    :return: (*dict*) -- keys are areas, values are plant-column data frames.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_data_frame</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="s2">&quot;PG&quot;</span><span class="p">)</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+    <span class="n">_check_plants_are_in_grid</span><span class="p">(</span><span class="n">plant_id</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+    <span class="n">areas</span> <span class="o">=</span> <span class="n">_check_areas_are_in_grid_and_format</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+
+    <span class="n">df_areas</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">areas</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">v</span><span class="p">:</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> interconnect&quot;</span> <span class="o">%</span> <span class="s2">&quot; - &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span>
+                <span class="n">df_areas</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">get_plant_id_in_interconnects</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">plant_id</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;state&quot;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">v</span><span class="p">:</span>
+                <span class="n">df_areas</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">get_plant_id_in_states</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">plant_id</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;loadzone&quot;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">v</span><span class="p">:</span>
+                <span class="n">df_areas</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">get_plant_id_in_loadzones</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">plant_id</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">df_areas</span></div>
+
+
+<div class="viewcode-block" id="decompose_plant_data_frame_into_areas_and_resources"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.decompose_plant_data_frame_into_areas_and_resources">[docs]</a><span class="k">def</span> <span class="nf">decompose_plant_data_frame_into_areas_and_resources</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">areas</span><span class="p">,</span> <span class="n">resources</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Take a plant-column data frame and decompose it into plant-column data frames</span>
+<span class="sd">    for each resources-areas combinations.</span>
+
+<span class="sd">    :param pandas.DataFrame df: data frame, columns are plant id in grid.</span>
+<span class="sd">    :param dict areas: areas to use for decomposition. Keys are area types</span>
+<span class="sd">        (&#39;*loadzone*&#39;, &#39;*state*&#39; or &#39;*interconnect*&#39;), values are</span>
+<span class="sd">        str/list/tuple/set of areas.</span>
+<span class="sd">    :param str/list/tuple/set resources: resource(s) to use for decomposition.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance.</span>
+<span class="sd">    :return: (*dict*) -- keys are areas, values are dictionaries whose keys are</span>
+<span class="sd">        resources and values are data frames indexed by (datetime, plant) where plant</span>
+<span class="sd">        include only plants of matching type and located in area.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">resources</span> <span class="o">=</span> <span class="n">_check_resources_are_in_grid_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+    <span class="n">df_areas_resources</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">a</span><span class="p">:</span> <span class="n">decompose_plant_data_frame_into_resources</span><span class="p">(</span><span class="n">df_a</span><span class="p">,</span> <span class="n">resources</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">df_a</span> <span class="ow">in</span> <span class="n">decompose_plant_data_frame_into_areas</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">areas</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">df_areas_resources</span></div>
+
+
+<div class="viewcode-block" id="decompose_plant_data_frame_into_resources_and_areas"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.decompose_plant_data_frame_into_resources_and_areas">[docs]</a><span class="k">def</span> <span class="nf">decompose_plant_data_frame_into_resources_and_areas</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">resources</span><span class="p">,</span> <span class="n">areas</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Take a plant-column data frame and decompose it into plant-column data frames</span>
+<span class="sd">    for each resources-areas combinations.</span>
+
+<span class="sd">    :param pandas.DataFrame df: data frame, columns are plant id in grid.</span>
+<span class="sd">    :param str/list/tuple/set resources: resource(s) to use for decomposition.</span>
+<span class="sd">    :param dict areas: areas to use for decomposition. Keys are area types</span>
+<span class="sd">        (&#39;*loadzone*&#39;, &#39;*state*&#39;, &#39;*state_abv*&#39; or &#39;*interconnect*&#39;), values are</span>
+<span class="sd">        str/list/tuple/set of areas.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance.</span>
+<span class="sd">    :return: (*dict*) -- keys are resources, values are dictionaries whose keys are</span>
+<span class="sd">        areas and values are data frames indexed by (datetime, plant) where plant</span>
+<span class="sd">        include only plants of matching type and located in area.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">resources_areas</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
+
+    <span class="n">areas_resources</span> <span class="o">=</span> <span class="n">decompose_plant_data_frame_into_areas_and_resources</span><span class="p">(</span>
+        <span class="n">df</span><span class="p">,</span> <span class="n">areas</span><span class="p">,</span> <span class="n">resources</span><span class="p">,</span> <span class="n">grid</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">areas_resources</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">areas_resources</span><span class="p">[</span><span class="n">a</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">resources_areas</span><span class="p">[</span><span class="n">r</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">a</span><span class="p">:</span> <span class="n">areas_resources</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="n">r</span><span class="p">]})</span>
+
+    <span class="k">return</span> <span class="n">resources_areas</span></div>
+
+
+<div class="viewcode-block" id="summarize_plant_to_bus"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.summarize_plant_to_bus">[docs]</a><span class="k">def</span> <span class="nf">summarize_plant_to_bus</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">all_buses</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Take a plant-column data frame and sum to a bus-column data frame.</span>
+
+<span class="sd">    :param pandas.DataFrame df: dataframe, columns are plant id in grid.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance.</span>
+<span class="sd">    :param boolean all_buses: return all buses in grid, not just plant buses.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- index as df input, columns are buses.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_data_frame</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="s2">&quot;PG&quot;</span><span class="p">)</span>
+    <span class="n">_check_grid_type</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="n">_check_plants_are_in_grid</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">to_list</span><span class="p">(),</span> <span class="n">grid</span><span class="p">)</span>
+
+    <span class="n">all_buses_in_grid</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]</span>
+    <span class="n">buses_in_df</span> <span class="o">=</span> <span class="n">all_buses_in_grid</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+    <span class="n">bus_data</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">buses_in_df</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">T</span>
+    <span class="k">if</span> <span class="n">all_buses</span><span class="p">:</span>
+        <span class="n">bus_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">bus_data</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">df</span><span class="o">.</span><span class="n">index</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">bus_data</span></div>
+
+
+<div class="viewcode-block" id="summarize_plant_to_location"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.summarize_plant_to_location">[docs]</a><span class="k">def</span> <span class="nf">summarize_plant_to_location</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Take a plant-column data frame and sum to a location-column data frame.</span>
+
+<span class="sd">    :param pandas.DataFrame df: dataframe, columns are plant id in grid.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- index: df index, columns: location tuples.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_data_frame</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="s2">&quot;PG&quot;</span><span class="p">)</span>
+    <span class="n">_check_grid_type</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
+    <span class="n">_check_plants_are_in_grid</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">to_list</span><span class="p">(),</span> <span class="n">grid</span><span class="p">)</span>
+
+    <span class="n">all_locations</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[[</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]]</span>
+    <span class="n">locations_in_df</span> <span class="o">=</span> <span class="n">all_locations</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span><span class="o">.</span><span class="n">to_records</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">location_data</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">locations_in_df</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">location_data</span></div>
+
+
+<div class="viewcode-block" id="get_plant_id_for_resources_in_area"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.get_plant_id_for_resources_in_area">[docs]</a><span class="k">def</span> <span class="nf">get_plant_id_for_resources_in_area</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">resources</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get the list of plant ids of certain resources in the specific area of a</span>
+<span class="sd">    scenario.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance</span>
+<span class="sd">    :param str area: one of *loadzone*, *state*, *state abbreviation*,</span>
+<span class="sd">        *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">    :param str/list resources: one or a list of resources</span>
+<span class="sd">    :param str area_type: one of *&#39;loadzone&#39;*, *&#39;state&#39;*, *&#39;state_abbr&#39;*,</span>
+<span class="sd">        *&#39;interconnect&#39;*</span>
+<span class="sd">    :return: (*list*) -- list of plant id</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">resource_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">resources</span><span class="p">])</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="nb">set</span><span class="p">(</span><span class="n">resources</span><span class="p">)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">loadzone_set</span> <span class="o">=</span> <span class="n">area_to_loadzone</span><span class="p">(</span>
+        <span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">],</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="n">area_type</span>
+    <span class="p">)</span>
+    <span class="n">plant_id</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span>
+        <span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">loadzone_set</span><span class="p">))</span>
+        <span class="o">&amp;</span> <span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">resource_set</span><span class="p">))</span>
+    <span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">plant_id</span></div>
+
+
+<div class="viewcode-block" id="get_storage_id_in_area"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.helpers.get_storage_id_in_area">[docs]</a><span class="k">def</span> <span class="nf">get_storage_id_in_area</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get the list of storage ids in the specific area of a scenario</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance</span>
+<span class="sd">    :param str area: one of *loadzone*, *state*, *state abbreviation*,</span>
+<span class="sd">        *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">    :param str area_type: one of *&#39;loadzone&#39;*, *&#39;state&#39;*, *&#39;state_abbr&#39;*,</span>
+<span class="sd">        *&#39;interconnect&#39;*</span>
+<span class="sd">    :return: (*list*) -- list of storage id</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">loadzone_set</span> <span class="o">=</span> <span class="n">area_to_loadzone</span><span class="p">(</span>
+        <span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">],</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="n">area_type</span>
+    <span class="p">)</span>
+    <span class="n">loadzone_id_set</span> <span class="o">=</span> <span class="p">{</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">lz</span><span class="p">]</span> <span class="k">for</span> <span class="n">lz</span> <span class="ow">in</span> <span class="n">loadzone_set</span> <span class="k">if</span> <span class="n">lz</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">}</span>
+
+    <span class="n">gen</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span>
+    <span class="n">storage_id</span> <span class="o">=</span> <span class="n">gen</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+        <span class="n">gen</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">x</span><span class="p">,</span> <span class="s2">&quot;zone_id&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">loadzone_id_set</span><span class="p">)</span>
+    <span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">storage_id</span></div>
 </pre></div>
 
           </div>

@@ -48,12 +48,18 @@
 
 
 <div class="viewcode-block" id="Grid"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.grid.Grid">[docs]</a><span class="k">class</span> <span class="nc">Grid</span><span class="p">:</span>
+
+    <span class="n">SUPPORTED_MODELS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">}</span>
+    <span class="n">SUPPORTED_ENGINES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;REISE&quot;</span><span class="p">,</span> <span class="s2">&quot;REISE.jl&quot;</span><span class="p">}</span>
+
     <span class="sd">&quot;&quot;&quot;Grid</span>
 
 <span class="sd">    :param str/iterable interconnect: geographical region covered. Either *&#39;USA&#39;*, one of</span>
 <span class="sd">        the three interconnections, i.e., *&#39;Eastern&#39;*, *&#39;Western&#39;* or *&#39;Texas&#39;* or a</span>
 <span class="sd">        combination of two interconnections.</span>
-<span class="sd">    :param str source: model used to build the network.</span>
+<span class="sd">    :param str source: model used to build the network. Can be one of the</span>
+<span class="sd">        supported models (&quot;usa_tamu&quot;), or a .mat file that represents a</span>
+<span class="sd">        grid.</span>
 <span class="sd">    :param str engine: engine used to run scenario, if using ScenarioGrid.</span>
 <span class="sd">    :raises TypeError: if source and engine are not both strings.</span>
 <span class="sd">    :raises ValueError: if source or engine does not exist.</span>
@@ -63,9 +69,15 @@
         <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;source must be a str&quot;</span><span class="p">)</span>
-        <span class="n">supported_engines</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;REISE&quot;</span><span class="p">,</span> <span class="s2">&quot;REISE.jl&quot;</span><span class="p">}</span>
-        <span class="k">if</span> <span class="n">engine</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">supported_engines</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Engine must be one of </span><span class="si">{</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">supported_engines</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">source</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">SUPPORTED_MODELS</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">source</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.mat&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Source must be one of </span><span class="si">{</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">SUPPORTED_MODELS</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="s2">&quot;or the path to a .mat file that represents a grid &quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">engine</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">SUPPORTED_ENGINES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Engine must be one of </span><span class="si">{</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">SUPPORTED_ENGINES</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
 
         <span class="n">key</span> <span class="o">=</span> <span class="n">cache_key</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>
         <span class="n">cached</span> <span class="o">=</span> <span class="n">_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>

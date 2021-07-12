@@ -42,6 +42,8 @@
     <span class="n">DATE_FMT</span><span class="p">,</span>
     <span class="n">END_DATE_HELP_STRING</span><span class="p">,</span>
     <span class="n">FILE_PATH_HELP_STRING</span><span class="p">,</span>
+    <span class="n">GRID_MODEL_DEFAULT</span><span class="p">,</span>
+    <span class="n">GRID_MODEL_HELP_STRING</span><span class="p">,</span>
     <span class="n">REGION_CHOICES</span><span class="p">,</span>
     <span class="n">START_DATE_HELP_STRING</span><span class="p">,</span>
 <span class="p">)</span>
@@ -112,9 +114,18 @@
                 <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
                 <span class="s2">&quot;help&quot;</span><span class="p">:</span> <span class="n">API_KEY_HELP_STRING</span><span class="p">,</span>
             <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;command_flags&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;--grid_model&quot;</span><span class="p">,</span> <span class="s2">&quot;-gm&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">GRID_MODEL_DEFAULT</span><span class="p">,</span>
+                <span class="s2">&quot;choices&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">Grid</span><span class="o">.</span><span class="n">SUPPORTED_MODELS</span><span class="p">),</span>
+                <span class="s2">&quot;help&quot;</span><span class="p">:</span> <span class="n">GRID_MODEL_HELP_STRING</span><span class="p">,</span>
+            <span class="p">},</span>
         <span class="p">]</span>
 
-<div class="viewcode-block" id="SolarDataGriddedAtmospheric.extract"><a class="viewcode-back" href="../../../../prereise.cli.data_sources.html#prereise.cli.data_sources.solar_data.SolarDataGriddedAtmospheric.extract">[docs]</a>    <span class="k">def</span> <span class="nf">extract</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">region</span><span class="p">,</span> <span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">,</span> <span class="n">file_path</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="SolarDataGriddedAtmospheric.extract"><a class="viewcode-back" href="../../../../prereise.cli.data_sources.html#prereise.cli.data_sources.solar_data.SolarDataGriddedAtmospheric.extract">[docs]</a>    <span class="k">def</span> <span class="nf">extract</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">region</span><span class="p">,</span> <span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">,</span> <span class="n">file_path</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;See :py:func:`prereise.cli.data_sources.data_source.DataSource.extract`</span>
 
 <span class="sd">        :param list region: list of regions to download data for</span>
@@ -122,11 +133,13 @@
 <span class="sd">        :param str end_date: date designating when to end the data download</span>
 <span class="sd">        :param str file_path: file location on local filesystem on where to store the data</span>
 <span class="sd">        :param str key: API key that can be requested at https://developer.nrel.gov/signup/</span>
+<span class="sd">        :param str grid_model: .mat file path for a grid model or a string supported by</span>
+<span class="sd">            `powersimdata.input.grid.Grid.SUPPORTED_MODELS`</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">assert</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">start_date</span><span class="p">,</span> <span class="n">DATE_FMT</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
             <span class="n">end_date</span><span class="p">,</span> <span class="n">DATE_FMT</span>
         <span class="p">)</span>
-        <span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="n">region</span><span class="p">)</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="n">region</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">grid_model</span><span class="p">)</span>
         <span class="n">solar_plants</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_group</span><span class="p">(</span><span class="s2">&quot;solar&quot;</span><span class="p">)</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">ga_wind</span><span class="o">.</span><span class="n">retrieve_data</span><span class="p">(</span>
             <span class="n">solar_plants</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">start_date</span><span class="o">=</span><span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="o">=</span><span class="n">end_date</span>
@@ -195,9 +208,18 @@
                 <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
                 <span class="s2">&quot;help&quot;</span><span class="p">:</span> <span class="n">API_KEY_HELP_STRING</span><span class="p">,</span>
             <span class="p">},</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;command_flags&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;--grid_model&quot;</span><span class="p">,</span> <span class="s2">&quot;-gm&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="n">GRID_MODEL_DEFAULT</span><span class="p">,</span>
+                <span class="s2">&quot;choices&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">Grid</span><span class="o">.</span><span class="n">SUPPORTED_MODELS</span><span class="p">),</span>
+                <span class="s2">&quot;help&quot;</span><span class="p">:</span> <span class="n">GRID_MODEL_HELP_STRING</span><span class="p">,</span>
+            <span class="p">},</span>
         <span class="p">]</span>
 
-<div class="viewcode-block" id="SolarDataNationalSolarRadiationDatabase.extract"><a class="viewcode-back" href="../../../../prereise.cli.data_sources.html#prereise.cli.data_sources.solar_data.SolarDataNationalSolarRadiationDatabase.extract">[docs]</a>    <span class="k">def</span> <span class="nf">extract</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">region</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">file_path</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="SolarDataNationalSolarRadiationDatabase.extract"><a class="viewcode-back" href="../../../../prereise.cli.data_sources.html#prereise.cli.data_sources.solar_data.SolarDataNationalSolarRadiationDatabase.extract">[docs]</a>    <span class="k">def</span> <span class="nf">extract</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">region</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">file_path</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;See :py:func:`prereise.cli.data_sources.data_source.DataSource.extract`</span>
 
 <span class="sd">        :param list region: list of regions to download data for</span>
@@ -206,8 +228,10 @@
 <span class="sd">        :param str file_path: file location on local filesystem on where to store the data</span>
 <span class="sd">        :param str email: email used to sign up at https://developer.nrel.gov/signup/</span>
 <span class="sd">        :param str key: API key that can be requested at https://developer.nrel.gov/signup/</span>
+<span class="sd">        :param str grid_model: .mat file path for a grid model or a string supported by</span>
+<span class="sd">            `powersimdata.input.grid.Grid.SUPPORTED_MODELS`</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="n">region</span><span class="p">)</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="n">region</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">grid_model</span><span class="p">)</span>
         <span class="n">solar_plants</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_group</span><span class="p">(</span><span class="s2">&quot;solar&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="n">NAIVE_STRING</span><span class="p">:</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">naive</span><span class="o">.</span><span class="n">retrieve_data</span><span class="p">(</span><span class="n">solar_plants</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">year</span><span class="p">)</span>

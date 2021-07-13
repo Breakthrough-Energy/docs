@@ -34,9 +34,16 @@
           <div class="body" role="main">
             
   <h1>Source code for prereise.gather.demanddata.eia.map_ba</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span></span><span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility.distance</span> <span class="kn">import</span> <span class="n">find_closest_neighbor</span>
 <span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">import</span> <span class="nn">prereise</span>
 
 
 <div class="viewcode-block" id="aggregate_ba_demand"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.eia.html#prereise.gather.demanddata.eia.map_ba.aggregate_ba_demand">[docs]</a><span class="k">def</span> <span class="nf">aggregate_ba_demand</span><span class="p">(</span><span class="n">demand</span><span class="p">,</span> <span class="n">mapping</span><span class="p">):</span>
@@ -131,6 +138,59 @@
         <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
             <span class="n">bus_no_county_match</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">bus_county_map</span><span class="p">,</span> <span class="n">bus_no_county_match</span></div>
+
+
+<div class="viewcode-block" id="map_buses_to_ba"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.eia.html#prereise.gather.demanddata.eia.map_ba.map_buses_to_ba">[docs]</a><span class="k">def</span> <span class="nf">map_buses_to_ba</span><span class="p">(</span><span class="n">bus_df</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Find the Balancing Authority in the U.S. territory that each query bus belongs to</span>
+<span class="sd">    based on GIS information.</span>
+
+<span class="sd">    :param (*pandas.DataFrame*) bus_df: data frame contains a list of entries with</span>
+<span class="sd">        lat and long of buses.</span>
+<span class="sd">    :return: (*tuple*) -- the first entry is the input data frame with two columns,</span>
+<span class="sd">        &quot;County&quot; and &quot;BA&quot;, added for each bus and the second entry is the list of bus</span>
+<span class="sd">        indices that no county matches based on Census API (counties of such buses are</span>
+<span class="sd">        assigned based on its nearest neighbour).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">bus_ba_map</span><span class="p">,</span> <span class="n">bus_no_county_match</span> <span class="o">=</span> <span class="n">map_buses_to_county</span><span class="p">(</span><span class="n">bus_df</span><span class="p">)</span>
+    <span class="c1"># hard coded fix for county name mismatch between the returns from census API and</span>
+    <span class="c1"># BA_County_map.json</span>
+    <span class="n">bus_ba_map</span><span class="o">.</span><span class="n">County</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;Danville City__VA&quot;</span><span class="p">:</span> <span class="s2">&quot;Danville__VA&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Harrisonburg City__VA&quot;</span><span class="p">:</span> <span class="s2">&quot;Harrisonburg__VA&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Franklin City__VA&quot;</span><span class="p">:</span> <span class="s2">&quot;Franklin__VA&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># read json file for BA_County Map</span>
+    <span class="n">filepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getfile</span><span class="p">(</span><span class="n">prereise</span><span class="p">)),</span>
+        <span class="s2">&quot;gather&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;data&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;BA_County_map.json&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">ba_county_map</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="n">county_ba_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">value</span><span class="p">:</span> <span class="n">key</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">ba_county_map</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">ba_county_map</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+    <span class="p">}</span>
+
+    <span class="n">bus_ba_map</span><span class="p">[</span><span class="s2">&quot;BA&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_ba_map</span><span class="p">[</span><span class="s2">&quot;County&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">county_ba_map</span><span class="p">)</span>
+    <span class="c1"># assign BA to buses without county assigned based on the nearest neighbor</span>
+    <span class="n">neighbor</span> <span class="o">=</span> <span class="n">bus_ba_map</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;~County.isna()&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">bus_id</span> <span class="ow">in</span> <span class="n">bus_no_county_match</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">neighbor</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No reference bus has BA assigned!&quot;</span><span class="p">)</span>
+            <span class="k">break</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">find_closest_neighbor</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">bus_ba_map</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">bus_id</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">],</span> <span class="n">bus_ba_map</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">bus_id</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">]),</span>
+            <span class="n">neighbor</span><span class="p">[[</span><span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="p">)</span>
+        <span class="n">bus_ba_map</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">bus_id</span><span class="p">,</span> <span class="s2">&quot;BA&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">neighbor</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">ind</span><span class="p">][</span><span class="s2">&quot;BA&quot;</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">bus_ba_map</span><span class="p">,</span> <span class="n">bus_no_county_match</span></div>
 </pre></div>
 
           </div>

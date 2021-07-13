@@ -40,6 +40,8 @@
 <span class="kn">from</span> <span class="nn">prereise.gather.demanddata.eia.map_ba</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">aggregate_ba_demand</span><span class="p">,</span>
     <span class="n">get_demand_in_loadzone</span><span class="p">,</span>
+    <span class="n">map_buses_to_ba</span><span class="p">,</span>
+    <span class="n">map_buses_to_county</span><span class="p">,</span>
 <span class="p">)</span>
 
 
@@ -99,6 +101,34 @@
     <span class="p">}</span>
     <span class="n">initial_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">start_data</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">initial_df</span></div>
+
+
+<div class="viewcode-block" id="test_map_buses_to_county"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.eia.tests.html#prereise.gather.demanddata.eia.tests.test_map_ba.test_map_buses_to_county">[docs]</a><span class="k">def</span> <span class="nf">test_map_buses_to_county</span><span class="p">():</span>
+    <span class="n">bus_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">34.0522</span><span class="p">,</span> <span class="mf">29.7604</span><span class="p">,</span> <span class="mf">40.7128</span><span class="p">],</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">118.2437</span><span class="p">,</span> <span class="o">-</span><span class="mf">95.3698</span><span class="p">,</span> <span class="o">-</span><span class="mf">74.0060</span><span class="p">],</span>
+        <span class="p">},</span>
+        <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;CA&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;NY&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">expected_res</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Los Angeles__CA&quot;</span><span class="p">,</span> <span class="s2">&quot;Harris__TX&quot;</span><span class="p">,</span> <span class="s2">&quot;New York__NY&quot;</span><span class="p">]</span>
+    <span class="n">bus_county</span><span class="p">,</span> <span class="n">bus_no_county_match</span> <span class="o">=</span> <span class="n">map_buses_to_county</span><span class="p">(</span><span class="n">bus_df</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">bus_county</span><span class="p">[</span><span class="s2">&quot;County&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="n">expected_res</span>
+    <span class="k">assert</span> <span class="n">bus_no_county_match</span> <span class="o">==</span> <span class="p">[]</span></div>
+
+
+<div class="viewcode-block" id="test_map_buses_to_ba"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.eia.tests.html#prereise.gather.demanddata.eia.tests.test_map_ba.test_map_buses_to_ba">[docs]</a><span class="k">def</span> <span class="nf">test_map_buses_to_ba</span><span class="p">():</span>
+    <span class="n">bus_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">34.0522</span><span class="p">,</span> <span class="mf">29.7604</span><span class="p">,</span> <span class="mf">39.9042</span><span class="p">],</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">118.2437</span><span class="p">,</span> <span class="o">-</span><span class="mf">95.3698</span><span class="p">,</span> <span class="mf">116.4074</span><span class="p">],</span>
+        <span class="p">},</span>
+        <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;CA&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Beijing&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">expected_res</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;LDWP&quot;</span><span class="p">,</span> <span class="s2">&quot;ERCOT&quot;</span><span class="p">,</span> <span class="s2">&quot;LDWP&quot;</span><span class="p">]</span>
+    <span class="n">bus_ba</span><span class="p">,</span> <span class="n">bus_no_county_match</span> <span class="o">=</span> <span class="n">map_buses_to_ba</span><span class="p">(</span><span class="n">bus_df</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">bus_ba</span><span class="p">[</span><span class="s2">&quot;BA&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="n">expected_res</span>
+    <span class="k">assert</span> <span class="n">bus_no_county_match</span> <span class="o">==</span> <span class="p">[</span><span class="s2">&quot;Beijing&quot;</span><span class="p">]</span></div>
 </pre></div>
 
           </div>

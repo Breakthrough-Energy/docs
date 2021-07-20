@@ -47,6 +47,8 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">prereise.cli.data_sources.wind_data</span> <span class="kn">import</span> <span class="n">WindDataRapidRefresh</span>
 
+<span class="n">NO_IMPUTE</span> <span class="o">=</span> <span class="kc">False</span>
+
 
 <div class="viewcode-block" id="wind_data_object"><a class="viewcode-back" href="../../../../../prereise.cli.data_sources.tests.html#prereise.cli.data_sources.tests.test_wind_data.wind_data_object">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
 <span class="k">def</span> <span class="nf">wind_data_object</span><span class="p">():</span>
@@ -61,6 +63,7 @@
             <span class="n">STRING_DATE_2021_5_1</span><span class="p">,</span>
             <span class="n">CURRENT_DIRECTORY_FILEPATH</span><span class="p">,</span>
             <span class="n">VALID_GRID_MODEL</span><span class="p">,</span>
+            <span class="n">NO_IMPUTE</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
@@ -79,6 +82,7 @@
         <span class="n">STRING_DATE_2021_12_1</span><span class="p">,</span>
         <span class="n">CURRENT_DIRECTORY_FILEPATH</span><span class="p">,</span>
         <span class="n">VALID_GRID_MODEL</span><span class="p">,</span>
+        <span class="n">NO_IMPUTE</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">rap</span><span class="o">.</span><span class="n">retrieve_data</span><span class="o">.</span><span class="n">assert_called_with</span><span class="p">(</span>
         <span class="n">wind_farms</span><span class="p">,</span> <span class="n">start_date</span><span class="o">=</span><span class="n">STRING_DATE_2021_5_1</span><span class="p">,</span> <span class="n">end_date</span><span class="o">=</span><span class="n">STRING_DATE_2021_12_1</span>
@@ -89,7 +93,8 @@
 <div class="viewcode-block" id="test_winddata_missing_files"><a class="viewcode-back" href="../../../../../prereise.cli.data_sources.tests.html#prereise.cli.data_sources.tests.test_wind_data.test_winddata_missing_files">[docs]</a><span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;prereise.cli.data_sources.wind_data.rap&quot;</span><span class="p">)</span>
 <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;prereise.cli.data_sources.wind_data.Grid&quot;</span><span class="p">)</span>
 <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;prereise.cli.data_sources.wind_data.logging&quot;</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">test_winddata_missing_files</span><span class="p">(</span><span class="n">logging</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">rap</span><span class="p">,</span> <span class="n">wind_data_object</span><span class="p">):</span>
+<span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;prereise.cli.data_sources.wind_data.impute&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">test_winddata_missing_files</span><span class="p">(</span><span class="n">impute</span><span class="p">,</span> <span class="n">logging</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">rap</span><span class="p">,</span> <span class="n">wind_data_object</span><span class="p">):</span>
     <span class="n">grid_mock</span> <span class="o">=</span> <span class="n">MagicMock</span><span class="p">()</span>
     <span class="n">wind_farms</span> <span class="o">=</span> <span class="n">MagicMock</span><span class="p">()</span>
     <span class="n">grid_mock</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="o">.</span><span class="n">return_value</span><span class="o">.</span><span class="n">get_group</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="n">wind_farms</span>
@@ -102,12 +107,13 @@
         <span class="n">STRING_DATE_2021_12_1</span><span class="p">,</span>
         <span class="n">CURRENT_DIRECTORY_FILEPATH</span><span class="p">,</span>
         <span class="n">VALID_GRID_MODEL</span><span class="p">,</span>
+        <span class="n">NO_IMPUTE</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">rap</span><span class="o">.</span><span class="n">retrieve_data</span><span class="o">.</span><span class="n">assert_called_with</span><span class="p">(</span>
         <span class="n">wind_farms</span><span class="p">,</span> <span class="n">start_date</span><span class="o">=</span><span class="n">STRING_DATE_2021_5_1</span><span class="p">,</span> <span class="n">end_date</span><span class="o">=</span><span class="n">STRING_DATE_2021_12_1</span>
     <span class="p">)</span>
     <span class="n">data</span><span class="o">.</span><span class="n">to_pickle</span><span class="o">.</span><span class="n">assert_called_with</span><span class="p">(</span><span class="n">CURRENT_DIRECTORY_FILEPATH</span><span class="p">)</span>
-    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="o">.</span><span class="n">assert_called_with</span><span class="p">(</span><span class="s2">&quot;There are 2 files missing&quot;</span><span class="p">)</span></div>
+    <span class="n">impute</span><span class="o">.</span><span class="n">gaussian</span><span class="o">.</span><span class="n">assert_called_with</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">wind_farms</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

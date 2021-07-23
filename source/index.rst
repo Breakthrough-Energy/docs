@@ -106,6 +106,7 @@ Please review our :doc:`communication/code_of_conduct` before contributing.
 .. toctree::
    :maxdepth: 3
    :hidden:
+   :numbered:
 
    user/installation_guide
    communication/code_of_conduct

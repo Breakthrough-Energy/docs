@@ -106,12 +106,13 @@ Please review our :doc:`communication/code_of_conduct` before contributing.
 .. toctree::
    :maxdepth: 3
    :hidden:
+   :numbered:
 
    user/installation_guide
    communication/code_of_conduct
    dev/contribution_guide
    user/git_guide
    powersimdata/index
-   prereise_package.md
+   prereise/index
    postreise/index
    reisejl_package.md

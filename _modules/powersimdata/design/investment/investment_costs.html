@@ -34,8 +34,7 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.design.investment.investment_costs</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">copy</span> <span class="k">as</span> <span class="nn">cp</span>
-<span class="kn">import</span> <span class="nn">warnings</span>
+<span></span><span class="kn">import</span> <span class="nn">warnings</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
@@ -52,7 +51,6 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">powersimdata.design.investment.inflation</span> <span class="kn">import</span> <span class="n">calculate_inflation</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.check</span> <span class="kn">import</span> <span class="n">_check_grid_models_match</span>
-<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.distance</span> <span class="kn">import</span> <span class="n">haversine</span>
 
 
@@ -101,24 +99,27 @@
 <span class="sd">        float if ``sum_results``, or pandas Series indexed by branch ID.</span>
 <span class="sd">        Whether summed or not, values are $USD, inflation-adjusted to today.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">grid_differences</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">base_grid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
-            <span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">),</span> <span class="n">source</span><span class="o">=</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
-        <span class="p">)</span>
+        <span class="n">base_grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_base_grid</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">_check_grid_models_match</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+        <span class="n">_check_grid_models_match</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">grid_differences</span><span class="p">)</span>
 
-    <span class="n">grid_new</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
     <span class="c1"># find upgraded AC lines</span>
-    <span class="n">capacity_difference</span> <span class="o">=</span> <span class="n">calculate_branch_difference</span><span class="p">(</span><span class="n">base_grid</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="p">)</span>
-    <span class="n">grid_new</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">rateA</span><span class="o">=</span><span class="n">capacity_difference</span><span class="o">.</span><span class="n">diff</span><span class="p">)</span>
-    <span class="n">grid_new</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">grid_new</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;rateA != 0.0&quot;</span><span class="p">)</span>
+    <span class="n">capacity_difference</span> <span class="o">=</span> <span class="n">calculate_branch_difference</span><span class="p">(</span>
+        <span class="n">base_grid</span><span class="o">.</span><span class="n">branch</span><span class="p">,</span> <span class="n">grid_differences</span><span class="o">.</span><span class="n">branch</span>
+    <span class="p">)</span>
+    <span class="n">grid_differences</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">grid_differences</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+        <span class="n">rateA</span><span class="o">=</span><span class="n">capacity_difference</span><span class="o">.</span><span class="n">diff</span>
+    <span class="p">)</span>
+    <span class="n">grid_differences</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">grid_differences</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;rateA != 0.0&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">exclude_branches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">present_exclude_branches</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">exclude_branches</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid_new</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
-        <span class="n">grid_new</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">present_exclude_branches</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">present_exclude_branches</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">exclude_branches</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span>
+            <span class="n">grid_differences</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">index</span>
+        <span class="p">)</span>
+        <span class="n">grid_differences</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">present_exclude_branches</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="n">costs</span> <span class="o">=</span> <span class="n">_calculate_ac_inv_costs</span><span class="p">(</span><span class="n">grid_new</span><span class="p">,</span> <span class="n">sum_results</span><span class="p">)</span>
+    <span class="n">costs</span> <span class="o">=</span> <span class="n">_calculate_ac_inv_costs</span><span class="p">(</span><span class="n">grid_differences</span><span class="p">,</span> <span class="n">sum_results</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">costs</span></div>
 
 
@@ -321,21 +322,22 @@
 <span class="sd">        inflation-adjusted to today. If ``sum_results``, a float is returned, otherwise</span>
 <span class="sd">        a Series.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">grid_differences</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">base_grid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
-            <span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">),</span> <span class="n">source</span><span class="o">=</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
-        <span class="p">)</span>
+        <span class="n">base_grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_base_grid</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">_check_grid_models_match</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+        <span class="n">_check_grid_models_match</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">grid_differences</span><span class="p">)</span>
 
-    <span class="n">grid_new</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
     <span class="c1"># find upgraded DC lines</span>
-    <span class="n">capacity_difference</span> <span class="o">=</span> <span class="n">calculate_dcline_difference</span><span class="p">(</span><span class="n">base_grid</span><span class="o">.</span><span class="n">dcline</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="p">)</span>
-    <span class="n">grid_new</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">Pmax</span><span class="o">=</span><span class="n">capacity_difference</span><span class="o">.</span><span class="n">diff</span><span class="p">)</span>
-    <span class="n">grid_new</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">grid_new</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;Pmax != 0.0&quot;</span><span class="p">)</span>
+    <span class="n">capacity_difference</span> <span class="o">=</span> <span class="n">calculate_dcline_difference</span><span class="p">(</span>
+        <span class="n">base_grid</span><span class="o">.</span><span class="n">dcline</span><span class="p">,</span> <span class="n">grid_differences</span><span class="o">.</span><span class="n">dcline</span>
+    <span class="p">)</span>
+    <span class="n">grid_differences</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">grid_differences</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+        <span class="n">Pmax</span><span class="o">=</span><span class="n">capacity_difference</span><span class="o">.</span><span class="n">diff</span>
+    <span class="p">)</span>
+    <span class="n">grid_differences</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">grid_differences</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;Pmax != 0.0&quot;</span><span class="p">)</span>
 
-    <span class="n">costs</span> <span class="o">=</span> <span class="n">_calculate_dc_inv_costs</span><span class="p">(</span><span class="n">grid_new</span><span class="p">,</span> <span class="n">sum_results</span><span class="p">)</span>
+    <span class="n">costs</span> <span class="o">=</span> <span class="n">_calculate_dc_inv_costs</span><span class="p">(</span><span class="n">grid_differences</span><span class="p">,</span> <span class="n">sum_results</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">costs</span></div>
 
 
@@ -414,30 +416,31 @@
 <span class="sd">        are dropped. Wind and solar will need to be fixed based on the resource supply</span>
 <span class="sd">        curves.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">grid_differences</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">base_grid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
-            <span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">),</span> <span class="n">source</span><span class="o">=</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
-        <span class="p">)</span>
+        <span class="n">base_grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_base_grid</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">_check_grid_models_match</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+        <span class="n">_check_grid_models_match</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">grid_differences</span><span class="p">)</span>
 
-    <span class="n">grid_new</span> <span class="o">=</span> <span class="n">cp</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
     <span class="c1"># Find change in generation capacity</span>
-    <span class="n">capacity_difference</span> <span class="o">=</span> <span class="n">calculate_plant_difference</span><span class="p">(</span><span class="n">base_grid</span><span class="o">.</span><span class="n">plant</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">)</span>
-    <span class="n">grid_new</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">Pmax</span><span class="o">=</span><span class="n">capacity_difference</span><span class="o">.</span><span class="n">diff</span><span class="p">)</span>
-    <span class="n">grid_new</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">grid_new</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;Pmax &gt;= 0.01&quot;</span><span class="p">)</span>
+    <span class="n">capacity_difference</span> <span class="o">=</span> <span class="n">calculate_plant_difference</span><span class="p">(</span>
+        <span class="n">base_grid</span><span class="o">.</span><span class="n">plant</span><span class="p">,</span> <span class="n">grid_differences</span><span class="o">.</span><span class="n">plant</span>
+    <span class="p">)</span>
+    <span class="n">grid_differences</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">grid_differences</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+        <span class="n">Pmax</span><span class="o">=</span><span class="n">capacity_difference</span><span class="o">.</span><span class="n">diff</span>
+    <span class="p">)</span>
+    <span class="n">grid_differences</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">grid_differences</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;Pmax &gt;= 0.01&quot;</span><span class="p">)</span>
     <span class="c1"># Find change in storage capacity</span>
     <span class="c1"># Reindex so that we don&#39;t get NaN when calculating upgrades for new storage</span>
     <span class="n">base_grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span>
-        <span class="n">grid_new</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mi">0</span>
+        <span class="n">grid_differences</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mi">0</span>
     <span class="p">)</span>
-    <span class="n">grid_new</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">-</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">Pmax</span>
+    <span class="n">grid_differences</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">grid_differences</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">-</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">Pmax</span>
     <span class="p">)</span>
-    <span class="n">grid_new</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;storage&quot;</span>
+    <span class="n">grid_differences</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;storage&quot;</span>
 
-    <span class="n">costs</span> <span class="o">=</span> <span class="n">_calculate_gen_inv_costs</span><span class="p">(</span><span class="n">grid_new</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">cost_case</span><span class="p">,</span> <span class="n">sum_results</span><span class="p">)</span>
+    <span class="n">costs</span> <span class="o">=</span> <span class="n">_calculate_gen_inv_costs</span><span class="p">(</span><span class="n">grid_differences</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">cost_case</span><span class="p">,</span> <span class="n">sum_results</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">costs</span></div>
 
 

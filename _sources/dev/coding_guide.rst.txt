@@ -6,6 +6,8 @@ This guide presents some guidelines to write well designed code.
 
 In short:
 
++ Avoid re-inventing the wheel
+    + In most languages, the standard library plus mature third-party packages are already very powerful!
 + Use the **Single Responsibility Principle** to keep functions simple
     + Functions only have one responsibility and therefore one reason to change
     + Responsibilities can include getting data, processing data, outputting data
@@ -30,8 +32,7 @@ In short:
     + But you can keep impure code as far away from your functions as possible
     + Break hard-coded dependencies so you can swap them out when testing
 
-This material is a summary of the content of this `article`_. For more details, go read
-it!
+This material is mostly a summary of the content of this `article`_. For more details, go read it!
 
 Developers often think that their struggles writing unit tests are caused by a lack of
 some fundamental testing knowledge or secret unit testing techniques. Unit tests should
@@ -39,6 +40,30 @@ be quite easy; the real problems that complicate unit testing, and introduce exp
 complexity, are a result of poorly-designed, untestable code. Writing unit tests and
 generating testable code is not just about making testing less troublesome, but about
 making the code itself more robust, and easier to maintain.
+
+
+Why is using existing code preferable?
+--------------------------------------
+The open-source ecosystem is a wonderful place, full of useful code that has already been developed.
+In many cases, this code is the result of dozens of people's work over many years, and has already
+gone through rigorous review to ensure that it is accurate, robust, efficient, and well-documented.
+By taking advantage of existing code, developers can focus on improving the quality of the things
+in their code that are more novel, and reviewers can focus their review on this new code, rather than
+both sides having to focus on duplicative code.
+
+For example, in Python:
++ If you want to operate on arrays or matrices of un-labelled data, you probably want to use NumPy (and/or SciPy).
++ If you want to operate on tables of labelled data, you probably want to use Pandas.
++ If you want to analyze a collection of nodes, connected by links, you probably want to use networkx.
+
+It's not a requirement that you work with third-party libraries, but if what you are manually implementing overlaps
+substantially with an existing mature library (and especially if this is a library that we already use within a project),
+we may suggest that the code be re-written before being merged. If you are not familiar with this library, this is okay:
+if you let us know that you are unfamiliar, we may be able to provide a code snippet or a git branch that
+demonstrates this functionality.
+
+In the process of developing your code, you may even find an example of how our code can be simplified
+by using pre-existing tools; if so, please submit a pull request and we will appreciate the contribution!
 
 
 What's a Unit Test?

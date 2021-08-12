@@ -62,6 +62,9 @@ we may suggest that the code be re-written before being merged. If you are not f
 if you let us know that you are unfamiliar, we may be able to provide a code snippet or a git branch that
 demonstrates this functionality.
 
+In the process of developing your code, you may even find an example of how our code can be simplified
+by using pre-existing tools; if so, please submit a pull request and we will appreciate the contribution!
+
 
 What's a Unit Test?
 -------------------

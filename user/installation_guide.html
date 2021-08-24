@@ -40,14 +40,65 @@
 <h1><span class="section-number">1. </span>Installation Guide<a class="headerlink" href="#installation-guide" title="Permalink to this headline">¶</a></h1>
 <p>Our software is available on <a class="reference external" href="https://github.com/Breakthrough-Energy">GitHub</a>. You will need to create an account if you have
 not done so already.</p>
-<p>In the following section, we present the two types of installation of our software, i)
-client-server and ii) docker. Also, we go through the system requirements for these
-installations.</p>
+<p>There are multiple ways to install this software. For most people, using docker will be
+the easiest and fastest way to run a simulation. We recommend using a commercial solver
+with this framework, but not all license types are compatible with docker. If using such a
+license, this software can also be installed and run natively with slightly more effort.</p>
+<p>This framework can also be installed in a client-server configuration. This is most useful
+for groups where multiple people will want to run simulations and access results on an
+appropriately-sized central server. In this case, both the server and each user’s local
+environment will need to be configured accordingly.</p>
+<section id="using-docker">
+<h2><span class="section-number">1.1. </span>Using docker<a class="headerlink" href="#using-docker" title="Permalink to this headline">¶</a></h2>
+<p>This option enables running the full framework in containers, colocated on the same
+machine. In this case, the only system requirement is to have <a class="reference external" href="https://docs.docker.com/get-docker/">docker</a>,
+(including docker-compose) installed.</p>
+<p>All the data and configuration needed to run a simulation are located in the <a class="reference external" href="https://github.com/Breakthrough-Energy/plug">plug</a>
+repository, along with additional guidance about compatible commercial solver licenses.
+There are also usage examples.</p>
+</section>
+<section id="natively">
+<h2><span class="section-number">1.2. </span>Natively<a class="headerlink" href="#natively" title="Permalink to this headline">¶</a></h2>
+<p>The framework can be used natively after some initial setup. This first requires the following:</p>
+<ul class="simple">
+<li><p>Install julia 1.5 and create an environment as described in <a class="reference external" href="https://github.com/Breakthrough-Energy/REISE.jl">REISE.jl</a></p></li>
+<li><p>Clone <a class="reference external" href="https://github.com/Breakthrough-Energy/PowerSimData">PowerSimData</a> and <a class="reference external" href="https://github.com/Breakthrough-Energy/REISE.jl">REISE.jl</a> (preferably in the same directory)</p></li>
+<li><p>Install the solver you wish to use within your julia environment (either Gurobi or GLPK)</p></li>
+</ul>
+<p>Create a virtualenv and activate it using the following. For the activate step, it’s important
+to follow exactly (instead of using the <code class="docutils literal notranslate"><span class="pre">source</span></code> command) - this ensures that <code class="docutils literal notranslate"><span class="pre">sys.executable</span></code> will give back the python
+interpreter within this environment.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">python -m venv .env</span>
+<span class="go">. .env/bin/activate</span>
+</pre></div>
+</div>
+<p>Install PowerSimData dependencies into a virtual environment, along with the requirements
+for REISE.jl:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">pip install -r requirements.txt</span>
+<span class="go">pip install -r /path/to/REISE.jl/requirements.txt</span>
+</pre></div>
+</div>
+<p>Some one time configuration is necessary as well. Within your PowerSimData repository,
+create a config file called <code class="docutils literal notranslate"><span class="pre">config.ini</span></code> with the following contents</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">[PowerSimData]</span>
+<span class="go">DEPLOYMENT_MODE = 2</span>
+<span class="go">ENGINE_DIR = /full/path/to/REISE.jl</span>
+<span class="go">JULIA_PROJECT = /full/path/to/REISE.jl</span>
+</pre></div>
+</div>
+<p>The last step is provisioning a directory where data will be stored. Copy paste this command
+(still in your virtualenv):</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">python -c &quot;from powersimdata.utility.config import LocalConfig; LocalConfig().initialize()&quot;</span>
+</pre></div>
+</div>
+<p>You should now be able to run a scenario, per the following section.
+Note: when doing so, your working directory should be the root of the PowerSimData repository.</p>
+</section>
 <section id="client-server-installation">
-<h2><span class="section-number">1.1. </span>Client-Server Installation<a class="headerlink" href="#client-server-installation" title="Permalink to this headline">¶</a></h2>
+<h2><span class="section-number">1.3. </span>Client-Server Installation<a class="headerlink" href="#client-server-installation" title="Permalink to this headline">¶</a></h2>
 <p>Here is what needs to be done to use this framework.</p>
 <section id="on-laptop-desktop">
-<h3><span class="section-number">1.1.1. </span>On Laptop/Desktop<a class="headerlink" href="#on-laptop-desktop" title="Permalink to this headline">¶</a></h3>
+<h3><span class="section-number">1.3.1. </span>On Laptop/Desktop<a class="headerlink" href="#on-laptop-desktop" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li><p>Fork <a class="reference external" href="https://github.com/Breakthrough-Energy/PowerSimData">PowerSimData</a> (see our
 <a class="reference internal" href="git_guide.html"><span class="doc">Working with Git/GitHub</span></a> guide to set this up)</p></li>
@@ -83,7 +134,7 @@ and plot scenario data.</p></li>
 </ul>
 </section>
 <section id="on-server">
-<h3><span class="section-number">1.1.2. </span>On Server<a class="headerlink" href="#on-server" title="Permalink to this headline">¶</a></h3>
+<h3><span class="section-number">1.3.2. </span>On Server<a class="headerlink" href="#on-server" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
 <li><p>Copy the generated public key in your <strong>~/.ssh/authorized_keys</strong> file</p></li>
 <li><p>Install Julia, Python and Gurobi</p></li>
@@ -96,51 +147,6 @@ and install it following the instructions located in the <a class="reference int
 README</p></li>
 </ul>
 </section>
-</section>
-<section id="using-docker">
-<h2><span class="section-number">1.2. </span>Using docker<a class="headerlink" href="#using-docker" title="Permalink to this headline">¶</a></h2>
-<p>This option enables running the full framework in containers, colocated on the same
-machine. In this case, the only system requirement is to have <a class="reference external" href="https://docs.docker.com/get-docker/">docker</a>,
-(including docker-compose) installed.</p>
-<p>All the data and configuration needed to run a simulation are located in the <a class="reference external" href="https://github.com/Breakthrough-Energy/plug">plug</a>
-repository, along with usage examples.</p>
-</section>
-<section id="natively">
-<h2><span class="section-number">1.3. </span>Natively<a class="headerlink" href="#natively" title="Permalink to this headline">¶</a></h2>
-<p>The framework can be used natively after some initial setup. This first requires the following:</p>
-<ul class="simple">
-<li><p>Install julia 1.5 and create an environment as described in <a class="reference external" href="https://github.com/Breakthrough-Energy/REISE.jl">REISE.jl</a></p></li>
-<li><p>Clone <a class="reference external" href="https://github.com/Breakthrough-Energy/PowerSimData">PowerSimData</a> and <a class="reference external" href="https://github.com/Breakthrough-Energy/REISE.jl">REISE.jl</a> (preferably in the same directory)</p></li>
-<li><p>Install the solver you wish to use within your julia environment (either Gurobi or GLPK)</p></li>
-</ul>
-<p>Create a virtualenv and activate it using the following. For the activate step, it’s important
-to follow exactly (instead of using the <code class="docutils literal notranslate"><span class="pre">source</span></code> command) - this ensures that <code class="docutils literal notranslate"><span class="pre">sys.executable</span></code> will give back the python
-interpreter within this environment.</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">python -m venv .env</span>
-<span class="go">. .env/bin/activate</span>
-</pre></div>
-</div>
-<p>Install PowerSimData dependencies into a virtual environment, along with the requirements
-for REISE.jl:</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">pip install -r requirements.txt</span>
-<span class="go">pip install -r /path/to/REISE.jl/requirements.txt</span>
-</pre></div>
-</div>
-<p>Some one time configuration is necessary as well. Within your PowerSimData repository,
-create a config file called <code class="docutils literal notranslate"><span class="pre">config.ini</span></code> with the following contents</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">[PowerSimData]</span>
-<span class="go">DEPLOYMENT_MODE = 2</span>
-<span class="go">ENGINE_DIR = /full/path/to/REISE.jl</span>
-<span class="go">JULIA_PROJECT = /full/path/to/REISE.jl</span>
-</pre></div>
-</div>
-<p>The last step is provisioning a directory where data will be stored. Copy paste this command
-(still in your virtualenv):</p>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">python -c &quot;from powersimdata.utility.config import LocalConfig; LocalConfig().initialize()&quot;</span>
-</pre></div>
-</div>
-<p>You should now be able to run a scenario, per the following section.
-Note: when doing so, your working directory should be the root of the PowerSimData repository.</p>
 </section>
 <section id="how-to-run-scenario">
 <h2><span class="section-number">1.4. </span>How to Run Scenario<a class="headerlink" href="#how-to-run-scenario" title="Permalink to this headline">¶</a></h2>
@@ -181,13 +187,13 @@ Note: when doing so, your working directory should be the root of the PowerSimDa
 <h3>Navigation</h3>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">1. Installation Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#client-server-installation">1.1. Client-Server Installation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#on-laptop-desktop">1.1.1. On Laptop/Desktop</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#on-server">1.1.2. On Server</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#using-docker">1.1. Using docker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#natively">1.2. Natively</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#client-server-installation">1.3. Client-Server Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#on-laptop-desktop">1.3.1. On Laptop/Desktop</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#on-server">1.3.2. On Server</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#using-docker">1.2. Using docker</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#natively">1.3. Natively</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#how-to-run-scenario">1.4. How to Run Scenario</a></li>
 </ul>
 </li>

@@ -230,7 +230,7 @@
 <span class="sd">        cost curve is split.</span>
 <span class="sd">    :param str area: Either the load zone, state name, state abbreviation, or</span>
 <span class="sd">        interconnect.</span>
-<span class="sd">    :param str gen_type: Generation type.</span>
+<span class="sd">    :param str/iterable gen_type: Generation type(s).</span>
 <span class="sd">    :param str area_type: one of: *&#39;loadzone&#39;*, *&#39;state&#39;*, *&#39;state_abbr&#39;*,</span>
 <span class="sd">        *&#39;interconnect&#39;*. Defaults to None, which allows</span>
 <span class="sd">        :func:`powersimdata.network.model.area_to_loadzone` to infer the type.</span>
@@ -253,6 +253,10 @@
             <span class="s2">&quot;The number of linearized cost curve segments must be input as an int.&quot;</span>
         <span class="p">)</span>
 
+    <span class="c1"># Check that whether a single generation type is specified</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">gen_type</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">gen_type</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">gen_type</span><span class="p">])</span>
+
     <span class="c1"># Obtain the desired generator cost and plant information data</span>
     <span class="n">supply_data</span> <span class="o">=</span> <span class="n">get_supply_data</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">num_segments</span><span class="p">)</span>
 
@@ -260,15 +264,15 @@
     <span class="n">check_supply_data</span><span class="p">(</span><span class="n">supply_data</span><span class="p">,</span> <span class="n">num_segments</span><span class="p">)</span>
 
     <span class="c1"># Check to make sure the generator type is valid</span>
-    <span class="k">if</span> <span class="n">gen_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">supply_data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">():</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">gen_type</span><span class="si">}</span><span class="s2"> is not a valid generation type.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gen_type</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">supply_data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">gen_type</span><span class="si">}</span><span class="s2"> contains invalid generation type.&quot;</span><span class="p">)</span>
 
     <span class="c1"># Identify the load zones that correspond to the specified area and area_type</span>
     <span class="n">returned_zones</span> <span class="o">=</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="p">)</span>
 
     <span class="c1"># Trim the DataFrame to only be of the desired area and generation type</span>
     <span class="n">supply_data</span> <span class="o">=</span> <span class="n">supply_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">supply_data</span><span class="o">.</span><span class="n">zone_name</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">returned_zones</span><span class="p">)]</span>
-    <span class="n">supply_data</span> <span class="o">=</span> <span class="n">supply_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">supply_data</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">gen_type</span><span class="p">]</span>
+    <span class="n">supply_data</span> <span class="o">=</span> <span class="n">supply_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">supply_data</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">gen_type</span><span class="p">)]</span>
 
     <span class="c1"># Remove generators that have no capacity (e.g., Maine coal generators)</span>
     <span class="k">if</span> <span class="n">supply_data</span><span class="p">[</span><span class="s2">&quot;slope1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
@@ -310,7 +314,10 @@
         <span class="n">plt</span> <span class="o">=</span> <span class="n">_check_import</span><span class="p">(</span><span class="s2">&quot;matplotlib.pyplot&quot;</span><span class="p">)</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">[</span><span class="mi">20</span><span class="p">,</span> <span class="mi">10</span><span class="p">])</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">capacity_data</span><span class="p">,</span> <span class="n">price_data</span><span class="p">)</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Supply curve for </span><span class="si">{</span><span class="n">gen_type</span><span class="si">}</span><span class="s2"> generators in </span><span class="si">{</span><span class="n">area</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Supply curve for selected generators in </span><span class="si">{</span><span class="n">area</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">&quot;Generation types:</span><span class="se">\n</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">gen_type</span><span class="p">)))],</span> <span class="n">loc</span><span class="o">=</span><span class="s2">&quot;best&quot;</span>
+        <span class="p">)</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Capacity (MW)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;Price ($/MW)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>

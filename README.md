@@ -19,20 +19,29 @@ this:
     └── REISE.jl
 ```
 
-Additionally, you'll need [tox] installed. It's recommended to have
-it in a global [pyenv] environment so it can be used across projects.
+## Building Locally
+The documentation can be built using either of the following methods. For most cases, 
+docker is the recommended option since it works on any OS, however some users may find tox is faster.
+The output will be in the `build/` directory, and you can browse from the homepage located
+at `build/html/index.html`.
+
+### Docker
+```
+docker-compose up --build
+```
+
+### Tox
+
+Additional requirements:
+* [tox]
+* make (see installation guide for your specific OS)
 
 Now, you can create all the docs by just running `tox` or create docs for a
 specific package: `tox -e [package]`. The `package` argument should be one of
 (prereise,powersimdata,postreise) which can be seen by running `tox -l` to list
-possibilities.
+possibilities. Lastly, if you need to clear existing build output, you can do so by running
+`make clean`.
 
-## Docker
-It may be easier to build locally using docker due to mac os issues.
-
-```
-docker-compose up --build
-```
 
 [PreREISE]: https://github.com/Breakthrough-Energy/PreREISE
 [PowerSimData]: https://github.com/Breakthrough-Energy/PowerSimData

@@ -1,0 +1,228 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.winddata.hrrr.grib &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.winddata.hrrr.grib</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+
+
+<div class="viewcode-block" id="GribRecordInfo"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.hrrr.html#prereise.gather.winddata.hrrr.grib.GribRecordInfo">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">GribRecordInfo</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Class to hold metadata on a GRIB record. GRIB (General Regularly-distributed</span>
+<span class="sd">    Information in Binary) is a concise data format commonly used in meteorology to</span>
+<span class="sd">    store historical and forecast weather data. GRIB files can have corresponding</span>
+<span class="sd">    index files that holds metadata about the data inside GRIB files. More info</span>
+<span class="sd">    on index files can be found at</span>
+<span class="sd">    `this link &lt;https://github.com/blaylockbk/Herbie/blob/18945e4c5103386c98d08dcb2de590e2ac14c3d5/docs/user_guide/grib2.rst#how-grib-subsetting-works-in-herbie&gt;`_</span>
+
+<span class="sd">    :param str message_number: message number of the GRIB record</span>
+<span class="sd">    :param str beginning_byte: byte that the GRIB record starts at</span>
+<span class="sd">    :param str ending_byte: byte that the GRIB record ends at. If None</span>
+<span class="sd">        then ending_byte is the end of file</span>
+<span class="sd">    :param str initialization_date: date and hour that the data is for</span>
+<span class="sd">    :param str variable: string designating what kind of data</span>
+<span class="sd">    :param str level: additional string that designates more information about</span>
+<span class="sd">        type of data</span>
+<span class="sd">    :param str forecast: designates how many hours into the future</span>
+<span class="sd">        this data is forecasted for</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">message_number</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">beginning_byte</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">ending_byte</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">initialization_date</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">level</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">forecast</span><span class="p">:</span> <span class="nb">str</span>
+
+<div class="viewcode-block" id="GribRecordInfo.from_string"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.hrrr.html#prereise.gather.winddata.hrrr.grib.GribRecordInfo.from_string">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_string</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">raw_string</span><span class="p">,</span> <span class="n">next_raw_string</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates a GribRecordInfo object from a specific string.</span>
+<span class="sd">        Information on the string format can be found at</span>
+<span class="sd">        `this link &lt;https://github.com/blaylockbk/Herbie/blob/18945e4c5103386c98d08dcb2de590e2ac14c3d5/docs/user_guide/grib2.rst#how-grib-subsetting-works-in-herbie&gt;`_</span>
+
+<span class="sd">        :param str raw_string: a record line following the format</span>
+<span class="sd">            MESSAGE_NUMBER:BEGINNING_BYTE:INITIALIZATION_DATE:VARIABLE:LEVEL:FORECAST</span>
+<span class="sd">        :param str next_raw_string: the following record line. This</span>
+<span class="sd">            is needed to know when the next record starts, so we know where</span>
+<span class="sd">            the current record ends.</span>
+
+<span class="sd">        :return: (*GribRecordInfo*)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">details</span> <span class="o">=</span> <span class="n">raw_string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">details</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">6</span>
+        <span class="n">ending_byte</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">next_raw_string</span><span class="p">:</span>
+            <span class="n">ending_byte</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">next_raw_string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">message_number</span><span class="o">=</span><span class="n">details</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">beginning_byte</span><span class="o">=</span><span class="n">details</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">ending_byte</span><span class="o">=</span><span class="n">ending_byte</span><span class="p">,</span>
+            <span class="n">initialization_date</span><span class="o">=</span><span class="n">details</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+            <span class="n">variable</span><span class="o">=</span><span class="n">details</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+            <span class="n">level</span><span class="o">=</span><span class="n">details</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
+            <span class="n">forecast</span><span class="o">=</span><span class="n">details</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="GribRecordInfo.generate_grib_record_information_list"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.hrrr.html#prereise.gather.winddata.hrrr.grib.GribRecordInfo.generate_grib_record_information_list">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">generate_grib_record_information_list</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">raw_record_information_list</span><span class="p">,</span> <span class="n">index_list</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates a list of GribRecordInfo objects from a</span>
+<span class="sd">        list of raw strings and a list of integers that designate</span>
+<span class="sd">        which raw strings to use to create GribRecordInfo objects.</span>
+
+<span class="sd">        :param list raw_record_information_list: a list of record lines that</span>
+<span class="sd">            follow the format:</span>
+<span class="sd">            MESSAGE_NUMBER:BEGINNING_BYTE:INITIALIZATION_DATE:VARIABLE:LEVEL:FORECAST</span>
+<span class="sd">        :param list index_list: a list of integers representing indices</span>
+<span class="sd">            to index into raw_record_information_list to create</span>
+<span class="sd">            GribRecordInfo objects out of</span>
+
+<span class="sd">        :return: (*list*) -- a list of GribRecordInfo objects</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">duplicate_list</span> <span class="o">=</span> <span class="n">raw_record_information_list</span><span class="p">[:]</span>
+        <span class="n">duplicate_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">from_string</span><span class="p">(</span><span class="n">duplicate_list</span><span class="p">[</span><span class="n">ind</span><span class="p">],</span> <span class="n">duplicate_list</span><span class="p">[</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">ind</span> <span class="ow">in</span> <span class="n">index_list</span>
+        <span class="p">]</span></div>
+
+<div class="viewcode-block" id="GribRecordInfo.byte_range_header_string"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.hrrr.html#prereise.gather.winddata.hrrr.grib.GribRecordInfo.byte_range_header_string">[docs]</a>    <span class="k">def</span> <span class="nf">byte_range_header_string</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a string providing the range of</span>
+<span class="sd">        the byte that the record starts at to the byte that the record</span>
+<span class="sd">        ends at.</span>
+
+<span class="sd">        :return: (*str*)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">beginning_byte</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ending_byte</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ending_byte</span>
+            <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">beginning_byte</span><span class="si">}</span><span class="s2">-&quot;</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="GribRecordInfo.full_file"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.hrrr.html#prereise.gather.winddata.hrrr.grib.GribRecordInfo.full_file">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">full_file</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates a GribRecordInfo that represents a whole file</span>
+
+<span class="sd">        :return: (*GribRecordInfo*) -- a GribRecordInfo representing a whole file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl_package.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

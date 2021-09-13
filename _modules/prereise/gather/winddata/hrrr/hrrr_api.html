@@ -1,0 +1,238 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.winddata.hrrr.hrrr_api &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.winddata.hrrr.hrrr_api</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">from</span> <span class="nn">pandas</span> <span class="kn">import</span> <span class="n">date_range</span>
+
+<span class="kn">from</span> <span class="nn">prereise.gather.winddata.hrrr.grib</span> <span class="kn">import</span> <span class="n">GribRecordInfo</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.winddata.hrrr.helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">formatted_filename</span><span class="p">,</span>
+    <span class="n">get_indices_that_contain_selector</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="HrrrApi"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.hrrr.html#prereise.gather.winddata.hrrr.hrrr_api.HrrrApi">[docs]</a><span class="k">class</span> <span class="nc">HrrrApi</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Class to interact with to get and download HRRR data. More information</span>
+<span class="sd">    about HRRR data can be found at</span>
+<span class="sd">    `this link &lt;https://registry.opendata.aws/noaa-hrrr-pds/&gt;`_</span>
+<span class="sd">    and</span>
+<span class="sd">    `this link &lt;https://www.nco.ncep.noaa.gov/pmb/products/hrrr/&gt;`_</span>
+
+<span class="sd">    :param prereise.gather.winddata.hrrr.downloader.Downloader downloader: class</span>
+<span class="sd">        that holds helper functions for downloading</span>
+<span class="sd">    :param str base_url: url to download data from. Should take &quot;dt&quot;, &quot;product&quot;</span>
+<span class="sd">        and &quot;hours_forecasted&quot; as format variables. See</span>
+<span class="sd">        :mod:`prereise.gather.winddata.hrrr.constants` for more detail</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">U_COMPONENT_FILTER</span> <span class="o">=</span> <span class="s2">&quot;UGRD:80 m above ground&quot;</span>
+    <span class="n">V_COMPONENT_FILTER</span> <span class="o">=</span> <span class="s2">&quot;VGRD:80 m above ground&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">downloader</span><span class="p">,</span> <span class="n">base_url</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">downloader</span> <span class="o">=</span> <span class="n">downloader</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span> <span class="o">=</span> <span class="n">base_url</span>
+
+    <span class="k">def</span> <span class="nf">_filename_url_iter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_dt</span><span class="p">,</span> <span class="n">end_dt</span><span class="p">,</span> <span class="n">product</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Iterates from a start datetime (inclusive) to a end datetime (inclusive)</span>
+<span class="sd">        at 1 hour steps, returning a filename as well as a url based</span>
+<span class="sd">        on each intermediary datetime</span>
+
+<span class="sd">        :param datetime.datetime start_dt: datetime to start at</span>
+<span class="sd">        :param datetime.datetime end_dt: datetime to end at</span>
+<span class="sd">        :param str product: info at `this link &lt;https://www.nco.ncep.noaa.gov/pmb/products/hrrr/&gt;`_</span>
+
+<span class="sd">        :return: (*generator*) -- generator that yields filename and url</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">dt</span> <span class="ow">in</span> <span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="n">start_dt</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="n">end_dt</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to_pydatetime</span><span class="p">():</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_url</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span> <span class="n">product</span><span class="o">=</span><span class="n">product</span><span class="p">,</span> <span class="n">hours_forecasted</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">yield</span> <span class="n">formatted_filename</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">product</span><span class="p">,</span> <span class="n">hours_forecasted</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">url</span>
+
+<div class="viewcode-block" id="HrrrApi.download_meteorological_data"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.hrrr.html#prereise.gather.winddata.hrrr.hrrr_api.HrrrApi.download_meteorological_data">[docs]</a>    <span class="k">def</span> <span class="nf">download_meteorological_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">start_dt</span><span class="p">,</span> <span class="n">end_dt</span><span class="p">,</span> <span class="n">directory</span><span class="p">,</span> <span class="n">product</span><span class="p">,</span> <span class="n">selectors</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Iterates from a start datetime (inclusive) to a end datetime (inclusive)</span>
+<span class="sd">        at 1 hour steps, downloading data for each intermediary datetime into</span>
+<span class="sd">        the directory provided. product and selectors variables are used</span>
+<span class="sd">        to control what specific type of data to download. See</span>
+<span class="sd">        `this link &lt;https://www.nco.ncep.noaa.gov/pmb/products/hrrr/&gt;`_ to understand</span>
+<span class="sd">        more about product and</span>
+<span class="sd">        `this link &lt;https://github.com/blaylockbk/Herbie/blob/18945e4c5103386c98d08dcb2de590e2ac14c3d5/docs/user_guide/grib2.rst#how-grib-subsetting-works-in-herbie&gt;`_</span>
+<span class="sd">        to understand more about what kind of strings can be passed into selectors</span>
+
+<span class="sd">        :param datetime.datetime start_dt: datetime to start at</span>
+<span class="sd">        :param datetime.datetime end_dt: datetime to end at</span>
+<span class="sd">        :param str directory: file directory to download data into</span>
+<span class="sd">        :param str product: info at `this link &lt;https://www.nco.ncep.noaa.gov/pmb/products/hrrr/&gt;`_</span>
+<span class="sd">        :param list selectors: list of strings that can be used to narrow down</span>
+<span class="sd">            the amount of data downloaded from a specific GRIB file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">filename</span><span class="p">,</span> <span class="n">url</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filename_url_iter</span><span class="p">(</span><span class="n">start_dt</span><span class="p">,</span> <span class="n">end_dt</span><span class="p">,</span> <span class="n">product</span><span class="p">):</span>
+            <span class="n">grib_record_information_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">GribRecordInfo</span><span class="o">.</span><span class="n">full_file</span><span class="p">()]</span>
+            <span class="c1"># first grab index file and figure out which bytes to download</span>
+            <span class="k">if</span> <span class="n">selectors</span><span class="p">:</span>
+                <span class="n">index_url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">.idx&quot;</span>
+                <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                    <span class="n">index_url</span>
+                <span class="p">)</span>  <span class="c1"># index files are typically a few kb, so safe to hold in memory</span>
+                <span class="n">raw_record_information_list</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">index_list</span> <span class="o">=</span> <span class="n">get_indices_that_contain_selector</span><span class="p">(</span>
+                    <span class="n">raw_record_information_list</span><span class="p">,</span> <span class="n">selectors</span>
+                <span class="p">)</span>
+                <span class="n">grib_record_information_list</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">GribRecordInfo</span><span class="o">.</span><span class="n">generate_grib_record_information_list</span><span class="p">(</span>
+                        <span class="n">raw_record_information_list</span><span class="p">,</span> <span class="n">index_list</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">directory</span> <span class="o">+</span> <span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;ab&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">grib_record_information</span> <span class="ow">in</span> <span class="n">grib_record_information_list</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">downloader</span><span class="o">.</span><span class="n">download</span><span class="p">(</span>
+                            <span class="n">url</span><span class="p">,</span>
+                            <span class="n">f</span><span class="p">,</span>
+                            <span class="n">headers</span><span class="o">=</span><span class="p">{</span>
+                                <span class="s2">&quot;Range&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;bytes=</span><span class="si">{</span><span class="n">grib_record_information</span><span class="o">.</span><span class="n">byte_range_header_string</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+                            <span class="p">},</span>
+                        <span class="p">)</span>
+                    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;Failed to download data from </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2"> with byte range </span><span class="si">{</span><span class="n">grib_record_information</span><span class="o">.</span><span class="n">byte_range_header_string</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="HrrrApi.download_wind_data"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.hrrr.html#prereise.gather.winddata.hrrr.hrrr_api.HrrrApi.download_wind_data">[docs]</a>    <span class="k">def</span> <span class="nf">download_wind_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_dt</span><span class="p">,</span> <span class="n">end_dt</span><span class="p">,</span> <span class="n">directory</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;See :meth:`download_meteorological_data`</span>
+<span class="sd">        for more information. Default product used is &quot;sfc&quot; which represents</span>
+<span class="sd">        2D Surface Levels, and the selectors used filter specifically for</span>
+<span class="sd">        U component and V component of wind at 80 meters above ground.</span>
+
+<span class="sd">        :param datetime.datetime start_dt: datetime to start at</span>
+<span class="sd">        :param datetime.datetime end_dt: datetime to end at</span>
+<span class="sd">        :param str directory: file directory to download data into</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">download_meteorological_data</span><span class="p">(</span>
+            <span class="n">start_dt</span><span class="p">,</span>
+            <span class="n">end_dt</span><span class="p">,</span>
+            <span class="n">directory</span><span class="p">,</span>
+            <span class="n">product</span><span class="o">=</span><span class="s2">&quot;sfc&quot;</span><span class="p">,</span>
+            <span class="n">selectors</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">U_COMPONENT_FILTER</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">V_COMPONENT_FILTER</span><span class="p">],</span>
+        <span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl_package.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

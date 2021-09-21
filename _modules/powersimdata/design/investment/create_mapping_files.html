@@ -40,6 +40,7 @@
 
 <span class="kn">from</span> <span class="nn">powersimdata.design.investment</span> <span class="kn">import</span> <span class="n">const</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility.distance</span> <span class="kn">import</span> <span class="n">haversine</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.helpers</span> <span class="kn">import</span> <span class="n">_check_import</span>
 
 
@@ -102,6 +103,29 @@
     <span class="c1"># Make spatial join between points that fall inside the Polygons</span>
     <span class="n">points_in_regions</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">sjoin</span><span class="p">(</span><span class="n">left_df</span><span class="o">=</span><span class="n">left_df</span><span class="p">,</span> <span class="n">right_df</span><span class="o">=</span><span class="n">right_df</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="s2">&quot;intersects&quot;</span><span class="p">)</span>
     <span class="n">points_in_regions</span><span class="p">[</span><span class="s2">&quot;dist&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1"># Since polygons may overlap, there can be duplicated buses that we want to filter</span>
+    <span class="n">duplicated</span> <span class="o">=</span> <span class="n">points_in_regions</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">points_in_regions</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">duplicated</span><span class="p">(</span><span class="n">keep</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span>
+    <span class="n">to_drop</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">bus</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">duplicated</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]):</span>
+        <span class="n">entries</span> <span class="o">=</span> <span class="n">duplicated</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;bus_id == @bus&quot;</span><span class="p">)</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">entries</span><span class="p">[</span><span class="s2">&quot;geometry&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># First duped entry, only point</span>
+        <span class="n">regions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">entries</span><span class="p">[</span><span class="s2">&quot;name_abbr&quot;</span><span class="p">])</span>  <span class="c1"># noqa: F841</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="n">points_in_regions</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="s2">&quot;index not in @duplicated.index and name_abbr in @regions&quot;</span>
+        <span class="p">)</span>
+        <span class="n">neighbor</span> <span class="o">=</span> <span class="n">candidates</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">haversine</span><span class="p">((</span><span class="n">x</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">y</span><span class="p">),</span> <span class="n">coords</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">idxmin</span><span class="p">()</span>
+        <span class="n">closest_region</span> <span class="o">=</span> <span class="n">candidates</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">neighbor</span><span class="p">,</span> <span class="s2">&quot;name_abbr&quot;</span><span class="p">]</span>  <span class="c1"># noqa: F841</span>
+        <span class="c1"># There may be more than two overlapping geometries, capture all but the closest</span>
+        <span class="n">drop_regions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">entries</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;name_abbr != @closest_region&quot;</span><span class="p">)[</span><span class="s2">&quot;name_abbr&quot;</span><span class="p">])</span>
+        <span class="c1"># Since indices are duplicated, we need to drop via two-column tuples</span>
+        <span class="n">to_drop</span> <span class="o">|=</span> <span class="p">{(</span><span class="n">bus</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">drop_regions</span><span class="p">}</span>
+
+    <span class="n">points_in_regions</span> <span class="o">=</span> <span class="n">points_in_regions</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+        <span class="o">~</span><span class="n">points_in_regions</span><span class="o">.</span><span class="n">set_index</span><span class="p">([</span><span class="s2">&quot;bus_id&quot;</span><span class="p">,</span> <span class="s2">&quot;name_abbr&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">to_drop</span><span class="p">)</span>
+    <span class="p">]</span>
 
     <span class="c1"># Find closest Polygons, for points that don&#39;t fall within any</span>
     <span class="n">missing_indices</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">left_df</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">points_in_regions</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
@@ -220,7 +244,7 @@
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;base_grid must be a Grid instance&quot;</span><span class="p">)</span>
     <span class="n">df_pts_bus</span> <span class="o">=</span> <span class="n">bus_to_neem_reg</span><span class="p">(</span><span class="n">base_grid</span><span class="o">.</span><span class="n">bus</span><span class="p">)</span>
     <span class="n">df_pts_bus</span><span class="o">.</span><span class="n">sort_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_neem_regions_path</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_neem_regions_path</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">df_pts_bus</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_neem_regions_path</span><span class="p">)</span></div>
 
 
@@ -234,7 +258,7 @@
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;base_grid must be a Grid instance&quot;</span><span class="p">)</span>
     <span class="n">df_pts_bus</span> <span class="o">=</span> <span class="n">bus_to_reeds_reg</span><span class="p">(</span><span class="n">base_grid</span><span class="o">.</span><span class="n">bus</span><span class="p">)</span>
     <span class="n">df_pts_bus</span><span class="o">.</span><span class="n">sort_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_reeds_regions_path</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_reeds_regions_path</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">df_pts_bus</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">bus_reeds_regions_path</span><span class="p">)</span></div>
 
 

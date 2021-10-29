@@ -37,6 +37,7 @@
 <span></span><span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.design.transmission.upgrade</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">scale_congested_mesh_branches</span><span class="p">,</span>
@@ -160,6 +161,14 @@
 <span class="sd">        keys in the dictionary are: *&#39;lat&#39;*, *&#39;lon&#39;*, one of *&#39;zone_id&#39;*/*&#39;zone_name&#39;*,</span>
 <span class="sd">        and optionally *&#39;Pd&#39;*, specifying the location of the bus, the demand zone, and</span>
 <span class="sd">        optionally the nominal demand at that bus (defaults to 0).</span>
+<span class="sd">    * *&#39;remove_branch&#39;*:</span>
+<span class="sd">        value is a set. Each entry in this set is a branch ID to be removed.</span>
+<span class="sd">    * *&#39;remove_bus&#39;*:</span>
+<span class="sd">        value is a set. Each entry in this set is a bus ID to be removed.</span>
+<span class="sd">    * *&#39;remove_dcline&#39;*:</span>
+<span class="sd">        value is a set. Each entry in this set is a DC line ID to be removed.</span>
+<span class="sd">    * *&#39;remove_plant&#39;*:</span>
+<span class="sd">        value is a set. Each entry in this set is a plant ID to be removed.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid</span><span class="p">):</span>
@@ -169,7 +178,9 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">grid</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_new_element_caches</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="p">{}</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">,</span> <span class="s2">&quot;bus&quot;</span><span class="p">,</span> <span class="s2">&quot;dcline&quot;</span><span class="p">,</span> <span class="s2">&quot;plant&quot;</span><span class="p">}}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_new_element_caches</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">k</span><span class="p">:</span> <span class="p">{}</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">,</span> <span class="s2">&quot;bus&quot;</span><span class="p">,</span> <span class="s2">&quot;dcline&quot;</span><span class="p">,</span> <span class="s2">&quot;plant&quot;</span><span class="p">,</span> <span class="s2">&quot;storage_gen&quot;</span><span class="p">}</span>
+        <span class="p">}</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_check_resource</span><span class="p">(</span><span class="n">resource</span><span class="p">):</span>
@@ -235,7 +246,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
             <span class="k">return</span>
         <span class="c1"># Input validation</span>
-        <span class="n">allowed</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">,</span> <span class="s2">&quot;dcline&quot;</span><span class="p">,</span> <span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;plant&quot;</span><span class="p">,</span> <span class="s2">&quot;storage&quot;</span><span class="p">}</span>
+        <span class="n">allowed</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">,</span> <span class="s2">&quot;bus&quot;</span><span class="p">,</span> <span class="s2">&quot;dcline&quot;</span><span class="p">,</span> <span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;plant&quot;</span><span class="p">,</span> <span class="s2">&quot;storage&quot;</span><span class="p">}</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">which</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">which</span> <span class="o">=</span> <span class="p">{</span><span class="n">which</span><span class="p">}</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">which</span><span class="p">,</span> <span class="nb">set</span><span class="p">):</span>
@@ -249,13 +260,19 @@
         <span class="c1"># Clear multiple keys for each entry in which</span>
         <span class="k">for</span> <span class="n">line_type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">,</span> <span class="s2">&quot;dcline&quot;</span><span class="p">}:</span>
             <span class="k">if</span> <span class="n">line_type</span> <span class="ow">in</span> <span class="n">which</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">prefix</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;new_&quot;</span><span class="p">}:</span>
+                <span class="k">for</span> <span class="n">prefix</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;new_&quot;</span><span class="p">,</span> <span class="s2">&quot;remove_&quot;</span><span class="p">}:</span>
                     <span class="n">key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="n">line_type</span>
                     <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
                         <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;bus&quot;</span> <span class="ow">in</span> <span class="n">which</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">prefix</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;new_&quot;</span><span class="p">,</span> <span class="s2">&quot;remove_&quot;</span><span class="p">}:</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s2">&quot;bus&quot;</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
         <span class="k">if</span> <span class="s2">&quot;plant&quot;</span> <span class="ow">in</span> <span class="n">which</span><span class="p">:</span>
-            <span class="k">if</span> <span class="s2">&quot;new_plant&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
-                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_plant&quot;</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;new_plant&quot;</span><span class="p">,</span> <span class="s2">&quot;remove_plant&quot;</span><span class="p">}:</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
             <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">_resources</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">suffix</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;_cost&quot;</span><span class="p">,</span> <span class="s2">&quot;_pmin&quot;</span><span class="p">}:</span>
                     <span class="n">key</span> <span class="o">=</span> <span class="n">r</span> <span class="o">+</span> <span class="n">suffix</span>
@@ -298,7 +315,7 @@
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">ct_key</span><span class="p">][</span><span class="s2">&quot;zone_id&quot;</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">ct_key</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">plant_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">anticipated_plant</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_df_with_new_elements</span><span class="p">(</span><span class="s2">&quot;plant&quot;</span><span class="p">)</span>
+                <span class="n">anticipated_plant</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;plant&quot;</span><span class="p">)</span>
                 <span class="n">diff</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">plant_id</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">anticipated_plant</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="n">err_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;No </span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2"> plant(s) with the following id: &quot;</span>
@@ -388,7 +405,7 @@
 <span class="sd">            is (are) the id of the line(s) and the associated value is the</span>
 <span class="sd">            scaling factor for the increase/decrease in capacity of the line(s).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">anticipated_branch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_df_with_new_elements</span><span class="p">(</span><span class="s2">&quot;branch&quot;</span><span class="p">)</span>
+        <span class="n">anticipated_branch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;branch&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">bool</span><span class="p">(</span><span class="n">zone_name</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">bool</span><span class="p">(</span><span class="n">branch_id</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
             <span class="k">if</span> <span class="s2">&quot;branch&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
@@ -428,7 +445,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="s2">&quot;dcline&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;dcline&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">anticipated_dcline</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_df_with_new_elements</span><span class="p">(</span><span class="s2">&quot;dcline&quot;</span><span class="p">)</span>
+        <span class="n">anticipated_dcline</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;dcline&quot;</span><span class="p">)</span>
         <span class="n">diff</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">dcline_id</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">anticipated_dcline</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No dc line with the following id:&quot;</span><span class="p">)</span>
@@ -541,7 +558,7 @@
             <span class="s2">&quot;terminal_min&quot;</span><span class="p">,</span>
             <span class="s2">&quot;terminal_max&quot;</span><span class="p">,</span>
         <span class="p">}</span>
-        <span class="n">anticipated_bus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_df_with_new_elements</span><span class="p">(</span><span class="s2">&quot;bus&quot;</span><span class="p">)</span>
+        <span class="n">anticipated_bus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;bus&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">storage</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">info</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_check_entry_keys</span><span class="p">(</span><span class="n">storage</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;storage&quot;</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">optional</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">storage</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">anticipated_bus</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
@@ -645,7 +662,7 @@
 <span class="sd">        :raises ValueError: if any of the new lines to be added have nonsensical values.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">info</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
-        <span class="n">anticipated_bus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_df_with_new_elements</span><span class="p">(</span><span class="s2">&quot;bus&quot;</span><span class="p">)</span>
+        <span class="n">anticipated_bus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;bus&quot;</span><span class="p">)</span>
         <span class="n">new_lines</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">required</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;from_bus_id&quot;</span><span class="p">,</span> <span class="s2">&quot;to_bus_id&quot;</span><span class="p">}</span>
         <span class="n">xor_sets</span> <span class="o">=</span> <span class="p">{(</span><span class="s2">&quot;capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;capacity&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmin&quot;</span><span class="p">)}</span>
@@ -720,7 +737,7 @@
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Argument enclosing new plant(s) must be a list&quot;</span><span class="p">)</span>
 
         <span class="n">info</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
-        <span class="n">anticipated_bus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_df_with_new_elements</span><span class="p">(</span><span class="s2">&quot;bus&quot;</span><span class="p">)</span>
+        <span class="n">anticipated_bus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;bus&quot;</span><span class="p">)</span>
         <span class="n">new_plants</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">required</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;bus_id&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">}</span>
         <span class="n">optional</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;c0&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmin&quot;</span><span class="p">}</span>
@@ -817,24 +834,164 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_bus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_bus&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">new_buses</span></div>
 
-    <span class="k">def</span> <span class="nf">_get_df_with_new_elements</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_get_transformed_df</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get a post-transformation data table, for use with adding elements at new</span>
-<span class="sd">        buses, or scaling new elements.</span>
+<span class="sd">        buses, or scaling new elements. Transformed tables are cached to avoid</span>
+<span class="sd">        unnecessary re-calculation of identical tables.</span>
 
 <span class="sd">        :param str table: the table of the grid to be fetched:</span>
-<span class="sd">            &#39;branch&#39;, &#39;bus&#39;, &#39;dcline&#39;, or &#39;plant&#39;.</span>
+<span class="sd">            &#39;branch&#39;, &#39;bus&#39;, &#39;dcline&#39;, &#39;plant&#39;, or &#39;storage_gen&#39;.</span>
 <span class="sd">        :return: (*pandas.DataFrame*) -- the post-transformation table.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">add_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;new_</span><span class="si">{</span><span class="n">table</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="k">if</span> <span class="n">add_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">table</span> <span class="o">==</span> <span class="s2">&quot;storage_gen&quot;</span><span class="p">:</span>
+            <span class="c1"># Storage is a special case, since it&#39;s a dict of data frames</span>
+            <span class="n">modification_keys</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;storage&quot;</span><span class="p">]</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">cache_key</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;storage&quot;</span><span class="p">])</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="c1"># No &#39;storage&#39; key, so we can just return the original &#39;gen&#39; table</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">cache_key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_element_caches</span><span class="p">[</span><span class="n">table</span><span class="p">]:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_element_caches</span><span class="p">[</span><span class="n">table</span><span class="p">][</span><span class="n">cache_key</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">gen</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_new_element_caches</span><span class="p">[</span><span class="n">table</span><span class="p">][</span><span class="n">cache_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">gen</span>
+                <span class="k">return</span> <span class="n">gen</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="c1"># For all other tables, look at change table keys for additions &amp; deletions</span>
+        <span class="n">modification_keys</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;new_</span><span class="si">{</span><span class="n">table</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;remove_</span><span class="si">{</span><span class="n">table</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+        <span class="n">cache_key</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;new_</span><span class="si">{</span><span class="n">table</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="p">)</span>
+        <span class="n">cache_key</span> <span class="o">+=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;remove_</span><span class="si">{</span><span class="n">table</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;remove_</span><span class="si">{</span><span class="n">table</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">{}))),</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">table</span> <span class="o">==</span> <span class="s2">&quot;plant&quot;</span><span class="p">:</span>
+            <span class="c1"># For the plant table, also look at scaling (potentially to zero)</span>
+            <span class="c1"># These are needed to validate whether buses can be removed</span>
+            <span class="n">modification_keys</span> <span class="o">+=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+            <span class="n">cache_key</span> <span class="o">+=</span> <span class="nb">tuple</span><span class="p">(</span>
+                <span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="nb">tuple</span><span class="p">([</span><span class="n">subkey</span><span class="p">]</span> <span class="o">+</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">subdict</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
+                        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">modification_keys</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+                        <span class="k">for</span> <span class="n">subkey</span><span class="p">,</span> <span class="n">subdict</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                    <span class="p">]</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">modification_keys</span><span class="p">):</span>
             <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">table</span><span class="p">)</span>
-        <span class="n">new_elements_tuple</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">add_key</span><span class="p">])</span>
-        <span class="k">if</span> <span class="n">new_elements_tuple</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_element_caches</span><span class="p">[</span><span class="n">table</span><span class="p">]:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_element_caches</span><span class="p">[</span><span class="n">table</span><span class="p">][</span><span class="n">new_elements_tuple</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">cache_key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_element_caches</span><span class="p">[</span><span class="n">table</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_new_element_caches</span><span class="p">[</span><span class="n">table</span><span class="p">][</span><span class="n">cache_key</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">transformed</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">TransformGrid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span><span class="o">.</span><span class="n">get_grid</span><span class="p">(),</span> <span class="n">table</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_new_element_caches</span><span class="p">[</span><span class="n">table</span><span class="p">][</span><span class="n">new_elements_tuple</span><span class="p">]</span> <span class="o">=</span> <span class="n">transformed</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_new_element_caches</span><span class="p">[</span><span class="n">table</span><span class="p">][</span><span class="n">cache_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">transformed</span>
             <span class="k">return</span> <span class="n">transformed</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+<div class="viewcode-block" id="ChangeTable.remove_branch"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.remove_branch">[docs]</a>    <span class="k">def</span> <span class="nf">remove_branch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Remove one or more branches.</span>
+
+<span class="sd">        :param int/iterable info: iterable of branch indices, or a single branch index.</span>
+<span class="sd">        :raises ValueError: if ``info`` contains one or more entries not present in the</span>
+<span class="sd">            branch table index.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">info</span> <span class="o">=</span> <span class="p">{</span><span class="n">info</span><span class="p">}</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">info</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;branch&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No branch with the following id(s): </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;remove_branch&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;remove_branch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;remove_branch&quot;</span><span class="p">]</span> <span class="o">|=</span> <span class="nb">set</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_for_islanded_load_buses</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="ChangeTable.remove_bus"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.remove_bus">[docs]</a>    <span class="k">def</span> <span class="nf">remove_bus</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Remove one or more buses.</span>
+
+<span class="sd">        :param int/iterable info: iterable of bus indices, or a single bus index.</span>
+<span class="sd">        :raises ValueError: if ``info`` contains one or more entries not present in the</span>
+<span class="sd">            bus table index.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">info</span> <span class="o">=</span> <span class="p">{</span><span class="n">info</span><span class="p">}</span>
+        <span class="c1"># Check whether all buses to be removed are present in the grid</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">info</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;bus&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No bus with the following id(s): </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="c1"># Check whether there exist any plants with non-zero capacity at these buses</span>
+        <span class="n">anticipated_plant</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;plant&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;Pmax &gt; 0&quot;</span><span class="p">)</span>
+        <span class="n">plants_at_removal_buses</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">info</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">anticipated_plant</span><span class="o">.</span><span class="n">bus_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">plants_at_removal_buses</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Generators exist at bus id(s): </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">plants_at_removal_buses</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="c1"># Check whether storage exists at these buses</span>
+        <span class="n">anticipated_storage</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;storage_gen&quot;</span><span class="p">)</span>
+        <span class="n">storage_at_removal_buses</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">info</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">anticipated_storage</span><span class="o">.</span><span class="n">bus_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">storage_at_removal_buses</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Storage units exist at bus id(s): </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">storage_at_removal_buses</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="c1"># Check whether there exist branches or DC lines at these buses</span>
+        <span class="k">for</span> <span class="n">table</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;branch&quot;</span><span class="p">,</span> <span class="s2">&quot;dcline&quot;</span><span class="p">):</span>
+            <span class="n">anticipated</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
+            <span class="n">overlap</span> <span class="o">=</span> <span class="n">anticipated</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;from_bus_id in @info or to_bus_id in @info&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">overlap</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;These </span><span class="si">{</span><span class="n">table</span><span class="si">}</span><span class="s2"> IDs connect to a bus to be removed: </span><span class="si">{</span><span class="n">overlap</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+        <span class="c1"># All checks have passed, and we can add this to the change table</span>
+        <span class="k">if</span> <span class="s2">&quot;remove_bus&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;remove_bus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;remove_bus&quot;</span><span class="p">]</span> <span class="o">|=</span> <span class="nb">set</span><span class="p">(</span><span class="n">info</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ChangeTable.remove_dcline"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.remove_dcline">[docs]</a>    <span class="k">def</span> <span class="nf">remove_dcline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Remove one or more DC lines.</span>
+
+<span class="sd">        :param int/iterable info: iterable of DC line indices, or a single index.</span>
+<span class="sd">        :raises ValueError: if ``info`` contains one or more entries not present in the</span>
+<span class="sd">            dcline table index.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">info</span> <span class="o">=</span> <span class="p">{</span><span class="n">info</span><span class="p">}</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">info</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;dcline&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No DC line with the following id(s): </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;remove_dcline&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;remove_dcline&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;remove_dcline&quot;</span><span class="p">]</span> <span class="o">|=</span> <span class="nb">set</span><span class="p">(</span><span class="n">info</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ChangeTable.remove_plant"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.remove_plant">[docs]</a>    <span class="k">def</span> <span class="nf">remove_plant</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Remove one or more plants.</span>
+
+<span class="sd">        :param int/iterable info: iterable of plant indices, or a single plant index.</span>
+<span class="sd">        :raises ValueError: if ``info`` contains one or more entries not present in the</span>
+<span class="sd">            plant table index.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">info</span> <span class="o">=</span> <span class="p">{</span><span class="n">info</span><span class="p">}</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">info</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;plant&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No plant with the following id(s): </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;remove_plant&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;remove_plant&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;remove_plant&quot;</span><span class="p">]</span> <span class="o">|=</span> <span class="nb">set</span><span class="p">(</span><span class="n">info</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_check_for_islanded_load_buses</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Identifies buses with non-zero demand, with no connected lines, and warns.&quot;&quot;&quot;</span>
+        <span class="n">bus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;bus&quot;</span><span class="p">)</span>
+        <span class="n">connected_buses</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+            <span class="o">*</span><span class="p">[</span>
+                <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="p">[</span><span class="s2">&quot;from_bus_id&quot;</span><span class="p">]),</span>
+                <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="p">[</span><span class="s2">&quot;to_bus_id&quot;</span><span class="p">]),</span>
+                <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="p">[</span><span class="s2">&quot;from_bus_id&quot;</span><span class="p">]),</span>
+                <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="p">[</span><span class="s2">&quot;to_bus_id&quot;</span><span class="p">]),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">load_buses</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">bus</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;Pd &gt; 0&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="n">diff</span> <span class="o">=</span> <span class="n">load_buses</span> <span class="o">-</span> <span class="n">connected_buses</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: load buses connected to no lines exist: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="ChangeTable.write"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_id</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Saves change table to disk.</span>

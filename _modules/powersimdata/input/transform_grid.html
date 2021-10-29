@@ -107,7 +107,7 @@
         <span class="k">if</span> <span class="s2">&quot;storage&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_add_storage</span><span class="p">()</span>
 
-        <span class="c1"># Finally, scale by IDs, so that additions can be scaled.</span>
+        <span class="c1"># Scale by IDs, so that additions can be scaled.</span>
         <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_types</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_scale_gen_by_id</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
@@ -121,6 +121,12 @@
 
         <span class="k">if</span> <span class="s2">&quot;dcline&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_scale_dcline</span><span class="p">()</span>
+
+        <span class="c1"># Finally, remove elements (so that removal doesn&#39;t cause downstream errors)</span>
+        <span class="k">if</span> <span class="s2">&quot;remove_branch&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_remove_branch</span><span class="p">()</span>
+        <span class="k">if</span> <span class="s2">&quot;remove_bus&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_remove_bus</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">_scale_gen_by_zone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gen_type</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Scales capacity of generators, by zone. Also scales the associated generation</span>
@@ -507,7 +513,27 @@
             <span class="n">data</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span>
         <span class="p">)</span>
         <span class="c1"># Maintain int columns after the append converts them to float</span>
-        <span class="n">storage</span><span class="p">[</span><span class="s2">&quot;StorageData&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">storage</span><span class="p">[</span><span class="s2">&quot;StorageData&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">({</span><span class="s2">&quot;UnitIdx&quot;</span><span class="p">:</span> <span class="s2">&quot;int&quot;</span><span class="p">})</span></div>
+        <span class="n">storage</span><span class="p">[</span><span class="s2">&quot;StorageData&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">storage</span><span class="p">[</span><span class="s2">&quot;StorageData&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">({</span><span class="s2">&quot;UnitIdx&quot;</span><span class="p">:</span> <span class="s2">&quot;int&quot;</span><span class="p">})</span>
+
+    <span class="k">def</span> <span class="nf">_remove_branch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Removes branches.&quot;&quot;&quot;</span>
+        <span class="n">branch</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">branch</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="o">~</span><span class="n">branch</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;remove_branch&quot;</span><span class="p">])]</span>
+
+    <span class="k">def</span> <span class="nf">_remove_bus</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Removes buses.&quot;&quot;&quot;</span>
+        <span class="n">bus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="o">~</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;remove_bus&quot;</span><span class="p">])]</span>
+
+    <span class="k">def</span> <span class="nf">_remove_dcline</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Removes DC lines.&quot;&quot;&quot;</span>
+        <span class="n">dcline</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">dcline</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="o">~</span><span class="n">dcline</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;remove_dcline&quot;</span><span class="p">])]</span>
+
+    <span class="k">def</span> <span class="nf">_remove_plant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Removes plants.&quot;&quot;&quot;</span>
+        <span class="n">plant</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="o">~</span><span class="n">plant</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;remove_plant&quot;</span><span class="p">])]</span></div>
 
 
 <div class="viewcode-block" id="voltage_to_x_per_distance"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.transform_grid.voltage_to_x_per_distance">[docs]</a><span class="k">def</span> <span class="nf">voltage_to_x_per_distance</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>

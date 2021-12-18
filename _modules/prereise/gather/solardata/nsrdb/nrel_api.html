@@ -34,12 +34,15 @@
           <div class="body" role="main">
             
   <h1>Source code for prereise.gather.solardata.nsrdb.nrel_api</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">timedelta</span>
 <span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">BytesIO</span>
 
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">from</span> <span class="nn">requests.exceptions</span> <span class="kn">import</span> <span class="ne">ConnectionError</span>
 
 <span class="kn">from</span> <span class="nn">prereise.gather.request_util</span> <span class="kn">import</span> <span class="n">TransientError</span><span class="p">,</span> <span class="n">retry</span>
 
@@ -152,7 +155,20 @@
         <span class="n">query</span> <span class="o">=</span> <span class="s2">&quot;&amp;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">=</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">payload</span><span class="o">.</span><span class="n">items</span><span class="p">()])</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_url</span><span class="si">}</span><span class="s2">?</span><span class="si">{</span><span class="n">query</span><span class="si">}</span><span class="s2">&quot;</span>
 
-<div class="viewcode-block" id="NrelApi.get_psm3_at"><a class="viewcode-back" href="../../../../../prereise.gather.solardata.nsrdb.html#prereise.gather.solardata.nsrdb.nrel_api.NrelApi.get_psm3_at">[docs]</a>    <span class="k">def</span> <span class="nf">get_psm3_at</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">attributes</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">leap_day</span><span class="p">,</span> <span class="n">dates</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_build_filename</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">attributes</span><span class="p">,</span> <span class="n">year</span><span class="o">=</span><span class="s2">&quot;2016&quot;</span><span class="p">,</span> <span class="n">leap_day</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;wkt&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;POINT(</span><span class="si">{</span><span class="n">lon</span><span class="si">}</span><span class="s2">%20</span><span class="si">{</span><span class="n">lat</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;attributes&quot;</span><span class="p">:</span> <span class="n">attributes</span><span class="p">,</span>
+            <span class="s2">&quot;names&quot;</span><span class="p">:</span> <span class="n">year</span><span class="p">,</span>
+            <span class="s2">&quot;leap_day&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">leap_day</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
+        <span class="p">}</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="s2">&quot;&amp;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">=</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()])</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">.pkl&quot;</span>
+
+<div class="viewcode-block" id="NrelApi.get_psm3_at"><a class="viewcode-back" href="../../../../../prereise.gather.solardata.nsrdb.html#prereise.gather.solardata.nsrdb.nrel_api.NrelApi.get_psm3_at">[docs]</a>    <span class="k">def</span> <span class="nf">get_psm3_at</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">attributes</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">leap_day</span><span class="p">,</span> <span class="n">dates</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get PSM3 data at a given point for the specified year.</span>
 
 <span class="sd">        :param str lat: latitude of the plant</span>
@@ -161,13 +177,14 @@
 <span class="sd">        :param str year: the year</span>
 <span class="sd">        :param bool leap_day: whether to use a leap day</span>
 <span class="sd">        :param pd.DatetimeIndex dates: if provided, use to index the downloaded data frame</span>
+<span class="sd">        :param str cache_dir: directory to cache downloaded data. If None, don&#39;t cache.</span>
 
 <span class="sd">        :return: (*prereise.gather.solardata.nsrdb.nrel_api.Psm3Data*) -- a data class containing metadata and time series for the given year and location</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">Psm3Data</span><span class="o">.</span><span class="n">check_attrs</span><span class="p">(</span><span class="n">attributes</span><span class="p">)</span>
-        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_url</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">attributes</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">leap_day</span><span class="p">)</span>
 
-        <span class="nd">@retry</span><span class="p">(</span><span class="n">interval</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">interval</span><span class="p">,</span> <span class="n">allowed_exceptions</span><span class="o">=</span><span class="p">(</span><span class="n">TransientError</span><span class="p">))</span>
+        <span class="nd">@retry</span><span class="p">(</span>
+            <span class="n">interval</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">interval</span><span class="p">,</span> <span class="n">allowed_exceptions</span><span class="o">=</span><span class="p">(</span><span class="n">TransientError</span><span class="p">,</span> <span class="ne">ConnectionError</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="k">def</span> <span class="nf">download</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
             <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">429</span><span class="p">:</span>
@@ -178,20 +195,38 @@
                 <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Request failed: status_code=</span><span class="si">{</span><span class="n">resp</span><span class="o">.</span><span class="n">status_code</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">resp</span>
 
-        <span class="n">resp</span> <span class="o">=</span> <span class="n">download</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">format_to_psm3data</span><span class="p">(</span><span class="n">resp</span><span class="p">):</span>
+            <span class="n">info</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">content</span><span class="p">),</span> <span class="n">nrows</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">data_resource</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">content</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">skiprows</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 
-        <span class="n">info</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">content</span><span class="p">),</span> <span class="n">nrows</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">data_resource</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">content</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">skiprows</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">tz</span><span class="p">,</span> <span class="n">elevation</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;Local Time Zone&quot;</span><span class="p">],</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;Elevation&quot;</span><span class="p">]</span>
 
-        <span class="n">tz</span><span class="p">,</span> <span class="n">elevation</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;Local Time Zone&quot;</span><span class="p">],</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;Elevation&quot;</span><span class="p">]</span>
-
-        <span class="k">if</span> <span class="n">dates</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">data_resource</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span>
-                <span class="n">dates</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">tz</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">])),</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span>
+            <span class="k">if</span> <span class="n">dates</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">data_resource</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span>
+                    <span class="n">dates</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">tz</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">])),</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">Psm3Data</span><span class="p">(</span>
+                <span class="nb">float</span><span class="p">(</span><span class="n">lat</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">lon</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">tz</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">elevation</span><span class="p">),</span> <span class="n">data_resource</span>
             <span class="p">)</span>
-        <span class="k">return</span> <span class="n">Psm3Data</span><span class="p">(</span>
-            <span class="nb">float</span><span class="p">(</span><span class="n">lat</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">lon</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">tz</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">elevation</span><span class="p">),</span> <span class="n">data_resource</span>
-        <span class="p">)</span></div></div>
+
+        <span class="n">Psm3Data</span><span class="o">.</span><span class="n">check_attrs</span><span class="p">(</span><span class="n">attributes</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cache_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_filename</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">attributes</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">leap_day</span><span class="p">)</span>
+            <span class="n">filepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">psm3_data</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">psm3_data</span>
+            <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+                <span class="k">pass</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_url</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">attributes</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">leap_day</span><span class="p">)</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="n">download</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">psm3_data</span> <span class="o">=</span> <span class="n">format_to_psm3data</span><span class="p">(</span><span class="n">resp</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cache_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">psm3_data</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">psm3_data</span></div></div>
 </pre></div>
 
           </div>

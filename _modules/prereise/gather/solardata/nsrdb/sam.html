@@ -38,11 +38,6 @@
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">import</span> <span class="nn">PySAM.Pvwattsv7</span> <span class="k">as</span> <span class="nn">PVWatts</span>
 <span class="kn">import</span> <span class="nn">PySAM.PySSC</span> <span class="k">as</span> <span class="nn">pssc</span>  <span class="c1"># noqa: N813</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants.zones</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">abv2interconnect</span><span class="p">,</span>
-    <span class="n">id2abv</span><span class="p">,</span>
-    <span class="n">interconnect2abv</span><span class="p">,</span>
-<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
 
 <span class="kn">from</span> <span class="nn">prereise.gather.solardata.helpers</span> <span class="kn">import</span> <span class="n">get_plant_id_unique_location</span>
@@ -52,55 +47,134 @@
     <span class="n">get_pv_tracking_ratio_state</span><span class="p">,</span>
 <span class="p">)</span>
 
+<span class="n">default_pv_parameters</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;adjust:constant&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="s2">&quot;azimuth&quot;</span><span class="p">:</span> <span class="mi">180</span><span class="p">,</span>
+    <span class="s2">&quot;gcr&quot;</span><span class="p">:</span> <span class="mf">0.4</span><span class="p">,</span>
+    <span class="s2">&quot;inv_eff&quot;</span><span class="p">:</span> <span class="mi">94</span><span class="p">,</span>
+    <span class="s2">&quot;losses&quot;</span><span class="p">:</span> <span class="mi">14</span><span class="p">,</span>
+    <span class="s2">&quot;tilt&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
+<span class="p">}</span>
 
-<div class="viewcode-block" id="retrieve_data"><a class="viewcode-back" href="../../../../../prereise.gather.solardata.nsrdb.html#prereise.gather.solardata.nsrdb.sam.retrieve_data">[docs]</a><span class="k">def</span> <span class="nf">retrieve_data</span><span class="p">(</span><span class="n">solar_plant</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">api_key</span><span class="p">,</span> <span class="n">year</span><span class="o">=</span><span class="s2">&quot;2016&quot;</span><span class="p">,</span> <span class="n">rate_limit</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+
+<div class="viewcode-block" id="generate_timestamps_without_leap_day"><a class="viewcode-back" href="../../../../../prereise.gather.solardata.nsrdb.html#prereise.gather.solardata.nsrdb.sam.generate_timestamps_without_leap_day">[docs]</a><span class="k">def</span> <span class="nf">generate_timestamps_without_leap_day</span><span class="p">(</span><span class="n">year</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;For a given year, return timestamps for each non-leap-day hour, and the timestamp</span>
+<span class="sd">    of the beginning of the leap day (if there is one).</span>
+
+<span class="sd">    :param int/str year: year to generate timestamps for.</span>
+<span class="sd">    :return: (*tuple*) --</span>
+<span class="sd">        pandas.DatetimeIndex: for each non-leap-day-hour of the given year.</span>
+<span class="sd">        pandas.Timestamp/None: timestamp for the first hour of the leap day (if any).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># SAM only takes 365 days, so for a leap year: leave out the leap day.</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">leap_day</span> <span class="o">=</span> <span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">-02-29-00&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">dayofyear</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">24</span>
+        <span class="n">sam_dates</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">-01-01-00&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">365</span> <span class="o">*</span> <span class="mi">24</span><span class="p">)</span>
+        <span class="n">sam_dates</span> <span class="o">=</span> <span class="n">sam_dates</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">year</span><span class="p">)))</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="n">leap_day</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">sam_dates</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">-01-01-00&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">365</span> <span class="o">*</span> <span class="mi">24</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sam_dates</span><span class="p">,</span> <span class="n">leap_day</span></div>
+
+
+<div class="viewcode-block" id="calculate_power"><a class="viewcode-back" href="../../../../../prereise.gather.solardata.nsrdb.html#prereise.gather.solardata.nsrdb.sam.calculate_power">[docs]</a><span class="k">def</span> <span class="nf">calculate_power</span><span class="p">(</span><span class="n">solar_data</span><span class="p">,</span> <span class="n">pv_dict</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Use PVWatts to translate weather data into power.</span>
+
+<span class="sd">    :param dict solar_data: weather data as returned by :meth:`Psm3Data.to_dict`.</span>
+<span class="sd">    :param dict pv_dict: solar plant attributes.</span>
+<span class="sd">    :return: (*numpy.array*) hourly power output.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">pv_dat</span> <span class="o">=</span> <span class="n">pssc</span><span class="o">.</span><span class="n">dict_to_ssc_table</span><span class="p">(</span><span class="n">pv_dict</span><span class="p">,</span> <span class="s2">&quot;pvwattsv7&quot;</span><span class="p">)</span>
+    <span class="n">pv</span> <span class="o">=</span> <span class="n">PVWatts</span><span class="o">.</span><span class="n">wrap</span><span class="p">(</span><span class="n">pv_dat</span><span class="p">)</span>
+    <span class="n">pv</span><span class="o">.</span><span class="n">SolarResource</span><span class="o">.</span><span class="n">assign</span><span class="p">({</span><span class="s2">&quot;solar_resource_data&quot;</span><span class="p">:</span> <span class="n">solar_data</span><span class="p">})</span>
+    <span class="n">pv</span><span class="o">.</span><span class="n">execute</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pv</span><span class="o">.</span><span class="n">Outputs</span><span class="o">.</span><span class="n">gen</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="retrieve_data_blended"><a class="viewcode-back" href="../../../../../prereise.gather.solardata.nsrdb.html#prereise.gather.solardata.nsrdb.sam.retrieve_data_blended">[docs]</a><span class="k">def</span> <span class="nf">retrieve_data_blended</span><span class="p">(</span>
+    <span class="n">email</span><span class="p">,</span>
+    <span class="n">api_key</span><span class="p">,</span>
+    <span class="n">grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">solar_plant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">interconnect_to_state_abvs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">year</span><span class="o">=</span><span class="s2">&quot;2016&quot;</span><span class="p">,</span>
+    <span class="n">rate_limit</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">cache_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Retrieves irradiance data from NSRDB and calculate the power output using</span>
-<span class="sd">    the System Adviser Model (SAM).</span>
+<span class="sd">    the System Adviser Model (SAM). Either a Grid object needs to be passed to ``grid``,</span>
+<span class="sd">    or (a data frame needs to be passed to ``solar_plant`` and a dictionary needs to be</span>
+<span class="sd">    passed to ``interconnect_to_state_abvs``).</span>
 
-<span class="sd">    :param pandas.DataFrame solar_plant: plant data frame.</span>
 <span class="sd">    :param str email: email used to`sign up &lt;https://developer.nrel.gov/signup/&gt;`_.</span>
 <span class="sd">    :param str api_key: API key.</span>
-<span class="sd">    :param str year: year.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid: grid instance.</span>
+<span class="sd">    :param pandas.DataFrame solar_plant: plant data frame.</span>
+<span class="sd">    :param dict/pandas.Series interconnect_to_state_abvs: mapping of interconnection</span>
+<span class="sd">        name to state abbreviations, used to look up average parameters by interconnect</span>
+<span class="sd">        when average parameters by state are not available.</span>
+<span class="sd">    :param int/str year: year.</span>
 <span class="sd">    :param int/float rate_limit: minimum seconds to wait between requests to NREL</span>
+<span class="sd">    :param str cache_dir: directory to cache downloaded data. If None, don&#39;t cache.</span>
 <span class="sd">    :return: (*pandas.DataFrame*) -- data frame with *&#39;Pout&#39;*, *&#39;plant_id&#39;*,</span>
 <span class="sd">        *&#39;ts&#39;* and *&#39;ts_id&#39;* as columns. Values are power output for a 1MW generator.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">xor_err_msg</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;Either grid xor (solar_plant and interconnect_to_state_abvs) must be defined&quot;</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">grid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">solar_plant</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">interconnect_to_state_abvs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">xor_err_msg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">{</span><span class="s2">&quot;state_abv&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">}</span> <span class="o">&lt;=</span> <span class="nb">set</span><span class="p">(</span><span class="n">solar_plant</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;solar_plant needs &#39;state_abv&#39; and &#39;interconnect&#39; columns&quot;</span><span class="p">)</span>
+        <span class="c1"># Create mappings from other inputs</span>
+        <span class="n">zone_id_to_state_abv</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">i</span><span class="p">:</span> <span class="n">group</span><span class="p">[</span><span class="s2">&quot;state_abv&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">solar_plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;zone_id&quot;</span><span class="p">)</span>
+        <span class="p">}</span>
+        <span class="n">zone_id_to_interconnect</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">i</span><span class="p">:</span> <span class="n">group</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">solar_plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;zone_id&quot;</span><span class="p">)</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">solar_plant</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">interconnect_to_state_abvs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">xor_err_msg</span><span class="p">)</span>
+        <span class="n">solar_plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;type == &#39;solar&#39;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="c1"># Use existing mappings found in the Grid object</span>
+        <span class="n">interconnect_to_state_abvs</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect2abv&quot;</span><span class="p">]</span>
+        <span class="n">zone_id_to_state_abv</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;id2abv&quot;</span><span class="p">]</span>
+        <span class="n">zone_id_to_interconnect</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">z</span><span class="p">:</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;abv2interconnect&quot;</span><span class="p">][</span><span class="n">zone_id_to_state_abv</span><span class="p">[</span><span class="n">z</span><span class="p">]]</span>
+            <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">solar_plant</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+        <span class="p">}</span>
 
-    <span class="c1"># SAM only takes 365 days.</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="n">leap_day</span> <span class="o">=</span> <span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">-02-29-00&quot;</span> <span class="o">%</span> <span class="n">year</span><span class="p">)</span><span class="o">.</span><span class="n">dayofyear</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">24</span>
-        <span class="n">is_leap_year</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="n">dates</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">-01-01-00&quot;</span> <span class="o">%</span> <span class="mi">2015</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">365</span> <span class="o">*</span> <span class="mi">24</span><span class="p">)</span>
-        <span class="n">dates</span> <span class="o">=</span> <span class="n">dates</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">year</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">year</span><span class="p">)))</span>
-    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-        <span class="n">leap_day</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">is_leap_year</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="n">dates</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">-01-01-00&quot;</span> <span class="o">%</span> <span class="n">year</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">365</span> <span class="o">*</span> <span class="mi">24</span><span class="p">)</span>
-
-    <span class="c1"># Identify unique location</span>
-    <span class="n">coord</span> <span class="o">=</span> <span class="n">get_plant_id_unique_location</span><span class="p">(</span><span class="n">solar_plant</span><span class="p">)</span>
-
-    <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;Pout&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;ts&quot;</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">&quot;ts_id&quot;</span><span class="p">:</span> <span class="p">[]})</span>
+    <span class="n">real_dates</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span>
+        <span class="n">start</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">-01-01-00&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">-12-31-23&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span>
+    <span class="p">)</span>
+    <span class="n">sam_dates</span><span class="p">,</span> <span class="n">leap_day</span> <span class="o">=</span> <span class="n">generate_timestamps_without_leap_day</span><span class="p">(</span><span class="n">year</span><span class="p">)</span>
 
     <span class="c1"># PV tracking ratios</span>
-    <span class="c1"># By state and by interconnect when EIA data do not have any solar PV in</span>
-    <span class="c1"># the state</span>
+    <span class="c1"># By state and by interconnect when EIA data do not have any solar PV in the state</span>
     <span class="n">pv_info</span> <span class="o">=</span> <span class="n">get_pv_tracking_data</span><span class="p">()</span>
     <span class="n">zone_id</span> <span class="o">=</span> <span class="n">solar_plant</span><span class="o">.</span><span class="n">zone_id</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
     <span class="n">frac</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">zone_id</span><span class="p">:</span>
-        <span class="n">state</span> <span class="o">=</span> <span class="n">id2abv</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-        <span class="n">frac</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_pv_tracking_ratio_state</span><span class="p">(</span><span class="n">pv_info</span><span class="p">,</span> <span class="p">[</span><span class="n">state</span><span class="p">])</span>
-        <span class="k">if</span> <span class="n">frac</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">frac</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_pv_tracking_ratio_state</span><span class="p">(</span>
-                <span class="n">pv_info</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">interconnect2abv</span><span class="p">[</span><span class="n">abv2interconnect</span><span class="p">[</span><span class="n">state</span><span class="p">]])</span>
-            <span class="p">)</span>
+    <span class="k">for</span> <span class="n">zone</span> <span class="ow">in</span> <span class="n">zone_id</span><span class="p">:</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">zone_id_to_state_abv</span><span class="p">[</span><span class="n">zone</span><span class="p">]</span>
+        <span class="n">frac</span><span class="p">[</span><span class="n">zone</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_pv_tracking_ratio_state</span><span class="p">(</span><span class="n">pv_info</span><span class="p">,</span> <span class="p">[</span><span class="n">state</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">frac</span><span class="p">[</span><span class="n">zone</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">interconnect</span> <span class="o">=</span> <span class="n">zone_id_to_interconnect</span><span class="p">[</span><span class="n">zone</span><span class="p">]</span>
+            <span class="n">states_in_interconnect</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">interconnect_to_state_abvs</span><span class="p">[</span><span class="n">interconnect</span><span class="p">])</span>
+            <span class="n">frac</span><span class="p">[</span><span class="n">zone</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_pv_tracking_ratio_state</span><span class="p">(</span><span class="n">pv_info</span><span class="p">,</span> <span class="n">states_in_interconnect</span><span class="p">)</span>
 
     <span class="c1"># Inverter Loading Ratio</span>
     <span class="n">ilr</span> <span class="o">=</span> <span class="mf">1.25</span>
     <span class="n">api</span> <span class="o">=</span> <span class="n">NrelApi</span><span class="p">(</span><span class="n">email</span><span class="p">,</span> <span class="n">api_key</span><span class="p">,</span> <span class="n">rate_limit</span><span class="p">)</span>
 
-    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">coord</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">coord</span><span class="p">)):</span>
+    <span class="c1"># Identify unique location</span>
+    <span class="n">coord</span> <span class="o">=</span> <span class="n">get_plant_id_unique_location</span><span class="p">(</span><span class="n">solar_plant</span><span class="p">)</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">plants</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">coord</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">coord</span><span class="p">)):</span>
         <span class="n">lat</span><span class="p">,</span> <span class="n">lon</span> <span class="o">=</span> <span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">solar_data</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">get_psm3_at</span><span class="p">(</span>
             <span class="n">lat</span><span class="p">,</span>
@@ -108,58 +182,108 @@
             <span class="n">attributes</span><span class="o">=</span><span class="s2">&quot;dhi,dni,wind_speed,air_temperature&quot;</span><span class="p">,</span>
             <span class="n">year</span><span class="o">=</span><span class="n">year</span><span class="p">,</span>
             <span class="n">leap_day</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-            <span class="n">dates</span><span class="o">=</span><span class="n">dates</span><span class="p">,</span>
+            <span class="n">dates</span><span class="o">=</span><span class="n">sam_dates</span><span class="p">,</span>
+            <span class="n">cache_dir</span><span class="o">=</span><span class="n">cache_dir</span><span class="p">,</span>
         <span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
 
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">coord</span><span class="p">[</span><span class="n">key</span><span class="p">]:</span>
-            <span class="n">data_site</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
-                <span class="p">{</span>
-                    <span class="s2">&quot;ts&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span>
-                        <span class="n">start</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">-01-01-00&quot;</span> <span class="o">%</span> <span class="n">year</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">-12-31-23&quot;</span> <span class="o">%</span> <span class="n">year</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span>
-                    <span class="p">)</span>
-                <span class="p">}</span>
-            <span class="p">)</span>
-            <span class="n">data_site</span><span class="p">[</span><span class="s2">&quot;ts_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">data_site</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="n">data_site</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
-
-            <span class="n">power</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">axis</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">]):</span>
-                <span class="n">pv_dict</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="s2">&quot;system_capacity&quot;</span><span class="p">:</span> <span class="n">ilr</span><span class="p">,</span>
-                    <span class="s2">&quot;dc_ac_ratio&quot;</span><span class="p">:</span> <span class="n">ilr</span><span class="p">,</span>
-                    <span class="s2">&quot;tilt&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span>
-                    <span class="s2">&quot;azimuth&quot;</span><span class="p">:</span> <span class="mi">180</span><span class="p">,</span>
-                    <span class="s2">&quot;inv_eff&quot;</span><span class="p">:</span> <span class="mi">94</span><span class="p">,</span>
-                    <span class="s2">&quot;losses&quot;</span><span class="p">:</span> <span class="mi">14</span><span class="p">,</span>
-                    <span class="s2">&quot;array_type&quot;</span><span class="p">:</span> <span class="n">axis</span><span class="p">,</span>
-                    <span class="s2">&quot;gcr&quot;</span><span class="p">:</span> <span class="mf">0.4</span><span class="p">,</span>
-                    <span class="s2">&quot;adjust:constant&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-                <span class="p">}</span>
-
-                <span class="n">pv_dat</span> <span class="o">=</span> <span class="n">pssc</span><span class="o">.</span><span class="n">dict_to_ssc_table</span><span class="p">(</span><span class="n">pv_dict</span><span class="p">,</span> <span class="s2">&quot;pvwattsv7&quot;</span><span class="p">)</span>
-                <span class="n">pv</span> <span class="o">=</span> <span class="n">PVWatts</span><span class="o">.</span><span class="n">wrap</span><span class="p">(</span><span class="n">pv_dat</span><span class="p">)</span>
-                <span class="n">pv</span><span class="o">.</span><span class="n">SolarResource</span><span class="o">.</span><span class="n">assign</span><span class="p">({</span><span class="s2">&quot;solar_resource_data&quot;</span><span class="p">:</span> <span class="n">solar_data</span><span class="p">})</span>
-                <span class="n">pv</span><span class="o">.</span><span class="n">execute</span><span class="p">()</span>
-
-                <span class="n">ratio</span> <span class="o">=</span> <span class="n">frac</span><span class="p">[</span><span class="n">solar_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">zone_id</span><span class="p">][</span><span class="n">j</span><span class="p">]</span>
-                <span class="n">power</span> <span class="o">+=</span> <span class="n">ratio</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pv</span><span class="o">.</span><span class="n">Outputs</span><span class="o">.</span><span class="n">gen</span><span class="p">)</span>
-
-            <span class="k">if</span> <span class="n">is_leap_year</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
-                <span class="n">data_site</span><span class="p">[</span><span class="s2">&quot;Pout&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
-                    <span class="n">power</span><span class="p">,</span> <span class="n">leap_day</span><span class="p">,</span> <span class="n">power</span><span class="p">[</span><span class="n">leap_day</span> <span class="o">-</span> <span class="mi">24</span> <span class="p">:</span> <span class="n">leap_day</span><span class="p">]</span>
-                <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">plant_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">plants</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># Calculate power for the first plant at each location</span>
+                <span class="n">first_plant_id</span> <span class="o">=</span> <span class="n">plant_id</span>
+                <span class="n">tracking_ratios</span> <span class="o">=</span> <span class="n">frac</span><span class="p">[</span><span class="n">solar_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span><span class="o">.</span><span class="n">zone_id</span><span class="p">]</span>
+                <span class="n">power</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">axis</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">]):</span>
+                    <span class="n">plant_pv_dict</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="s2">&quot;system_capacity&quot;</span><span class="p">:</span> <span class="n">ilr</span><span class="p">,</span>
+                        <span class="s2">&quot;dc_ac_ratio&quot;</span><span class="p">:</span> <span class="n">ilr</span><span class="p">,</span>
+                        <span class="s2">&quot;array_type&quot;</span><span class="p">:</span> <span class="n">axis</span><span class="p">,</span>
+                    <span class="p">}</span>
+                    <span class="n">pv_dict</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">default_pv_parameters</span><span class="p">,</span> <span class="o">**</span><span class="n">plant_pv_dict</span><span class="p">}</span>
+                    <span class="n">power</span> <span class="o">+=</span> <span class="n">tracking_ratios</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">calculate_power</span><span class="p">(</span><span class="n">solar_data</span><span class="p">,</span> <span class="n">pv_dict</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">leap_day</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">power</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">power</span><span class="p">,</span> <span class="n">leap_day</span><span class="p">,</span> <span class="n">power</span><span class="p">[</span><span class="n">leap_day</span> <span class="o">-</span> <span class="mi">24</span> <span class="p">:</span> <span class="n">leap_day</span><span class="p">])</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">data_site</span><span class="p">[</span><span class="s2">&quot;Pout&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">power</span>
+                <span class="c1"># For every other plant, look up power from first plant at the location</span>
+                <span class="n">power</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">first_plant_id</span><span class="p">]</span>
+            <span class="n">data</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">power</span>
 
-            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_site</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">real_dates</span><span class="p">)</span><span class="o">.</span><span class="n">sort_index</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="s2">&quot;columns&quot;</span><span class="p">)</span></div>
 
-    <span class="n">data</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-    <span class="n">data</span><span class="p">[</span><span class="s2">&quot;ts_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;ts_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
 
-    <span class="n">data</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ts_id&quot;</span><span class="p">,</span> <span class="s2">&quot;plant_id&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">data</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="viewcode-block" id="retrieve_data_individual"><a class="viewcode-back" href="../../../../../prereise.gather.solardata.nsrdb.html#prereise.gather.solardata.nsrdb.sam.retrieve_data_individual">[docs]</a><span class="k">def</span> <span class="nf">retrieve_data_individual</span><span class="p">(</span>
+    <span class="n">email</span><span class="p">,</span> <span class="n">api_key</span><span class="p">,</span> <span class="n">solar_plant</span><span class="p">,</span> <span class="n">year</span><span class="o">=</span><span class="s2">&quot;2016&quot;</span><span class="p">,</span> <span class="n">rate_limit</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">cache_dir</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Retrieves irradiance data from NSRDB and calculate the power output using</span>
+<span class="sd">    the System Adviser Model (SAM). Either a Grid object needs to be passed to ``grid``,</span>
+<span class="sd">    or (a data frame needs to be passed to ``solar_plant`` and a string needs to be</span>
+<span class="sd">    passed to ``grid_model``.</span>
 
-    <span class="k">return</span> <span class="n">data</span></div>
+<span class="sd">    :param str email: email used to`sign up &lt;https://developer.nrel.gov/signup/&gt;`_.</span>
+<span class="sd">    :param str api_key: API key.</span>
+<span class="sd">    :param pandas.DataFrame solar_plant: plant data frame, plus additional boolean</span>
+<span class="sd">        columns &#39;Single-Axis Tracking?&#39;, &#39;Dual-Axis Tracking?&#39;, &#39;Fixed Tilt?&#39;, and float</span>
+<span class="sd">        columns &#39;Tilt Angle&#39;, &#39;Nameplate Capacity (MW)&#39;, and &#39;DC Net Capacity (MW)&#39;.</span>
+<span class="sd">    :param int/str year: year.</span>
+<span class="sd">    :param int/float rate_limit: minimum seconds to wait between requests to NREL</span>
+<span class="sd">    :param str cache_dir: directory to cache downloaded data. If None, don&#39;t cache.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- data frame with *&#39;Pout&#39;*, *&#39;plant_id&#39;*,</span>
+<span class="sd">        *&#39;ts&#39;* and *&#39;ts_id&#39;* as columns. Values are power output for a 1MW generator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Verify that each solar plant has exactly one tracking type equal to True</span>
+    <span class="n">array_type_mapping</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;Fixed Tilt?&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;Single-Axis Tracking?&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="s2">&quot;Dual-Axis Tracking?&quot;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">solar_plant</span><span class="p">[</span><span class="n">array_type_mapping</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Indeterminate tracking information for one or more plants&quot;</span><span class="p">)</span>
+    <span class="c1"># Select the appropriate &#39;array type&#39; to pass to SAM</span>
+    <span class="n">plant_array_types</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">solar_plant</span><span class="p">[</span><span class="n">array_type_mapping</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
+        <span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">array_type_mapping</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">idxmax</span><span class="p">()],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="n">real_dates</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span>
+        <span class="n">start</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">-01-01-00&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">-12-31-23&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span>
+    <span class="p">)</span>
+    <span class="n">sam_dates</span><span class="p">,</span> <span class="n">leap_day</span> <span class="o">=</span> <span class="n">generate_timestamps_without_leap_day</span><span class="p">(</span><span class="n">year</span><span class="p">)</span>
+
+    <span class="n">api</span> <span class="o">=</span> <span class="n">NrelApi</span><span class="p">(</span><span class="n">email</span><span class="p">,</span> <span class="n">api_key</span><span class="p">,</span> <span class="n">rate_limit</span><span class="p">)</span>
+
+    <span class="n">coord</span> <span class="o">=</span> <span class="n">get_plant_id_unique_location</span><span class="p">(</span><span class="n">solar_plant</span><span class="p">)</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">plants</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">coord</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">total</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">coord</span><span class="p">)):</span>
+        <span class="n">lat</span><span class="p">,</span> <span class="n">lon</span> <span class="o">=</span> <span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">solar_data</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">get_psm3_at</span><span class="p">(</span>
+            <span class="n">lat</span><span class="p">,</span>
+            <span class="n">lon</span><span class="p">,</span>
+            <span class="n">attributes</span><span class="o">=</span><span class="s2">&quot;dhi,dni,wind_speed,air_temperature&quot;</span><span class="p">,</span>
+            <span class="n">year</span><span class="o">=</span><span class="n">year</span><span class="p">,</span>
+            <span class="n">leap_day</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">dates</span><span class="o">=</span><span class="n">sam_dates</span><span class="p">,</span>
+            <span class="n">cache_dir</span><span class="o">=</span><span class="n">cache_dir</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">plant_id</span> <span class="ow">in</span> <span class="n">plants</span><span class="p">:</span>
+            <span class="n">series</span> <span class="o">=</span> <span class="n">solar_plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span>
+            <span class="n">ilr</span> <span class="o">=</span> <span class="n">series</span><span class="p">[</span><span class="s2">&quot;DC Net Capacity (MW)&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">series</span><span class="p">[</span><span class="s2">&quot;Nameplate Capacity (MW)&quot;</span><span class="p">]</span>
+            <span class="n">plant_pv_dict</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;system_capacity&quot;</span><span class="p">:</span> <span class="n">ilr</span><span class="p">,</span>
+                <span class="s2">&quot;dc_ac_ratio&quot;</span><span class="p">:</span> <span class="n">ilr</span><span class="p">,</span>
+                <span class="s2">&quot;array_type&quot;</span><span class="p">:</span> <span class="n">plant_array_types</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant_id</span><span class="p">],</span>
+            <span class="p">}</span>
+            <span class="k">if</span> <span class="n">plant_pv_dict</span><span class="p">[</span><span class="s2">&quot;array_type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">plant_pv_dict</span><span class="p">[</span><span class="s2">&quot;tilt&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">series</span><span class="p">[</span><span class="s2">&quot;Tilt Angle&quot;</span><span class="p">]</span>
+            <span class="n">pv_dict</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">default_pv_parameters</span><span class="p">,</span> <span class="o">**</span><span class="n">plant_pv_dict</span><span class="p">}</span>
+            <span class="n">power</span> <span class="o">=</span> <span class="n">calculate_power</span><span class="p">(</span><span class="n">solar_data</span><span class="p">,</span> <span class="n">pv_dict</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">leap_day</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">power</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">power</span><span class="p">,</span> <span class="n">leap_day</span><span class="p">,</span> <span class="n">power</span><span class="p">[</span><span class="n">leap_day</span> <span class="o">-</span> <span class="mi">24</span> <span class="p">:</span> <span class="n">leap_day</span><span class="p">])</span>
+
+            <span class="n">data</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">power</span>
+
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">real_dates</span><span class="p">)</span><span class="o">.</span><span class="n">sort_index</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="s2">&quot;columns&quot;</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

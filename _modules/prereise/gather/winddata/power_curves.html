@@ -5,20 +5,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>prereise.gather.winddata.rap.power_curves &#8212; documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
-    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
-    <script src="../../../../../_static/jquery.js"></script>
-    <script src="../../../../../_static/underscore.js"></script>
-    <script src="../../../../../_static/doctools.js"></script>
+    <title>prereise.gather.winddata.power_curves &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
     <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
     <script>mermaid.initialize({startOnLoad:true});</script>
-    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
-    <link rel="index" title="Index" href="../../../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../../../search.html" />
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
    
-  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
   
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
@@ -33,7 +33,7 @@
 
           <div class="body" role="main">
             
-  <h1>Source code for prereise.gather.winddata.rap.power_curves</h1><div class="highlight"><pre>
+  <h1>Source code for prereise.gather.winddata.power_curves</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">from</span> <span class="nn">os</span> <span class="kn">import</span> <span class="n">path</span>
@@ -42,10 +42,12 @@
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">norm</span>
 
-<span class="n">data_dir</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s2">&quot;..&quot;</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">))</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.winddata</span> <span class="kn">import</span> <span class="n">const</span>
+
+<span class="n">data_dir</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s2">&quot;data&quot;</span><span class="p">))</span>
 
 
-<span class="k">def</span> <span class="nf">_shift_turbine_curve</span><span class="p">(</span><span class="n">turbine_curve</span><span class="p">,</span> <span class="n">hub_height</span><span class="p">,</span> <span class="n">maxspd</span><span class="p">,</span> <span class="n">new_curve_res</span><span class="p">):</span>
+<div class="viewcode-block" id="shift_turbine_curve"><a class="viewcode-back" href="../../../../prereise.gather.winddata.html#prereise.gather.winddata.power_curves.shift_turbine_curve">[docs]</a><span class="k">def</span> <span class="nf">shift_turbine_curve</span><span class="p">(</span><span class="n">turbine_curve</span><span class="p">,</span> <span class="n">hub_height</span><span class="p">,</span> <span class="n">maxspd</span><span class="p">,</span> <span class="n">new_curve_res</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Shift a turbine curve based on a given hub height.</span>
 
 <span class="sd">    :param pandas.Series turbine_curve: power curve data, wind speed index.</span>
@@ -53,18 +55,16 @@
 <span class="sd">    :param float maxspd: Extent of new curve (m/s).</span>
 <span class="sd">    :param float new_curve_res: Resolution of new curve (m/s).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">wspd_height_base</span> <span class="o">=</span> <span class="mf">262.467</span>  <span class="c1"># 80m in feet</span>
-    <span class="n">wspd_exp</span> <span class="o">=</span> <span class="mf">0.15</span>  <span class="c1"># wspd(h) = wspd_0 * (h / h0)**wspd_exp</span>
     <span class="n">curve_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">maxspd</span> <span class="o">+</span> <span class="n">new_curve_res</span><span class="p">,</span> <span class="n">new_curve_res</span><span class="p">)</span>
-    <span class="n">wspd_scale_factor</span> <span class="o">=</span> <span class="p">(</span><span class="n">wspd_height_base</span> <span class="o">/</span> <span class="n">hub_height</span><span class="p">)</span> <span class="o">**</span> <span class="n">wspd_exp</span>
+    <span class="n">wspd_scale_factor</span> <span class="o">=</span> <span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">wspd_height_base</span> <span class="o">/</span> <span class="n">hub_height</span><span class="p">)</span> <span class="o">**</span> <span class="n">const</span><span class="o">.</span><span class="n">wspd_exp</span>
     <span class="n">shifted_x</span> <span class="o">=</span> <span class="n">turbine_curve</span><span class="o">.</span><span class="n">index</span> <span class="o">*</span> <span class="n">wspd_scale_factor</span>
     <span class="n">shifted_curve</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">curve_x</span><span class="p">,</span> <span class="n">shifted_x</span><span class="p">,</span> <span class="n">turbine_curve</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">shifted_curve</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">shifted_curve</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">curve_x</span><span class="p">)</span>
     <span class="n">shifted_curve</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Speed bin (m/s)&quot;</span>
-    <span class="k">return</span> <span class="n">shifted_curve</span>
+    <span class="k">return</span> <span class="n">shifted_curve</span></div>
 
 
-<div class="viewcode-block" id="build_state_curves"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.power_curves.build_state_curves">[docs]</a><span class="k">def</span> <span class="nf">build_state_curves</span><span class="p">(</span><span class="n">form_860</span><span class="p">,</span> <span class="n">power_curves</span><span class="p">,</span> <span class="n">maxspd</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;IEC class 2&quot;</span><span class="p">,</span> <span class="n">rsd</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<div class="viewcode-block" id="build_state_curves"><a class="viewcode-back" href="../../../../prereise.gather.winddata.html#prereise.gather.winddata.power_curves.build_state_curves">[docs]</a><span class="k">def</span> <span class="nf">build_state_curves</span><span class="p">(</span><span class="n">form_860</span><span class="p">,</span> <span class="n">power_curves</span><span class="p">,</span> <span class="n">maxspd</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;IEC class 2&quot;</span><span class="p">,</span> <span class="n">rsd</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Parse Form 860 and turbine curves to obtain average state curves.</span>
 
 <span class="sd">    :param pandas.DataFrame form_860: EIA Form 860 data.</span>
@@ -75,14 +75,9 @@
 <span class="sd">    :return: (*pandas.DataFrame*) - DataFrame of state curves.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;building state_power_curves&quot;</span><span class="p">)</span>
-    <span class="n">mfg_col</span> <span class="o">=</span> <span class="s2">&quot;Predominant Turbine Manufacturer&quot;</span>
-    <span class="n">model_col</span> <span class="o">=</span> <span class="s2">&quot;Predominant Turbine Model Number&quot;</span>
-    <span class="n">capacity_col</span> <span class="o">=</span> <span class="s2">&quot;Nameplate Capacity (MW)&quot;</span>
-    <span class="n">hubheight_col</span> <span class="o">=</span> <span class="s2">&quot;Turbine Hub Height (Feet)&quot;</span>
-    <span class="n">new_curve_res</span> <span class="o">=</span> <span class="mf">0.01</span>  <span class="c1"># resolution: m/s</span>
 
     <span class="n">states</span> <span class="o">=</span> <span class="n">form_860</span><span class="p">[</span><span class="s2">&quot;State&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
-    <span class="n">curve_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">maxspd</span> <span class="o">+</span> <span class="n">new_curve_res</span><span class="p">,</span> <span class="n">new_curve_res</span><span class="p">)</span>
+    <span class="n">curve_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">maxspd</span> <span class="o">+</span> <span class="n">const</span><span class="o">.</span><span class="n">new_curve_res</span><span class="p">,</span> <span class="n">const</span><span class="o">.</span><span class="n">new_curve_res</span><span class="p">)</span>
     <span class="n">state_curves</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">curve_x</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Speed bin (m/s)&quot;</span><span class="p">])</span>
     <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">states</span><span class="p">:</span>
         <span class="n">cumulative_curve</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">curve_x</span><span class="p">)</span>
@@ -90,18 +85,18 @@
         <span class="n">state_wind_farms</span> <span class="o">=</span> <span class="n">form_860</span><span class="p">[</span><span class="n">form_860</span><span class="p">[</span><span class="s2">&quot;State&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">state_wind_farms</span><span class="o">.</span><span class="n">index</span><span class="p">):</span>
             <span class="c1"># Look up attributes from Form 860</span>
-            <span class="n">farm_capacity</span> <span class="o">=</span> <span class="n">state_wind_farms</span><span class="p">[</span><span class="n">capacity_col</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-            <span class="n">hub_height</span> <span class="o">=</span> <span class="n">state_wind_farms</span><span class="p">[</span><span class="n">hubheight_col</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-            <span class="n">turbine_mfg</span> <span class="o">=</span> <span class="n">state_wind_farms</span><span class="p">[</span><span class="n">mfg_col</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-            <span class="n">turbine_model</span> <span class="o">=</span> <span class="n">state_wind_farms</span><span class="p">[</span><span class="n">model_col</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">farm_capacity</span> <span class="o">=</span> <span class="n">state_wind_farms</span><span class="p">[</span><span class="n">const</span><span class="o">.</span><span class="n">capacity_col</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">hub_height</span> <span class="o">=</span> <span class="n">state_wind_farms</span><span class="p">[</span><span class="n">const</span><span class="o">.</span><span class="n">hub_height_col</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">turbine_mfg</span> <span class="o">=</span> <span class="n">state_wind_farms</span><span class="p">[</span><span class="n">const</span><span class="o">.</span><span class="n">mfg_col</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">turbine_model</span> <span class="o">=</span> <span class="n">state_wind_farms</span><span class="p">[</span><span class="n">const</span><span class="o">.</span><span class="n">model_col</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
             <span class="c1"># Look up turbine-specific power curve (or default)</span>
             <span class="n">turbine_name</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">turbine_mfg</span><span class="p">,</span> <span class="n">turbine_model</span><span class="p">])</span>
             <span class="k">if</span> <span class="n">turbine_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">power_curves</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
                 <span class="n">turbine_name</span> <span class="o">=</span> <span class="n">default</span>
             <span class="n">turbine_curve</span> <span class="o">=</span> <span class="n">power_curves</span><span class="p">[</span><span class="n">turbine_name</span><span class="p">]</span>
             <span class="c1"># Shift based on farm-specific hub height</span>
-            <span class="n">shifted_curve</span> <span class="o">=</span> <span class="n">_shift_turbine_curve</span><span class="p">(</span>
-                <span class="n">turbine_curve</span><span class="p">,</span> <span class="n">hub_height</span><span class="p">,</span> <span class="n">maxspd</span><span class="p">,</span> <span class="n">new_curve_res</span>
+            <span class="n">shifted_curve</span> <span class="o">=</span> <span class="n">shift_turbine_curve</span><span class="p">(</span>
+                <span class="n">turbine_curve</span><span class="p">,</span> <span class="n">hub_height</span><span class="p">,</span> <span class="n">maxspd</span><span class="p">,</span> <span class="n">const</span><span class="o">.</span><span class="n">new_curve_res</span>
             <span class="p">)</span>
             <span class="c1"># Add to cumulative totals</span>
             <span class="n">cumulative_curve</span> <span class="o">+=</span> <span class="n">shifted_curve</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">*</span> <span class="n">farm_capacity</span>
@@ -111,10 +106,10 @@
     <span class="n">state_curves</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;Speed bin (m/s)&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="c1"># Add an &#39;Offshore&#39; state with a representative curve</span>
-    <span class="n">hub_height</span> <span class="o">=</span> <span class="mf">393.701</span>  <span class="c1"># 120 meters, in feet to match Form860 data</span>
+    <span class="n">hub_height</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">offshore_hub_height</span>
     <span class="n">turbine_curve</span> <span class="o">=</span> <span class="n">power_curves</span><span class="p">[</span><span class="s2">&quot;Vestas V164-8.0&quot;</span><span class="p">]</span>
-    <span class="n">shifted_curve</span> <span class="o">=</span> <span class="n">_shift_turbine_curve</span><span class="p">(</span>
-        <span class="n">turbine_curve</span><span class="p">,</span> <span class="n">hub_height</span><span class="p">,</span> <span class="n">maxspd</span><span class="p">,</span> <span class="n">new_curve_res</span>
+    <span class="n">shifted_curve</span> <span class="o">=</span> <span class="n">shift_turbine_curve</span><span class="p">(</span>
+        <span class="n">turbine_curve</span><span class="p">,</span> <span class="n">hub_height</span><span class="p">,</span> <span class="n">maxspd</span><span class="p">,</span> <span class="n">const</span><span class="o">.</span><span class="n">new_curve_res</span>
     <span class="p">)</span>
     <span class="n">state_curves</span><span class="p">[</span><span class="s2">&quot;Offshore&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">shifted_curve</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
     <span class="n">offshore_rsd</span> <span class="o">=</span> <span class="mf">0.25</span>
@@ -145,7 +140,7 @@
     <span class="k">return</span> <span class="n">state_curves</span></div>
 
 
-<div class="viewcode-block" id="get_form_860"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.power_curves.get_form_860">[docs]</a><span class="k">def</span> <span class="nf">get_form_860</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">year</span><span class="o">=</span><span class="mi">2016</span><span class="p">):</span>
+<div class="viewcode-block" id="get_form_860"><a class="viewcode-back" href="../../../../prereise.gather.winddata.html#prereise.gather.winddata.power_curves.get_form_860">[docs]</a><span class="k">def</span> <span class="nf">get_form_860</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">year</span><span class="o">=</span><span class="mi">2016</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Read data for EIA Form 860.</span>
 
 <span class="sd">    :param str data_dir: data directory.</span>
@@ -175,7 +170,7 @@
     <span class="k">return</span> <span class="n">form_860</span></div>
 
 
-<div class="viewcode-block" id="get_power"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.power_curves.get_power">[docs]</a><span class="k">def</span> <span class="nf">get_power</span><span class="p">(</span><span class="n">power_curves</span><span class="p">,</span> <span class="n">state_power_curves</span><span class="p">,</span> <span class="n">wspd</span><span class="p">,</span> <span class="n">turbine</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;IEC class 2&quot;</span><span class="p">):</span>
+<div class="viewcode-block" id="get_power"><a class="viewcode-back" href="../../../../prereise.gather.winddata.html#prereise.gather.winddata.power_curves.get_power">[docs]</a><span class="k">def</span> <span class="nf">get_power</span><span class="p">(</span><span class="n">power_curves</span><span class="p">,</span> <span class="n">state_power_curves</span><span class="p">,</span> <span class="n">wspd</span><span class="p">,</span> <span class="n">turbine</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;IEC class 2&quot;</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Convert wind speed to power using NREL turbine power curves.</span>
 
 <span class="sd">    :param pandas.DataFrame power_curves: turbine power curves data.</span>
@@ -196,7 +191,7 @@
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">wspd</span><span class="p">,</span> <span class="n">curve</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">curve</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="get_turbine_power_curves"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.power_curves.get_turbine_power_curves">[docs]</a><span class="k">def</span> <span class="nf">get_turbine_power_curves</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="s2">&quot;PowerCurves.csv&quot;</span><span class="p">):</span>
+<div class="viewcode-block" id="get_turbine_power_curves"><a class="viewcode-back" href="../../../../prereise.gather.winddata.html#prereise.gather.winddata.power_curves.get_turbine_power_curves">[docs]</a><span class="k">def</span> <span class="nf">get_turbine_power_curves</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="s2">&quot;PowerCurves.csv&quot;</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Load turbine power curves from csv.</span>
 
 <span class="sd">    :param str filename: filename (not path) of csv file to read from.</span>
@@ -208,7 +203,7 @@
     <span class="k">return</span> <span class="n">power_curves</span></div>
 
 
-<div class="viewcode-block" id="get_state_power_curves"><a class="viewcode-back" href="../../../../../prereise.gather.winddata.rap.html#prereise.gather.winddata.rap.power_curves.get_state_power_curves">[docs]</a><span class="k">def</span> <span class="nf">get_state_power_curves</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="s2">&quot;StatePowerCurves.csv&quot;</span><span class="p">,</span> <span class="n">rsd</span><span class="o">=</span><span class="mf">0.4</span><span class="p">):</span>
+<div class="viewcode-block" id="get_state_power_curves"><a class="viewcode-back" href="../../../../prereise.gather.winddata.html#prereise.gather.winddata.power_curves.get_state_power_curves">[docs]</a><span class="k">def</span> <span class="nf">get_state_power_curves</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="s2">&quot;StatePowerCurves.csv&quot;</span><span class="p">,</span> <span class="n">rsd</span><span class="o">=</span><span class="mf">0.4</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Load state power curves from csv, if the csv is present. Otherwise,</span>
 <span class="sd">    construct them from EIA form 860 data and turbine curves.</span>
 
@@ -234,8 +229,8 @@
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
 <p class="logo">
-  <a href="../../../../../index.html">
-    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
     
   </a>
 </p>
@@ -258,20 +253,20 @@
 
 <h3>Navigation</h3>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl_package.html">8. REISE.jl</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reisejl_package.html">8. REISE.jl</a></li>
 </ul>
 
 <h3>Related Topics</h3>
 <ul>
-  <li><a href="../../../../../index.html">Documentation overview</a><ul>
-  <li><a href="../../../../index.html">Module code</a><ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
   </ul></li>
   </ul></li>
 </ul><h3>Useful Links</h3>
@@ -284,7 +279,7 @@
 <div id="searchbox" style="display: none" role="search">
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
-    <form class="search" action="../../../../../search.html" method="get">
+    <form class="search" action="../../../../search.html" method="get">
       <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
     </form>
@@ -292,7 +287,7 @@
 </div>
 <script>$('#searchbox').show(0);</script><ul>
 <h3>Code</h3>
-<a href="../../../../../py-modindex.html">Module Index</a>
+<a href="../../../../py-modindex.html">Module Index</a>
 </ul>
         </div>
       </div>

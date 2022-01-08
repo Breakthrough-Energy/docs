@@ -3,7 +3,7 @@ name: Documentation improvement
 about: Create a report to help us improve the documentation
 title: Documentation improvement
 labels: documentation
-assignees: ahurli, BainanXia, danielolsen, jon-hagg, rouille
+assignees: BainanXia, danielolsen, jon-hagg, rouille
 
 ---
 

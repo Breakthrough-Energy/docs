@@ -38,10 +38,18 @@
 
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants.zones</span> <span class="kn">import</span> <span class="n">abv2state</span><span class="p">,</span> <span class="n">id2abv</span><span class="p">,</span> <span class="n">id2timezone</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants.zones</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">abv2id</span><span class="p">,</span>
+    <span class="n">abv2state</span><span class="p">,</span>
+    <span class="n">id2abv</span><span class="p">,</span>
+    <span class="n">id2timezone</span><span class="p">,</span>
+    <span class="n">interconnect2id</span><span class="p">,</span>
+<span class="p">)</span>
 
 
-<div class="viewcode-block" id="decompose_demand_profile_by_state_to_loadzone"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.nrel_efs.html#prereise.gather.demanddata.nrel_efs.map_states.decompose_demand_profile_by_state_to_loadzone">[docs]</a><span class="k">def</span> <span class="nf">decompose_demand_profile_by_state_to_loadzone</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="decompose_demand_profile_by_state_to_loadzone"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.nrel_efs.html#prereise.gather.demanddata.nrel_efs.map_states.decompose_demand_profile_by_state_to_loadzone">[docs]</a><span class="k">def</span> <span class="nf">decompose_demand_profile_by_state_to_loadzone</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">,</span> <span class="n">profile_type</span><span class="p">,</span> <span class="n">regions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Transforms the sectoral demand data so that it is separated by load zone rather</span>
 <span class="sd">    than by state.</span>
 
@@ -49,18 +57,38 @@
 <span class="sd">        are time steps (in local time) and the columns are the states. This input is</span>
 <span class="sd">        intended to be the output of :py:func:`combine_efs_demand` or the components</span>
 <span class="sd">        that are output from :py:func:`partition_flexibility_by_sector`.</span>
-<span class="sd">    :param str save: Saves a .csv if a str representing a valid file path and file</span>
+<span class="sd">    :param str profile_type: A string that identifies the type of profile that is</span>
+<span class="sd">        provided. Can be one of *&#39;demand&#39;* or *&#39;demand_flexibility&#39;*.</span>
+<span class="sd">    :param iterable regions: The combination of interconnection names and state</span>
+<span class="sd">        abbreviations that dictate the zone IDs to be included. Can choose any of:</span>
+<span class="sd">        *&#39;Eastern&#39;*, *&#39;Western&#39;*, *&#39;Texas&#39;*, any state abbreviation in the contiguous</span>
+<span class="sd">        United States, or *&#39;All&#39;*. Defaults to None.</span>
+<span class="sd">    :param str save: Saves a .csv if a string representing a valid file path and file</span>
 <span class="sd">        name is provided. Defaults to None, indicating that a .csv file should not be</span>
 <span class="sd">        saved.</span>
 <span class="sd">    :return: (*pandas.DataFrame*) -- Sectoral demand, split by load zone ID.</span>
-<span class="sd">    :raises TypeError: if df is not a pandas.DataFrame or if save is not input as a str.</span>
+<span class="sd">    :raises TypeError: if df is not a pandas.DataFrame, if profile_type is not a string,</span>
+<span class="sd">        if regions is not an iterable, if the components of regions are not strings, or</span>
+<span class="sd">        if save is not input as a string.</span>
 <span class="sd">    :raises ValueError: if df does not have the proper timestamps or the correct number</span>
-<span class="sd">        of states.</span>
+<span class="sd">        of states, if profile_type is not valid, or if the components of regions are</span>
+<span class="sd">        not valid.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="c1"># Check that a DataFrame is input</span>
+    <span class="c1"># Account for the immutable default parameter</span>
+    <span class="k">if</span> <span class="n">regions</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">regions</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;All&quot;</span><span class="p">}</span>
+
+    <span class="c1"># Check the data types of the inputs</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;df must be input as a pandas.DataFrame.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">profile_type</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;profile_type must be input as a str.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">regions</span><span class="p">,</span> <span class="p">(</span><span class="nb">set</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="s2">&quot;Combination of interconnections and state abbreviations must be input as &quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;a set or list.&quot;</span>
+        <span class="p">)</span>
 
     <span class="c1"># Check the demand DataFrame timestamps and column headers</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span>
@@ -69,6 +97,28 @@
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This data does not have the proper timestamps.&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">set</span><span class="p">(</span><span class="n">abv2state</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;AK&quot;</span><span class="p">,</span> <span class="s2">&quot;HI&quot;</span><span class="p">}:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This data does not include all 48 states.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check the value of profile_type</span>
+    <span class="k">if</span> <span class="n">profile_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;demand_flexibility&quot;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">profile_type</span><span class="si">}</span><span class="s2"> is not a valid selection for profile_type.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Check that the components of regions are str</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">regions</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="s2">&quot;Individual interconnections and state abbreviations must be input as a &quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;str.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Reformat components of regions</span>
+    <span class="n">regions</span> <span class="o">=</span> <span class="p">{</span><span class="n">x</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="n">x</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">regions</span><span class="p">}</span>
+    <span class="k">if</span> <span class="s2">&quot;All&quot;</span> <span class="ow">in</span> <span class="n">regions</span><span class="p">:</span>
+        <span class="n">regions</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Eastern&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">}</span>
+
+    <span class="c1"># Check that the components of regions are valid</span>
+    <span class="n">possible_regions</span> <span class="o">=</span> <span class="p">({</span><span class="s2">&quot;Eastern&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">}</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">abv2state</span><span class="p">))</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;AK&quot;</span><span class="p">,</span> <span class="s2">&quot;HI&quot;</span><span class="p">}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">regions</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">possible_regions</span><span class="p">):</span>
+        <span class="n">invalid_regions</span> <span class="o">=</span> <span class="n">regions</span> <span class="o">-</span> <span class="n">possible_regions</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid regions: </span><span class="si">{</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">invalid_regions</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
 
     <span class="c1"># Grab the grid information</span>
     <span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">([</span><span class="s2">&quot;USA&quot;</span><span class="p">])</span>
@@ -87,6 +137,20 @@
 
     <span class="c1"># Convert from local hours to UTC time</span>
     <span class="n">df_lz</span> <span class="o">=</span> <span class="n">shift_local_time_by_loadzone_to_utc</span><span class="p">(</span><span class="n">df_lz</span><span class="p">)</span>
+
+    <span class="c1"># Determine the loadzones to be inlcuded in the profile, as specified by regions</span>
+    <span class="n">loadzones</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+        <span class="nb">set</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+            <span class="o">*</span><span class="p">[</span><span class="n">abv2id</span><span class="p">[</span><span class="n">r</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="n">interconnect2id</span><span class="p">[</span><span class="n">r</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">regions</span><span class="p">]</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Keep the appropriate loadzones</span>
+    <span class="n">df_lz</span> <span class="o">=</span> <span class="n">df_lz</span><span class="p">[</span><span class="n">loadzones</span><span class="p">]</span>
+
+    <span class="c1"># Change the column headers if the profile_type is &quot;demand_flexibility&quot;</span>
+    <span class="k">if</span> <span class="n">profile_type</span> <span class="o">==</span> <span class="s2">&quot;demand_flexibility&quot;</span><span class="p">:</span>
+        <span class="n">df_lz</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;zone.</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">loadzones</span><span class="p">]</span>
 
     <span class="c1"># Save the demand data, if desired</span>
     <span class="k">if</span> <span class="n">save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>

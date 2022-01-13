@@ -52,14 +52,14 @@
 <span class="sd">        demand data for each state and time step. This input is intended to be the</span>
 <span class="sd">        output of :py:func:`access_non_efs_demand`, which is not associated with NREL&#39;s</span>
 <span class="sd">        EFS. Defaults to None.</span>
-<span class="sd">    :param str save: Saves a .csv if a str representing a valid file path and file</span>
+<span class="sd">    :param str save: Saves a .csv if a string representing a valid file path and file</span>
 <span class="sd">        name is provided. Defaults to None, indicating that a .csv file should not be</span>
 <span class="sd">        saved.</span>
 <span class="sd">    :return: (*pandas.DataFrame*) -- Aggregate demand data for all sectors (both EFS and</span>
 <span class="sd">        non-EFS).</span>
 <span class="sd">    :raises TypeError: if efs_dem is not input as a dict, if non_efs_dem is not input as</span>
 <span class="sd">        a list, if the components of efs_dem and non_efs_dem are not pandas.DataFrames,</span>
-<span class="sd">        or if save is not input as a str.</span>
+<span class="sd">        or if save is not input as a string.</span>
 <span class="sd">    :raises ValueError: if both efs_dem and non_efs_dem are entered as None or if the</span>
 <span class="sd">        components of efs_dem and non_efs_dem do not have the proper timestamps or the</span>
 <span class="sd">        correct number of states.</span>
@@ -141,14 +141,14 @@
 <span class="sd">    to NREL&#39;s EFS studies. This function also ensures that each data set is formatted</span>
 <span class="sd">    appropriately, so as to allow easy aggregation with the NREL EFS sectoral demand.</span>
 
-<span class="sd">    :param set/list dem_paths: The paths that point to the .csv files of sectoral demand</span>
-<span class="sd">        data that is not associated with NREL&#39;s EFS. Ordering within the set/list does</span>
+<span class="sd">    :param iterable dem_paths: The paths that point to the .csv files of sectoral demand</span>
+<span class="sd">        data that is not associated with NREL&#39;s EFS. Ordering within the iterable does</span>
 <span class="sd">        not need to match that in local_sects.</span>
 <span class="sd">    :return: (*list*) -- A list of pandas.DataFrame objects that contain sectoral demand</span>
 <span class="sd">        data for each state and time step. This sectoral demand is not a part of NREL&#39;s</span>
 <span class="sd">        EFS.</span>
-<span class="sd">    :raises TypeError: if dem_paths are not input as a set or list or if the components</span>
-<span class="sd">        of dem_paths are not input as str.</span>
+<span class="sd">    :raises TypeError: if dem_paths are not input as an iterable or if the components of</span>
+<span class="sd">        dem_paths are not input as strings.</span>
 <span class="sd">    :raises ValueError: if the data located in each path in dem_path does not have the</span>
 <span class="sd">        proper timestamps or the correct number of states.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -165,12 +165,9 @@
     <span class="n">sect_dem</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">dem_paths</span><span class="p">:</span>
         <span class="c1"># Try loading the locally-stored sectoral demand</span>
-        <span class="n">temp_dem</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
-
-        <span class="c1"># Set the index</span>
-        <span class="k">if</span> <span class="s2">&quot;Local Time&quot;</span> <span class="ow">in</span> <span class="n">temp_dem</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-            <span class="n">temp_dem</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;Local Time&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">temp_dem</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">parse_dates</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="s2">&quot;Local Time&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;This data does not provide the timestamps correctly.&quot;</span><span class="p">)</span>
 
         <span class="c1"># Check the DataFrame dimensions and headers</span>

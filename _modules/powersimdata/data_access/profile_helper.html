@@ -43,6 +43,39 @@
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
 
 
+<span class="k">def</span> <span class="nf">_get_profile_version</span><span class="p">(</span><span class="n">_fs</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns available raw profiles from the give filesystem</span>
+<span class="sd">    :param fs.base.FS _fs: filesystem instance</span>
+<span class="sd">    :param str kind: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
+<span class="sd">    :return: (*list*) -- available profile version.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">matching</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">_fs</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">f</span><span class="p">]</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">_&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;.csv&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">matching</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="get_profile_version_cloud"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.profile_helper.get_profile_version_cloud">[docs]</a><span class="k">def</span> <span class="nf">get_profile_version_cloud</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns available raw profile from blob storage.</span>
+
+<span class="sd">    :param str grid_model: grid model.</span>
+<span class="sd">    :param str kind: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
+<span class="sd">    :return: (*list*) -- available profile version.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bfs</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="s2">&quot;azblob://besciences@profiles&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">opendir</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;raw/</span><span class="si">{</span><span class="n">grid_model</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_get_profile_version</span><span class="p">(</span><span class="n">bfs</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_profile_version_local"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.profile_helper.get_profile_version_local">[docs]</a><span class="k">def</span> <span class="nf">get_profile_version_local</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns available raw profile from local file.</span>
+
+<span class="sd">    :param str grid_model: grid model.</span>
+<span class="sd">    :param str kind: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
+<span class="sd">    :return: (*list*) -- available profile version.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">profile_dir</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="s2">&quot;raw&quot;</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">)</span>
+    <span class="n">lfs</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="n">profile_dir</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_get_profile_version</span><span class="p">(</span><span class="n">lfs</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="ProfileHelper"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.profile_helper.ProfileHelper">[docs]</a><span class="k">class</span> <span class="nc">ProfileHelper</span><span class="p">:</span>
     <span class="n">BASE_URL</span> <span class="o">=</span> <span class="s2">&quot;https://besciences.blob.core.windows.net/profiles&quot;</span>
 
@@ -87,46 +120,7 @@
                     <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
                     <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">chunk</span><span class="p">))</span>
 
-        <span class="k">return</span> <span class="n">dest</span></div>
-
-<div class="viewcode-block" id="ProfileHelper.parse_version"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.profile_helper.ProfileHelper.parse_version">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">parse_version</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">version</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Parse available versions from the given spec.</span>
-
-<span class="sd">        :param str grid_model: grid model.</span>
-<span class="sd">        :param str kind: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
-<span class="sd">        :param dict version: version information per grid model.</span>
-<span class="sd">        :return: (*list*) -- available profile version.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">grid_model</span> <span class="ow">in</span> <span class="n">version</span> <span class="ow">and</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">version</span><span class="p">[</span><span class="n">grid_model</span><span class="p">]:</span>
-            <span class="k">return</span> <span class="n">version</span><span class="p">[</span><span class="n">grid_model</span><span class="p">][</span><span class="n">kind</span><span class="p">]</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No </span><span class="si">%s</span><span class="s2"> profiles available.&quot;</span> <span class="o">%</span> <span class="n">kind</span><span class="p">)</span>
-        <span class="k">return</span> <span class="p">[]</span></div>
-
-<div class="viewcode-block" id="ProfileHelper.get_profile_version_cloud"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.profile_helper.ProfileHelper.get_profile_version_cloud">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">get_profile_version_cloud</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns available raw profile from blob storage.</span>
-
-<span class="sd">        :param str grid_model: grid model.</span>
-<span class="sd">        :param str kind: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
-<span class="sd">        :return: (*list*) -- available profile version.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ProfileHelper</span><span class="o">.</span><span class="n">BASE_URL</span><span class="si">}</span><span class="s2">/version.json&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">ProfileHelper</span><span class="o">.</span><span class="n">parse_version</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">())</span></div>
-
-<div class="viewcode-block" id="ProfileHelper.get_profile_version_local"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.profile_helper.ProfileHelper.get_profile_version_local">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">get_profile_version_local</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns available raw profile from local file.</span>
-
-<span class="sd">        :param str grid_model: grid model.</span>
-<span class="sd">        :param str kind: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
-<span class="sd">        :return: (*list*) -- available profile version.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">profile_dir</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="s2">&quot;raw&quot;</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">)</span>
-        <span class="n">lfs</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="n">profile_dir</span><span class="p">)</span>
-        <span class="n">matching</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">lfs</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">f</span><span class="p">]</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">_&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;.csv&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">matching</span><span class="p">]</span></div></div>
+        <span class="k">return</span> <span class="n">dest</span></div></div>
 </pre></div>
 
           </div>

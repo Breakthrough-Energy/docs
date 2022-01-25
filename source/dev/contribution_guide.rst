@@ -20,6 +20,8 @@ How to Contribute
    up and running
 #. Get familiar with our Git/GitHub workflow (see our :doc:`../user/git_guide` for more
    details)
+#. If you have an idea for a feature, first create a feature request.
+   (more details on `How to create a Feature Request`_)
 #. Does your feature require external data? (see the `Data Intake Procedure`_
    section)
 #. Develop your feature (go to the `Develop your Feature`_ section)
@@ -27,6 +29,11 @@ How to Contribute
 #. Document your code (see the `Document your Code`_ section)
 #. Make a pull request (see our :doc:`../user/git_guide` page)
 
+How to create a Feature Request
++++++++++++++++++++++++++++++++
+Navigate to the most fitting repository that your feature may belong to. Click on **Issues** and then **New issue**.
+Select the **Feature request** template (if it exists). Fill out the request template and submit the issue.
+The assigned team will get back to you regarding your request.
 
 Data Intake Procedure
 +++++++++++++++++++++

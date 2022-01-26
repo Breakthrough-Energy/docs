@@ -20,9 +20,7 @@ How to Contribute
    up and running
 #. Get familiar with our Git/GitHub workflow (see our :doc:`../user/git_guide` for more
    details)
-#. If you are here to report a bug, create a bug report. (see the `Bug Report`_ section)
-#. If you have an idea for a feature, first create a feature request.
-   (more details on `How to create a Feature Request`_)
+#. Reporting a bug or have a feature request? (see the `Bug Report and Feature Request`_ section)
 #. Does your feature require external data? (see the `Data Intake Procedure`_
    section)
 #. Develop your feature (go to the `Develop your Feature`_ section)
@@ -30,19 +28,21 @@ How to Contribute
 #. Document your code (see the `Document your Code`_ section)
 #. Make a pull request (see our :doc:`../user/git_guide` page)
 
-Bug Report
-++++++++++
-Thank you for reporting your bug. Navigate to the repository you have identified as the most likely source of your bug.
-Choose the **Issues** tab on the repository and create a **New Issue**. If available, choose the **Bug report** template and
-select **Get started**. Please fill out the template and provide as much information regarding the bug as possible.
-Click on **Submit new issue** and the team will follow up with more question, a solution, or release a fix
-for your bug.
+Bug Report and Feature Request
+++++++++++++++
+Thank you for reporting your bug or requesting a feature. Navigate to the repository you have identified
+as the most likely source of your bug or where you think your feature may belong to.
 
-How to create a Feature Request
-+++++++++++++++++++++++++++++++
-Navigate to the most fitting repository that your feature may belong to. Click on **Issues** and then **New issue**.
-Select the **Feature request** template (if it exists). Fill out the request template and submit the issue.
-The assigned team will get back to you regarding your request.
+If you are not sure if your bug is really a bug, but rather stems from you individual setup or installation,
+then use the `#questions <https://besciencescommunity.slack.com/archives/C01CBTRQQF9>`_ slack channel
+to discuss your issue. If you want to discuss your feature request first with the team, feel free to connect with us
+via the `#request_software <https://besciencescommunity.slack.com/archives/C01D594JXK3>`_ slack channel.
+
+If you are clear about your bug or feature request, choose the **Issues** tab on the repository and
+create a **New Issue**. If available, choose the **Bug report** or **Feature request** template and
+select **Get started**. Please fill out the template and provide as much information regarding your
+bug or feature request. Click on **Submit new issue** and the team will get back to you regarding your issue.
+
 
 Data Intake Procedure
 +++++++++++++++++++++

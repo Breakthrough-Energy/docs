@@ -20,6 +20,7 @@ How to Contribute
    up and running
 #. Get familiar with our Git/GitHub workflow (see our :doc:`../user/git_guide` for more
    details)
+#. If you are here to report a bug, create a bug report. (see the `Bug Report`_ section)
 #. If you have an idea for a feature, first create a feature request.
    (more details on `How to create a Feature Request`_)
 #. Does your feature require external data? (see the `Data Intake Procedure`_
@@ -28,6 +29,14 @@ How to Contribute
 #. Format your code (as explained in the `Format your Code`_ section)
 #. Document your code (see the `Document your Code`_ section)
 #. Make a pull request (see our :doc:`../user/git_guide` page)
+
+Bug Report
+++++++++++
+Thank you for reporting your bug. Navigate to the repository you have identified as the most likely source of your bug.
+Choose the **Issues** tab on the repository and create a **New Issue**. If available, choose the **Bug report** template and
+select **Get started**. Please fill out the template and provide as much information regarding the bug as possible.
+Click on **Submit new issue** and the team will follow up with more question, a solution, or release a fix
+for your bug.
 
 How to create a Feature Request
 +++++++++++++++++++++++++++++++

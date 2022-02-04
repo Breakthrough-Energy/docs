@@ -42,7 +42,8 @@
 <span class="kn">from</span> <span class="nn">scipy.sparse</span> <span class="kn">import</span> <span class="n">coo_matrix</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.data_access.context</span> <span class="kn">import</span> <span class="n">Context</span>
-<span class="kn">from</span> <span class="nn">powersimdata.input.input_data</span> <span class="kn">import</span> <span class="n">get_bus_demand</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.input_data</span> <span class="kn">import</span> <span class="n">distribute_demand_from_zones_to_buses</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.transform_profile</span> <span class="kn">import</span> <span class="n">TransformProfile</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
 
 
@@ -112,11 +113,12 @@
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only </span><span class="si">%s</span><span class="s2"> data can be loaded&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">))</span>
 
 
-<div class="viewcode-block" id="construct_load_shed"><a class="viewcode-back" href="../../../powersimdata.output.html#powersimdata.output.output_data.construct_load_shed">[docs]</a><span class="k">def</span> <span class="nf">construct_load_shed</span><span class="p">(</span><span class="n">scenario_info</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">infeasibilities</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="construct_load_shed"><a class="viewcode-back" href="../../../powersimdata.output.html#powersimdata.output.output_data.construct_load_shed">[docs]</a><span class="k">def</span> <span class="nf">construct_load_shed</span><span class="p">(</span><span class="n">scenario_info</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="p">,</span> <span class="n">infeasibilities</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Constructs load_shed dataframe from relevant scenario/grid data.</span>
 
 <span class="sd">    :param dict scenario_info: info attribute of Scenario object.</span>
 <span class="sd">    :param powersimdata.input.grid.Grid grid: grid to construct load_shed for.</span>
+<span class="sd">    :param dict ct: ChangeTable dictionary.</span>
 <span class="sd">    :param dict/None infeasibilities: dictionary of</span>
 <span class="sd">        {interval (int): load shed percentage (int)}, or None.</span>
 <span class="sd">    :return: (*pandas.DataFrame*) -- data frame of load_shed.</span>
@@ -131,7 +133,8 @@
         <span class="n">load_shed</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">sparse</span><span class="o">.</span><span class="n">from_spmatrix</span><span class="p">(</span><span class="n">load_shed_data</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Infeasibilities, constructing DataFrame&quot;</span><span class="p">)</span>
-        <span class="n">bus_demand</span> <span class="o">=</span> <span class="n">get_bus_demand</span><span class="p">(</span><span class="n">scenario_info</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+        <span class="n">zone_demand</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="n">scenario_info</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">ct</span><span class="p">)</span>
+        <span class="n">bus_demand</span> <span class="o">=</span> <span class="n">distribute_demand_from_zones_to_buses</span><span class="p">(</span><span class="n">zone_demand</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">)</span>
         <span class="n">load_shed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">hours</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">buses</span><span class="p">)))</span>
         <span class="c1"># Convert &#39;24H&#39; to 24</span>
         <span class="n">interval</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;interval&quot;</span><span class="p">][:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>

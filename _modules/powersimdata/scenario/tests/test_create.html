@@ -35,17 +35,47 @@
             
   <h1>Source code for powersimdata.scenario.tests.test_create</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">pytest</span>
+<span class="kn">from</span> <span class="nn">pandas.testing</span> <span class="kn">import</span> <span class="n">assert_series_equal</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.scenario.scenario</span> <span class="kn">import</span> <span class="n">Scenario</span>
 
 
-<div class="viewcode-block" id="test_get_bus_demand"><a class="viewcode-back" href="../../../../powersimdata.scenario.tests.html#powersimdata.scenario.tests.test_create.test_get_bus_demand">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">integration</span>
-<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">ssh</span>
-<span class="k">def</span> <span class="nf">test_get_bus_demand</span><span class="p">():</span>
+<div class="viewcode-block" id="test_get_demand_and_get_bus_demand"><a class="viewcode-back" href="../../../../powersimdata.scenario.tests.html#powersimdata.scenario.tests.test_create.test_get_demand_and_get_bus_demand">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">integration</span>
+<span class="k">def</span> <span class="nf">test_get_demand_and_get_bus_demand</span><span class="p">():</span>
     <span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-    <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">set_grid</span><span class="p">(</span><span class="n">interconnect</span><span class="o">=</span><span class="s2">&quot;Texas&quot;</span><span class="p">)</span>
-    <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">set_base_profile</span><span class="p">(</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;vJan2021&quot;</span><span class="p">)</span>
-    <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_bus_demand</span><span class="p">()</span></div>
+    <span class="n">scenario</span><span class="o">.</span><span class="n">set_grid</span><span class="p">(</span><span class="n">interconnect</span><span class="o">=</span><span class="s2">&quot;Texas&quot;</span><span class="p">)</span>
+    <span class="c1"># Before we set the profile version, we should get errors trying to access</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+        <span class="n">scenario</span><span class="o">.</span><span class="n">get_bus_demand</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+        <span class="n">scenario</span><span class="o">.</span><span class="n">get_demand</span><span class="p">()</span>
+    <span class="c1"># After we set the profile version, we should get the right len (default full year)</span>
+    <span class="n">scenario</span><span class="o">.</span><span class="n">set_base_profile</span><span class="p">(</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;vJan2021&quot;</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">get_bus_demand</span><span class="p">())</span> <span class="o">==</span> <span class="mi">8784</span>
+    <span class="n">scenario</span><span class="o">.</span><span class="n">set_time</span><span class="p">(</span><span class="s2">&quot;2016-01-01 00:00&quot;</span><span class="p">,</span> <span class="s2">&quot;2016-01-03 23:00&quot;</span><span class="p">,</span> <span class="s2">&quot;24H&quot;</span><span class="p">)</span>
+    <span class="n">demand</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_demand</span><span class="p">()</span>
+    <span class="n">bus_demand</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_bus_demand</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">demand</span><span class="p">)</span> <span class="o">==</span> <span class="mi">72</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">bus_demand</span><span class="p">)</span> <span class="o">==</span> <span class="mi">72</span>
+    <span class="n">assert_series_equal</span><span class="p">(</span><span class="n">demand</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">bus_demand</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">unscaled_total_demand</span> <span class="o">=</span> <span class="n">demand</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">scenario</span><span class="o">.</span><span class="n">change_table</span><span class="o">.</span><span class="n">scale_demand</span><span class="p">(</span><span class="n">zone_id</span><span class="o">=</span><span class="p">{</span><span class="mi">301</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">})</span>
+    <span class="n">new_demand</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_demand</span><span class="p">()</span>
+    <span class="n">new_bus_demand</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_bus_demand</span><span class="p">()</span>
+    <span class="n">assert_series_equal</span><span class="p">(</span><span class="n">new_demand</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">new_bus_demand</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+    <span class="k">assert</span> <span class="n">new_demand</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">unscaled_total_demand</span></div>
+
+
+<div class="viewcode-block" id="test_get_solar"><a class="viewcode-back" href="../../../../powersimdata.scenario.tests.html#powersimdata.scenario.tests.test_create.test_get_solar">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">integration</span>
+<span class="k">def</span> <span class="nf">test_get_solar</span><span class="p">():</span>
+    <span class="n">scenario</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="n">scenario</span><span class="o">.</span><span class="n">set_grid</span><span class="p">(</span><span class="n">interconnect</span><span class="o">=</span><span class="s2">&quot;Texas&quot;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+        <span class="n">scenario</span><span class="o">.</span><span class="n">get_solar</span><span class="p">()</span>
+    <span class="n">scenario</span><span class="o">.</span><span class="n">set_base_profile</span><span class="p">(</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;vJan2021&quot;</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">get_solar</span><span class="p">())</span> <span class="o">==</span> <span class="mi">8784</span>
+    <span class="n">scenario</span><span class="o">.</span><span class="n">set_time</span><span class="p">(</span><span class="s2">&quot;2016-01-01 00:00&quot;</span><span class="p">,</span> <span class="s2">&quot;2016-01-03 23:00&quot;</span><span class="p">,</span> <span class="s2">&quot;24H&quot;</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">get_solar</span><span class="p">())</span> <span class="o">==</span> <span class="mi">72</span></div>
 </pre></div>
 
           </div>

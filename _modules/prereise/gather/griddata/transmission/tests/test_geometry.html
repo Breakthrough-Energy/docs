@@ -1,0 +1,247 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.griddata.transmission.tests.test_geometry &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../../" id="documentation_options" src="../../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../../_static/jquery.js"></script>
+    <script src="../../../../../../_static/underscore.js"></script>
+    <script src="../../../../../../_static/doctools.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.griddata.transmission.tests.test_geometry</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">pi</span>
+
+<span class="kn">import</span> <span class="nn">pytest</span>
+
+<span class="kn">from</span> <span class="nn">prereise.gather.griddata.transmission.geometry</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Conductor</span><span class="p">,</span>
+    <span class="n">ConductorBundle</span><span class="p">,</span>
+    <span class="n">PhaseLocations</span><span class="p">,</span>
+    <span class="n">Tower</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">km_in_mi</span> <span class="o">=</span> <span class="mf">1.609</span>
+<span class="c1"># Conversion factor for tower spacing in feet to tower spacing in meters</span>
+<span class="n">m_in_ft</span> <span class="o">=</span> <span class="mf">304.8e-3</span>
+
+
+<div class="viewcode-block" id="test_conductor"><a class="viewcode-back" href="../../../../../../prereise.gather.griddata.transmission.tests.html#prereise.gather.griddata.transmission.tests.test_geometry.test_conductor">[docs]</a><span class="k">def</span> <span class="nf">test_conductor</span><span class="p">():</span>
+    <span class="c1"># Cardinal conductor</span>
+    <span class="n">outer_diameter</span> <span class="o">=</span> <span class="mf">0.03038</span>
+    <span class="n">strand_radius</span> <span class="o">=</span> <span class="mf">1.688e-3</span>
+    <span class="n">rated_dc_resistance_per_1000_ft</span> <span class="o">=</span> <span class="mf">0.0179</span>
+    <span class="n">rated_dc_resistance_per_km</span> <span class="o">=</span> <span class="n">rated_dc_resistance_per_1000_ft</span> <span class="o">*</span> <span class="mf">3.2808</span>
+    <span class="c1"># Calculate for solid-aluminum (resistance should be lower than rated)</span>
+    <span class="n">conductor</span> <span class="o">=</span> <span class="n">Conductor</span><span class="p">(</span><span class="n">radius</span><span class="o">=</span><span class="p">(</span><span class="n">outer_diameter</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">material</span><span class="o">=</span><span class="s2">&quot;aluminum&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">conductor</span><span class="o">.</span><span class="n">resistance_per_km</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">conductor</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">&lt;</span> <span class="n">rated_dc_resistance_per_km</span>
+    <span class="c1"># Count 54 aluminum strands only for conductance purposes, ignore 7 steel strands</span>
+    <span class="c1"># (resistance should be approximately equal to rated)</span>
+    <span class="n">area</span> <span class="o">=</span> <span class="mi">54</span> <span class="o">*</span> <span class="n">pi</span> <span class="o">*</span> <span class="n">strand_radius</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">conductor</span> <span class="o">=</span> <span class="n">Conductor</span><span class="p">(</span><span class="n">radius</span><span class="o">=</span><span class="p">(</span><span class="n">outer_diameter</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">area</span><span class="o">=</span><span class="n">area</span><span class="p">,</span> <span class="n">material</span><span class="o">=</span><span class="s2">&quot;aluminum&quot;</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">conductor</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span><span class="n">rated_dc_resistance_per_km</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_conductor_bundle"><a class="viewcode-back" href="../../../../../../prereise.gather.griddata.transmission.tests.html#prereise.gather.griddata.transmission.tests.test_geometry.test_conductor_bundle">[docs]</a><span class="k">def</span> <span class="nf">test_conductor_bundle</span><span class="p">():</span>
+    <span class="n">spacing</span> <span class="o">=</span> <span class="mf">0.4572</span>
+    <span class="n">conductor</span> <span class="o">=</span> <span class="n">Conductor</span><span class="p">(</span>
+        <span class="n">radius</span><span class="o">=</span><span class="mf">0.01519</span><span class="p">,</span>
+        <span class="n">gmr</span><span class="o">=</span><span class="mf">0.012253</span><span class="p">,</span>
+        <span class="n">material</span><span class="o">=</span><span class="s2">&quot;ACSR&quot;</span><span class="p">,</span>  <span class="c1"># No constants for this material, but they&#39;re un-needed</span>
+        <span class="n">resistance_per_km</span><span class="o">=</span><span class="mf">0.023</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span>
+        <span class="n">bundle</span> <span class="o">=</span> <span class="n">ConductorBundle</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span> <span class="n">spacing</span><span class="o">=</span><span class="n">spacing</span><span class="p">,</span> <span class="n">conductor</span><span class="o">=</span><span class="n">conductor</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">bundle</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">==</span> <span class="n">conductor</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">/</span> <span class="n">n</span>
+        <span class="k">assert</span> <span class="n">bundle</span><span class="o">.</span><span class="n">spacing_L</span> <span class="o">==</span> <span class="p">(</span><span class="n">conductor</span><span class="o">.</span><span class="n">gmr</span> <span class="o">*</span> <span class="n">spacing</span> <span class="o">**</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">bundle</span><span class="o">.</span><span class="n">spacing_C</span> <span class="o">==</span> <span class="p">(</span><span class="n">conductor</span><span class="o">.</span><span class="n">radius</span> <span class="o">*</span> <span class="n">spacing</span> <span class="o">**</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_tower_single_circuit"><a class="viewcode-back" href="../../../../../../prereise.gather.griddata.transmission.tests.html#prereise.gather.griddata.transmission.tests.test_geometry.test_tower_single_circuit">[docs]</a><span class="k">def</span> <span class="nf">test_tower_single_circuit</span><span class="p">():</span>
+    <span class="c1"># Tower has two-conductor bundles (1.5 ft spacing), 24 ft b/w phases, 90 ft height</span>
+    <span class="n">spacing</span> <span class="o">=</span> <span class="mf">1.5</span> <span class="o">*</span> <span class="n">m_in_ft</span>
+    <span class="n">locations</span> <span class="o">=</span> <span class="n">PhaseLocations</span><span class="p">(</span>
+        <span class="n">a</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">24</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">,</span> <span class="mi">90</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">),</span>
+        <span class="n">b</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">90</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">),</span>
+        <span class="n">c</span><span class="o">=</span><span class="p">(</span><span class="mi">24</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">,</span> <span class="mi">90</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="c1"># Conductors are ACSR &#39;Cardinal&#39;</span>
+    <span class="n">rated_ac_resistance_per_km</span> <span class="o">=</span> <span class="mf">0.0672</span>  <span class="c1"># rated value at 50 C</span>
+    <span class="c1"># Alternate value range: 0.0614 at 20 C, 0.0748 at 75 C.</span>
+
+    <span class="c1"># Instantiate objects</span>
+    <span class="n">conductor</span> <span class="o">=</span> <span class="n">Conductor</span><span class="p">(</span>
+        <span class="n">radius</span><span class="o">=</span><span class="mf">0.01519</span><span class="p">,</span>
+        <span class="n">gmr</span><span class="o">=</span><span class="mf">0.012253</span><span class="p">,</span>
+        <span class="n">material</span><span class="o">=</span><span class="s2">&quot;ACSR&quot;</span><span class="p">,</span>  <span class="c1"># No constants for this material, but they&#39;re un-needed</span>
+        <span class="n">resistance_per_km</span><span class="o">=</span><span class="n">rated_ac_resistance_per_km</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">bundle</span> <span class="o">=</span> <span class="n">ConductorBundle</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">spacing</span><span class="o">=</span><span class="n">spacing</span><span class="p">,</span> <span class="n">conductor</span><span class="o">=</span><span class="n">conductor</span><span class="p">)</span>
+    <span class="n">tower</span> <span class="o">=</span> <span class="n">Tower</span><span class="p">(</span><span class="n">locations</span><span class="o">=</span><span class="n">locations</span><span class="p">,</span> <span class="n">bundle</span><span class="o">=</span><span class="n">bundle</span><span class="p">)</span>
+
+    <span class="c1"># Calculate for 50-mile distances (test case)</span>
+    <span class="n">resistance_per_50_mi</span> <span class="o">=</span> <span class="n">tower</span><span class="o">.</span><span class="n">resistance</span> <span class="o">*</span> <span class="mi">50</span> <span class="o">*</span> <span class="n">km_in_mi</span>
+    <span class="n">series_reactance_per_50_mi</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">pi</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="n">tower</span><span class="o">.</span><span class="n">inductance</span> <span class="o">*</span> <span class="mi">50</span> <span class="o">*</span> <span class="n">km_in_mi</span>
+    <span class="n">shunt_admittance_per_50_mi</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">pi</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="n">tower</span><span class="o">.</span><span class="n">capacitance</span> <span class="o">*</span> <span class="mi">50</span> <span class="o">*</span> <span class="n">km_in_mi</span>
+
+    <span class="c1"># Expected values</span>
+    <span class="n">expected_resistance</span> <span class="o">=</span> <span class="mf">2.82</span>  <span class="c1"># Ohms</span>
+    <span class="n">expected_series_reactance</span> <span class="o">=</span> <span class="mf">29.2</span>  <span class="c1"># Ohms</span>
+    <span class="n">expected_shunt_admittance</span> <span class="o">=</span> <span class="mf">3.59e-4</span>  <span class="c1"># Siemens</span>
+
+    <span class="c1"># Check</span>
+    <span class="c1"># relative tolerance of 5% to account for unknown temperature for resistivity</span>
+    <span class="k">assert</span> <span class="n">resistance_per_50_mi</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span><span class="n">expected_resistance</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+    <span class="c1"># Reactance &amp; admittance values match within 1%, since they&#39;re purely gemetric</span>
+    <span class="k">assert</span> <span class="n">series_reactance_per_50_mi</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span>
+        <span class="n">expected_series_reactance</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="mf">0.01</span>
+    <span class="p">)</span>
+    <span class="k">assert</span> <span class="n">shunt_admittance_per_50_mi</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span>
+        <span class="n">expected_shunt_admittance</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="mf">0.01</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_tower_double_circuit"><a class="viewcode-back" href="../../../../../../prereise.gather.griddata.transmission.tests.html#prereise.gather.griddata.transmission.tests.test_geometry.test_tower_double_circuit">[docs]</a><span class="k">def</span> <span class="nf">test_tower_double_circuit</span><span class="p">():</span>
+    <span class="n">locations</span> <span class="o">=</span> <span class="n">PhaseLocations</span><span class="p">(</span>
+        <span class="n">circuits</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="n">a</span><span class="o">=</span><span class="p">((</span><span class="o">-</span><span class="mi">9</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">,</span> <span class="mi">120</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">),</span> <span class="p">(</span><span class="mi">9</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">,</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">)),</span>
+        <span class="n">b</span><span class="o">=</span><span class="p">((</span><span class="o">-</span><span class="mf">10.5</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">,</span> <span class="mi">110</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">),</span> <span class="p">(</span><span class="mf">10.5</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">,</span> <span class="mi">110</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">)),</span>
+        <span class="n">c</span><span class="o">=</span><span class="p">((</span><span class="o">-</span><span class="mi">9</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">,</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">),</span> <span class="p">(</span><span class="mi">9</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">,</span> <span class="mi">120</span> <span class="o">*</span> <span class="n">m_in_ft</span><span class="p">)),</span>
+    <span class="p">)</span>
+    <span class="c1"># Conductors are ACSR &#39;Ostrich&#39;</span>
+    <span class="n">rated_ac_resistance_per_km</span> <span class="o">=</span> <span class="mf">0.2095</span>  <span class="c1"># rated value at 50 C</span>
+
+    <span class="c1"># Instantiate objects</span>
+    <span class="n">conductor</span> <span class="o">=</span> <span class="n">Conductor</span><span class="p">(</span>
+        <span class="n">radius</span><span class="o">=</span><span class="mf">0.008636</span><span class="p">,</span>
+        <span class="n">gmr</span><span class="o">=</span><span class="mf">0.00698</span><span class="p">,</span>
+        <span class="n">material</span><span class="o">=</span><span class="s2">&quot;ACSR&quot;</span><span class="p">,</span>  <span class="c1"># No constants for this material, but they&#39;re un-needed</span>
+        <span class="n">resistance_per_km</span><span class="o">=</span><span class="n">rated_ac_resistance_per_km</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">bundle</span> <span class="o">=</span> <span class="n">ConductorBundle</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">conductor</span><span class="o">=</span><span class="n">conductor</span><span class="p">)</span>
+    <span class="n">tower</span> <span class="o">=</span> <span class="n">Tower</span><span class="p">(</span><span class="n">locations</span><span class="o">=</span><span class="n">locations</span><span class="p">,</span> <span class="n">bundle</span><span class="o">=</span><span class="n">bundle</span><span class="p">)</span>
+
+    <span class="c1"># Calculate per-mile values (test case)</span>
+    <span class="n">series_reactance_per_mi</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">pi</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="n">tower</span><span class="o">.</span><span class="n">inductance</span> <span class="o">*</span> <span class="n">km_in_mi</span>
+    <span class="n">shunt_admittance_per_mi</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">pi</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="n">tower</span><span class="o">.</span><span class="n">capacitance</span> <span class="o">*</span> <span class="n">km_in_mi</span>
+
+    <span class="c1"># Expected values</span>
+    <span class="n">expected_series_reactance</span> <span class="o">=</span> <span class="mf">0.372</span>  <span class="c1"># Ohms</span>
+    <span class="n">expected_shunt_admittance</span> <span class="o">=</span> <span class="mf">11.41e-6</span>  <span class="c1"># Siemens</span>
+
+    <span class="c1"># Check</span>
+    <span class="k">assert</span> <span class="n">series_reactance_per_mi</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span><span class="n">expected_series_reactance</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">shunt_admittance_per_mi</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span><span class="n">expected_shunt_admittance</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../../index.html">
+    <img class="logo" src="../../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../reisejl_package.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.4.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

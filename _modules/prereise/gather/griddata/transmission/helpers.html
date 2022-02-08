@@ -1,0 +1,173 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.griddata.transmission.helpers &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.griddata.transmission.helpers</h1><div class="highlight"><pre>
+<div class="viewcode-block" id="DataclassWithValidation"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.helpers.DataclassWithValidation">[docs]</a><span></span><span class="k">class</span> <span class="nc">DataclassWithValidation</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;A stub class which defines a method that checks dataclasses.dataclass types.&quot;&quot;&quot;</span>
+
+    <span class="n">_required_dataclass_attrs</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;__annotations__&quot;</span><span class="p">,</span> <span class="s2">&quot;__dataclass_fields__&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="DataclassWithValidation.validate_input_types"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.helpers.DataclassWithValidation.validate_input_types">[docs]</a>    <span class="k">def</span> <span class="nf">validate_input_types</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Check for the presence of attributes which are added via @dataclass</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_required_dataclass_attrs</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;_validate_input_types can only be called on dataclassed objects.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">specified_type</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__annotations__</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># Ignore attributes that aren&#39;t passed via the __init__ method</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">__dataclass_fields__</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">init</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="c1"># Check whether the attribute is the specified or default type</span>
+            <span class="c1"># This supports inputs which have a default value of None</span>
+            <span class="n">default_type</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__dataclass_fields__</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">default</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="p">(</span><span class="n">specified_type</span><span class="p">,</span> <span class="n">default_type</span><span class="p">)):</span>
+                <span class="n">current_type</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;for </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: expected </span><span class="si">{</span><span class="n">specified_type</span><span class="si">}</span><span class="s2">, but got </span><span class="si">{</span><span class="n">current_type</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="calculate_z_base"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.helpers.calculate_z_base">[docs]</a><span class="k">def</span> <span class="nf">calculate_z_base</span><span class="p">(</span><span class="n">v_base</span><span class="p">,</span> <span class="n">s_base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate base impedance from voltage and system base apparent power.</span>
+
+<span class="sd">    :param int/float v_base: base voltage (kV).</span>
+<span class="sd">    :param int/float s_base: base apparent power (MVA).</span>
+<span class="sd">    :return: (*float*) -- base impedance (ohms).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">v_base</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">s_base</span></div>
+
+
+<div class="viewcode-block" id="translate_to_per_unit"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.helpers.translate_to_per_unit">[docs]</a><span class="k">def</span> <span class="nf">translate_to_per_unit</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">nominal_unit</span><span class="p">,</span> <span class="n">z_base</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Translate parameters in nominal units to per-unit values.</span>
+
+<span class="sd">    :param int/float x: value to be converted.</span>
+<span class="sd">    :param str nominal_unit: the units of ``x``.</span>
+<span class="sd">    :param int/float z_base: base impedance (can be calculated with</span>
+<span class="sd">        :func:`calculate_z_base&#39;).</span>
+<span class="sd">    :return: (*float*) -- per-unit value.</span>
+<span class="sd">    :raises ValueError: if the nominal unit isn&#39;t recognized.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">nominal_unit</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;ohm&quot;</span><span class="p">,</span> <span class="s2">&quot;ohms&quot;</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">}:</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">/</span> <span class="n">z_base</span>
+    <span class="k">if</span> <span class="n">nominal_unit</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;siemen&quot;</span><span class="p">,</span> <span class="s2">&quot;siemens&quot;</span><span class="p">}:</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="n">z_base</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown nominal unit: </span><span class="si">{</span><span class="n">nominal_unit</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl_package.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.4.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

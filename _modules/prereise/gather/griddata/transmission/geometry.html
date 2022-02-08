@@ -1,0 +1,405 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.griddata.transmission.geometry &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.griddata.transmission.geometry</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">combinations</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">exp</span><span class="p">,</span> <span class="n">log</span><span class="p">,</span> <span class="n">pi</span><span class="p">,</span> <span class="n">sqrt</span>
+<span class="kn">from</span> <span class="nn">statistics</span> <span class="kn">import</span> <span class="n">geometric_mean</span>
+
+<span class="kn">from</span> <span class="nn">prereise.gather.griddata.transmission.const</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">epsilon_0</span><span class="p">,</span>
+    <span class="n">mu_0</span><span class="p">,</span>
+    <span class="n">relative_permeability</span><span class="p">,</span>
+    <span class="n">resistivity</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.griddata.transmission.helpers</span> <span class="kn">import</span> <span class="n">DataclassWithValidation</span>
+
+
+<div class="viewcode-block" id="Conductor"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.Conductor">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Conductor</span><span class="p">(</span><span class="n">DataclassWithValidation</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represent a single conductor (which may be a stranded compsite).</span>
+
+<span class="sd">    :param float radius: outer radius of conductor.</span>
+<span class="sd">    :param str material: material of conductor. Used to calculate ``resistance_per_km``</span>
+<span class="sd">        and ``gmr`` if these aren&#39;t passed to the constructor, unnecessary otherwise.</span>
+<span class="sd">    :param float resistance_per_km: resistance (ohms) per kilometer. Will be estimated</span>
+<span class="sd">        from other parameters if it isn&#39;t passed.</span>
+<span class="sd">    :param float gmr: geometric mean radius of conductor. Will be estimated from</span>
+<span class="sd">        other parameters if it isn&#39;t passed.</span>
+<span class="sd">    :param float area: cross-sectional area of conductor. Will be estimated from</span>
+<span class="sd">        other parameters if it isn&#39;t passed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">material</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">resistance_per_km</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">gmr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">area</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">permeability</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Validate inputs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">validate_input_types</span><span class="p">()</span>  <span class="c1"># defined in DataclassWithValidation</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">gmr</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">material</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;If gmr is not provided, material and radius are needed to estimate&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">material</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;If resistance_per_km is not provided, material is needed to estimate&quot;</span>
+            <span class="p">)</span>
+        <span class="c1"># Estimate missing inputs using the inputs which are present</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">gmr</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">permeability</span> <span class="o">=</span> <span class="n">relative_permeability</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">material</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Unknown permeability for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">material</span><span class="si">}</span><span class="s2">, can&#39;t calculate gmr&quot;</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">gmr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">*</span> <span class="n">exp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">permeability</span> <span class="o">/</span> <span class="mi">4</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">resistivity</span> <span class="o">=</span> <span class="n">resistivity</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">material</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Unknown resistivity for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">material</span><span class="si">}</span><span class="s2">, &quot;</span>
+                    <span class="s2">&quot;can&#39;t calculate resistance&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">area</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">area</span> <span class="o">=</span> <span class="n">pi</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="o">**</span><span class="mi">2</span>
+            <span class="c1"># convert per-m to per-km</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resistivity</span> <span class="o">*</span> <span class="mi">1000</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">area</span></div>
+
+
+<div class="viewcode-block" id="ConductorBundle"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.ConductorBundle">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">ConductorBundle</span><span class="p">(</span><span class="n">DataclassWithValidation</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represent a bundle of conductors (or a &#39;bundle&#39; of one).</span>
+
+<span class="sd">    :param int n: number of conductors in bundle (can be one).</span>
+<span class="sd">    :param Conductor conductor: information for each conductor.</span>
+<span class="sd">    :param float spacing: distance between the centers of each conductor (meters).</span>
+<span class="sd">    :param str layout: either &#39;circular&#39; (conductors are arranged in a regular polygon</span>
+<span class="sd">        with edge length ``spacing``) or &#39;flat&#39; (conductors are arranged in a line, at</span>
+<span class="sd">        regular spacing ``spacing``).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">n</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">conductor</span><span class="p">:</span> <span class="n">Conductor</span>
+    <span class="n">spacing</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># we need to be able to ignore spacing for a single conductor</span>
+    <span class="n">layout</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;circular&quot;</span>
+    <span class="n">resistance_per_km</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">spacing_L</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># noqa: N815</span>
+    <span class="n">spacing_C</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># noqa: N815</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">validate_input_types</span><span class="p">()</span>  <span class="c1"># defined in DataclassWithValidation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conductor</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spacing_L</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_equivalent_spacing</span><span class="p">(</span><span class="s2">&quot;inductance&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spacing_C</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_equivalent_spacing</span><span class="p">(</span><span class="s2">&quot;capacitance&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ConductorBundle.calculate_equivalent_spacing"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.ConductorBundle.calculate_equivalent_spacing">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_equivalent_spacing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;inductance&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">type</span> <span class="o">==</span> <span class="s2">&quot;inductance&quot;</span><span class="p">:</span>
+            <span class="n">conductor_distance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conductor</span><span class="o">.</span><span class="n">gmr</span>
+        <span class="k">elif</span> <span class="nb">type</span> <span class="o">==</span> <span class="s2">&quot;capacitance&quot;</span><span class="p">:</span>
+            <span class="n">conductor_distance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conductor</span><span class="o">.</span><span class="n">radius</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;type must be either &#39;inductance&#39; or &#39;capacitance&#39;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">conductor_distance</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">conductor_distance</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">spacing</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">layout</span> <span class="o">==</span> <span class="s2">&quot;circular&quot;</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_equivalent_spacing_circular</span><span class="p">(</span><span class="n">conductor_distance</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">layout</span> <span class="o">==</span> <span class="s2">&quot;flat&quot;</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_equivalent_spacing_flat</span><span class="p">(</span><span class="n">conductor_distance</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown layout: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">layout</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ConductorBundle.calculate_equivalent_spacing_circular"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.ConductorBundle.calculate_equivalent_spacing_circular">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_equivalent_spacing_circular</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conductor_distance</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">conductor_distance</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">spacing</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">conductor_distance</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">spacing</span><span class="o">**</span><span class="mi">3</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">&quot;Geometry calculations are only implemented for 1 &lt;= n &lt;= 4&quot;</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ConductorBundle.calculate_equivalent_spacing_flat"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.ConductorBundle.calculate_equivalent_spacing_flat">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_equivalent_spacing_flat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conductor_distance</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">conductor_distance</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">spacing</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">conductor_distance</span> <span class="o">*</span> <span class="mi">12</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">spacing</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">8</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">&quot;Geometry calculations are only implemented for 1 &lt;= n &lt;= 4&quot;</span>
+        <span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="PhaseLocations"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.PhaseLocations">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">PhaseLocations</span><span class="p">(</span><span class="n">DataclassWithValidation</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represent the locations of each conductor bundle on a transmission tower. Each of</span>
+<span class="sd">    ``a``, ``b``, and ``c`` are the (x, y) location(s) of that phase&#39;s conductor(s).</span>
+
+<span class="sd">    :param tuple a: the (x, y) location of the single &#39;A&#39; phase conductor if</span>
+<span class="sd">        ``circuits`` == 1, or the ((x1, y1), (x2, y2), ...) locations of the &#39;A&#39; phase</span>
+<span class="sd">        conductors if ``circuits`` &gt; 1. Units are meters.</span>
+<span class="sd">    :param tuple b: the (x, y) location of the single &#39;B&#39; phase conductor if</span>
+<span class="sd">        ``circuits`` == 1, or the ((x1, y1), (x2, y2), ...) locations of the &#39;B&#39; phase</span>
+<span class="sd">        conductors if ``circuits`` &gt; 1. Units are meters.</span>
+<span class="sd">    :param tuple c: the (x, y) location of the single &#39;C&#39; phase conductor if</span>
+<span class="sd">        ``circuits`` == 1, or the ((x1, y1), (x2, y2), ...) locations of the &#39;C&#39; phase</span>
+<span class="sd">        conductors if ``circuits`` &gt; 1. Units are meters.</span>
+<span class="sd">    :param int circuits: the number of circuits on the tower.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">a</span><span class="p">:</span> <span class="nb">tuple</span>
+    <span class="n">b</span><span class="p">:</span> <span class="nb">tuple</span>
+    <span class="n">c</span><span class="p">:</span> <span class="nb">tuple</span>
+    <span class="n">circuits</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">equivalent_distance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">equivalent_height</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">phase_self_distances</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">equivalent_reflected_distance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">validate_input_types</span><span class="p">()</span>  <span class="c1"># defined in DataclassWithValidation</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;each phase location must have the same length&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuits</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">float</span><span class="p">):</span>
+            <span class="c1"># Single-circuit specified as (x, y) will be converted to ((x, y))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">,)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">b</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">,)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calculate_distances</span><span class="p">()</span>
+
+<div class="viewcode-block" id="PhaseLocations.calculate_distances"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.PhaseLocations.calculate_distances">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_distances</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">true_distance</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;ab&quot;</span><span class="p">:</span> <span class="n">_geometric_mean_euclidian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">),</span>
+            <span class="s2">&quot;ac&quot;</span><span class="p">:</span> <span class="n">_geometric_mean_euclidian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">),</span>
+            <span class="s2">&quot;bc&quot;</span><span class="p">:</span> <span class="n">_geometric_mean_euclidian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">),</span>
+        <span class="p">}</span>
+        <span class="c1"># &#39;Equivalent&#39; distances are geometric means</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equivalent_distance</span> <span class="o">=</span> <span class="n">geometric_mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">true_distance</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equivalent_height</span> <span class="o">=</span> <span class="n">geometric_mean</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuits</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">calculate_single_circuit_distances</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">calculate_multi_circuit_distances</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseLocations.calculate_single_circuit_distances"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.PhaseLocations.calculate_single_circuit_distances">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_single_circuit_distances</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># The distance bounced off the ground, or &#39;reflected&#39;, is used for</span>
+        <span class="c1"># single-circuit capacitance calculations</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reflected_distance</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;ab&quot;</span><span class="p">:</span> <span class="n">_euclidian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">])),</span>  <span class="c1"># a -&gt; b&#39;</span>
+            <span class="s2">&quot;ac&quot;</span><span class="p">:</span> <span class="n">_euclidian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">])),</span>  <span class="c1"># a -&gt; c&#39;</span>
+            <span class="s2">&quot;bc&quot;</span><span class="p">:</span> <span class="n">_euclidian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">])),</span>  <span class="c1"># b -&gt; c&#39;</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equivalent_reflected_distance</span> <span class="o">=</span> <span class="n">geometric_mean</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reflected_distance</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="PhaseLocations.calculate_multi_circuit_distances"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.PhaseLocations.calculate_multi_circuit_distances">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_multi_circuit_distances</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">phase_self_distances</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">geometric_mean</span><span class="p">(</span><span class="n">_euclidian</span><span class="p">(</span><span class="n">p0</span><span class="p">,</span> <span class="n">p1</span><span class="p">)</span> <span class="k">for</span> <span class="n">p0</span><span class="p">,</span> <span class="n">p1</span> <span class="ow">in</span> <span class="n">combinations</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">phase</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="c1"># Multi circuit, so we assume tall tower negligible impact from reflectance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equivalent_reflected_distance</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">equivalent_height</span></div></div>
+
+
+<div class="viewcode-block" id="Tower"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.Tower">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Tower</span><span class="p">(</span><span class="n">DataclassWithValidation</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given the geometry of a transmission tower and conductor bundle information,</span>
+<span class="sd">    estimate per-kilometer inductance, resistance, and shunt capacitance.</span>
+
+<span class="sd">    :param PhaseLocations locations: the locations of each conductor bundle.</span>
+<span class="sd">    :param ConductorBundle bundle: the parameters of each conductor bundle.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">locations</span><span class="p">:</span> <span class="n">PhaseLocations</span>
+    <span class="n">bundle</span><span class="p">:</span> <span class="n">ConductorBundle</span>
+    <span class="n">resistance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">inductance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">capacitance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">validate_input_types</span><span class="p">()</span>  <span class="c1"># defined in DataclassWithValidation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resistance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bundle</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">locations</span><span class="o">.</span><span class="n">circuits</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inductance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_inductance_per_km</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">capacitance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_shunt_capacitance_per_km</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Tower.calculate_inductance_per_km"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.Tower.calculate_inductance_per_km">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_inductance_per_km</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">denominator</span> <span class="o">=</span> <span class="n">_circuit_bundle_distances</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bundle</span><span class="o">.</span><span class="n">spacing_L</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">locations</span><span class="o">.</span><span class="n">phase_self_distances</span>
+        <span class="p">)</span>
+        <span class="n">inductance_per_km</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">mu_0</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">locations</span><span class="o">.</span><span class="n">equivalent_distance</span> <span class="o">/</span> <span class="n">denominator</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">inductance_per_km</span></div>
+
+<div class="viewcode-block" id="Tower.calculate_shunt_capacitance_per_km"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.Tower.calculate_shunt_capacitance_per_km">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_shunt_capacitance_per_km</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">denominator</span> <span class="o">=</span> <span class="n">_circuit_bundle_distances</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bundle</span><span class="o">.</span><span class="n">spacing_C</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">locations</span><span class="o">.</span><span class="n">phase_self_distances</span>
+        <span class="p">)</span>
+        <span class="n">capacitance_per_km</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">pi</span> <span class="o">*</span> <span class="n">epsilon_0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span>
+            <span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">locations</span><span class="o">.</span><span class="n">equivalent_distance</span> <span class="o">/</span> <span class="n">denominator</span><span class="p">)</span>
+            <span class="o">-</span> <span class="n">log</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">locations</span><span class="o">.</span><span class="n">equivalent_reflected_distance</span>
+                <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">locations</span><span class="o">.</span><span class="n">equivalent_height</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">capacitance_per_km</span></div></div>
+
+
+<span class="k">def</span> <span class="nf">_euclidian</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate the euclidian distance between two points.&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Length of a and b must be equivalent&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="s2">&quot;a and b must both be iterables compatible with the len() function&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">sqrt</span><span class="p">(</span><span class="nb">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)))</span>
+
+
+<span class="k">def</span> <span class="nf">_geometric_mean_euclidian</span><span class="p">(</span><span class="n">a_list</span><span class="p">,</span> <span class="n">b_list</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate the geometric mean euclidian distance between two coordinate lists.&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">a_list</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">b_list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Length of a_list and b_list must be equivalent&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;a_list and b_list must both be iterables&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">geometric_mean</span><span class="p">(</span><span class="n">_euclidian</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">a_list</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">b_list</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_circuit_bundle_distances</span><span class="p">(</span><span class="n">bundle_distance</span><span class="p">,</span> <span class="n">phase_distances</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Calculate characteristic distance of bundle and circuit distances.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">phase_distances</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">bundle_distance</span>
+    <span class="n">phase_characteristic_distances</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">sqrt</span><span class="p">(</span><span class="n">phase</span> <span class="o">*</span> <span class="n">bundle_distance</span><span class="p">)</span> <span class="k">for</span> <span class="n">phase</span> <span class="ow">in</span> <span class="n">phase_distances</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="n">geometric_mean</span><span class="p">(</span><span class="n">phase_characteristic_distances</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl_package.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.4.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

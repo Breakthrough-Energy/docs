@@ -34,15 +34,15 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.scenario.execute</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span></span><span class="kn">from</span> <span class="nn">scipy.io</span> <span class="kn">import</span> <span class="n">savemat</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.data_access.context</span> <span class="kn">import</span> <span class="n">Context</span>
-<span class="kn">from</span> <span class="nn">powersimdata.input.export_data</span> <span class="kn">import</span> <span class="n">export_case_mat</span><span class="p">,</span> <span class="n">export_transformed_profile</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.export_data</span> <span class="kn">import</span> <span class="n">export_case_mat</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.input_data</span> <span class="kn">import</span> <span class="n">InputData</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.transform_profile</span> <span class="kn">import</span> <span class="n">TransformProfile</span>
 <span class="kn">from</span> <span class="nn">powersimdata.scenario.ready</span> <span class="kn">import</span> <span class="n">Ready</span>
-<span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.config</span> <span class="kn">import</span> <span class="n">get_deployment_mode</span>
 
 
@@ -53,7 +53,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;execute&quot;</span>
-    <span class="n">allowed</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">allowed</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;delete&quot;</span><span class="p">]</span>
     <span class="n">exported_methods</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;check_progress&quot;</span><span class="p">,</span>
         <span class="s2">&quot;extract_simulation_output&quot;</span><span class="p">,</span>
@@ -139,7 +139,6 @@
             <span class="n">si</span> <span class="o">=</span> <span class="n">SimulationInput</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span>
             <span class="p">)</span>
-            <span class="n">si</span><span class="o">.</span><span class="n">create_folder</span><span class="p">()</span>
             <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">]:</span>
                 <span class="n">si</span><span class="o">.</span><span class="n">prepare_profile</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">profiles_as</span><span class="p">)</span>
 
@@ -231,27 +230,20 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">tmp_folder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scenario_id</span><span class="p">)</span>
 
-<div class="viewcode-block" id="SimulationInput.create_folder"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput.create_folder">[docs]</a>    <span class="k">def</span> <span class="nf">create_folder</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Creates folder on server that will enclose simulation inputs.&quot;&quot;&quot;</span>
-        <span class="n">description</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">description</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--&gt; Creating temporary folder on </span><span class="si">{</span><span class="n">description</span><span class="si">}</span><span class="s2"> for simulation inputs&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">makedir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">)</span></div>
-
 <div class="viewcode-block" id="SimulationInput.prepare_mpc_file"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput.prepare_mpc_file">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_mpc_file</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Creates MATPOWER case file.&quot;&quot;&quot;</span>
-        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">_case.mat&quot;</span>
-        <span class="n">storage_file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">_case_storage.mat&quot;</span>
-        <span class="n">file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
-        <span class="n">storage_file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">storage_file_name</span><span class="p">)</span>
+        <span class="n">file_path</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="s2">&quot;case.mat&quot;</span><span class="p">])</span>
+        <span class="n">storage_file_path</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="s2">&quot;case_storage.mat&quot;</span><span class="p">])</span>
+
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Building MPC file&quot;</span><span class="p">)</span>
-        <span class="n">export_case_mat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">file_path</span><span class="p">,</span> <span class="n">storage_file_path</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">move_to</span><span class="p">(</span>
-            <span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="s2">&quot;case.mat&quot;</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">move_to</span><span class="p">(</span>
-                <span class="n">storage_file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="s2">&quot;case_storage.mat&quot;</span>
-            <span class="p">)</span></div>
+        <span class="n">mpc</span><span class="p">,</span> <span class="n">mpc_storage</span> <span class="o">=</span> <span class="n">export_case_mat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">save_local</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">savemat</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">mpc</span><span class="p">,</span> <span class="n">appendmat</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">mpc_storage</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">storage_file_path</span><span class="p">,</span> <span class="n">save_local</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">savemat</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">mpc</span><span class="p">,</span> <span class="n">appendmat</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SimulationInput.prepare_profile"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput.prepare_profile">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">profile_as</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">slice</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Prepares profile for simulation.</span>
@@ -260,19 +252,18 @@
 <span class="sd">        :param int/str profile_as: if given, copy profile from this scenario.</span>
 <span class="sd">        :param bool slice: whether to slice the profiles by the Scenario&#39;s time range.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">.csv&quot;</span>
         <span class="k">if</span> <span class="n">profile_as</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">file_name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">_</span><span class="si">%s</span><span class="s2">.csv&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scenario_id</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>
-            <span class="n">filepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
-            <span class="n">export_transformed_profile</span><span class="p">(</span>
-                <span class="n">kind</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="n">filepath</span><span class="p">,</span> <span class="nb">slice</span>
-            <span class="p">)</span>
+            <span class="n">filepath</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="n">file_name</span><span class="p">])</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">move_to</span><span class="p">(</span>
-                <span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">.csv&quot;</span>
-            <span class="p">)</span>
+            <span class="n">tp</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="nb">slice</span><span class="p">)</span>
+            <span class="n">profile</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Writing scaled </span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2"> profile to </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">save_local</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">profile</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">from_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">tmp_folder</span><span class="p">(</span><span class="n">profile_as</span><span class="p">)</span>
-            <span class="n">src</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">from_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">)</span>
+            <span class="n">src</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">from_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">])</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">)</span></div></div>
 </pre></div>
 

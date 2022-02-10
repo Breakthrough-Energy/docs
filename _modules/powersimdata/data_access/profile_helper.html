@@ -34,11 +34,7 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.data_access.profile_helper</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">os</span>
-
-<span class="kn">import</span> <span class="nn">fs</span>
-<span class="kn">import</span> <span class="nn">requests</span>
-<span class="kn">from</span> <span class="nn">tqdm.auto</span> <span class="kn">import</span> <span class="n">tqdm</span>
+<span></span><span class="kn">import</span> <span class="nn">fs</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
 
@@ -72,7 +68,7 @@
 <span class="sd">    :return: (*list*) -- available profile version.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">profile_dir</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="s2">&quot;raw&quot;</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">)</span>
-    <span class="n">lfs</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="n">profile_dir</span><span class="p">)</span>
+    <span class="n">lfs</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="n">profile_dir</span><span class="p">,</span> <span class="n">create</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_get_profile_version</span><span class="p">(</span><span class="n">lfs</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span></div>
 
 
@@ -91,36 +87,7 @@
         <span class="n">version</span> <span class="o">=</span> <span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;base_&quot;</span> <span class="o">+</span> <span class="n">field_name</span><span class="p">]</span>
         <span class="n">file_name</span> <span class="o">=</span> <span class="n">field_name</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">version</span> <span class="o">+</span> <span class="s2">&quot;.csv&quot;</span>
         <span class="n">grid_model</span> <span class="o">=</span> <span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">file_name</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;raw&quot;</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="ProfileHelper.download_file"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.profile_helper.ProfileHelper.download_file">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">download_file</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Download the profile from blob storage at the given path.</span>
-
-<span class="sd">        :param str file_name: profile csv.</span>
-<span class="sd">        :param tuple from_dir: tuple of path components.</span>
-<span class="sd">        :return: (*str*) -- path to downloaded file.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--&gt; Downloading </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2"> from blob storage.&quot;</span><span class="p">)</span>
-        <span class="n">url_path</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">from_dir</span><span class="p">)</span>
-        <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ProfileHelper</span><span class="o">.</span><span class="n">BASE_URL</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">url_path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="n">dest</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">,</span> <span class="o">*</span><span class="n">from_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">dest</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">content_length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;content-length&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="k">with</span> <span class="n">tqdm</span><span class="p">(</span>
-                <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;B&quot;</span><span class="p">,</span>
-                <span class="n">unit_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">unit_divisor</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
-                <span class="n">miniters</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-                <span class="n">total</span><span class="o">=</span><span class="n">content_length</span><span class="p">,</span>
-            <span class="p">)</span> <span class="k">as</span> <span class="n">pbar</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">resp</span><span class="o">.</span><span class="n">iter_content</span><span class="p">(</span><span class="n">chunk_size</span><span class="o">=</span><span class="mi">4096</span><span class="p">):</span>
-                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
-                    <span class="n">pbar</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">chunk</span><span class="p">))</span>
-
-        <span class="k">return</span> <span class="n">dest</span></div></div>
+        <span class="k">return</span> <span class="n">file_name</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;raw&quot;</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>

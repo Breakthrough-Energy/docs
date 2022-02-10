@@ -36,7 +36,10 @@
   <h1>Source code for powersimdata.scenario.tests.test_scenario</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">pytest</span>
 
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.context</span> <span class="kn">import</span> <span class="n">Context</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.delete</span> <span class="kn">import</span> <span class="n">Delete</span>
 <span class="kn">from</span> <span class="nn">powersimdata.scenario.scenario</span> <span class="kn">import</span> <span class="n">Scenario</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_context</span> <span class="kn">import</span> <span class="n">MockContext</span>
 
 
 <div class="viewcode-block" id="test_bad_scenario_name"><a class="viewcode-back" href="../../../../powersimdata.scenario.tests.html#powersimdata.scenario.tests.test_scenario.test_bad_scenario_name">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">integration</span>
@@ -45,6 +48,69 @@
     <span class="c1"># This test will fail if we do add a scenario with this name</span>
     <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
         <span class="n">Scenario</span><span class="p">(</span><span class="s2">&quot;this_scenario_does_not_exist&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_scenario_workflow"><a class="viewcode-back" href="../../../../powersimdata.scenario.tests.html#powersimdata.scenario.tests.test_scenario.test_scenario_workflow">[docs]</a><span class="k">def</span> <span class="nf">test_scenario_workflow</span><span class="p">(</span><span class="n">monkeypatch</span><span class="p">):</span>
+    <span class="n">mock_context</span> <span class="o">=</span> <span class="n">MockContext</span><span class="p">()</span>
+    <span class="n">monkeypatch</span><span class="o">.</span><span class="n">setattr</span><span class="p">(</span><span class="n">Context</span><span class="p">,</span> <span class="s2">&quot;get_data_access&quot;</span><span class="p">,</span> <span class="n">mock_context</span><span class="o">.</span><span class="n">get_data_access</span><span class="p">)</span>
+
+    <span class="n">s</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="n">s</span><span class="o">.</span><span class="n">set_grid</span><span class="p">(</span><span class="n">interconnect</span><span class="o">=</span><span class="s2">&quot;Texas&quot;</span><span class="p">)</span>
+
+    <span class="n">s</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;test&quot;</span><span class="p">,</span> <span class="s2">&quot;dummy&quot;</span><span class="p">)</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">set_time</span><span class="p">(</span><span class="s2">&quot;2016-01-01 00:00:00&quot;</span><span class="p">,</span> <span class="s2">&quot;2016-01-01 03:00:00&quot;</span><span class="p">,</span> <span class="s2">&quot;1H&quot;</span><span class="p">)</span>
+
+    <span class="n">s</span><span class="o">.</span><span class="n">set_base_profile</span><span class="p">(</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;vJan2021&quot;</span><span class="p">)</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">set_base_profile</span><span class="p">(</span><span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;vJan2021&quot;</span><span class="p">)</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">set_base_profile</span><span class="p">(</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;vJan2021&quot;</span><span class="p">)</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">set_base_profile</span><span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;vJan2021&quot;</span><span class="p">)</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">change_table</span><span class="o">.</span><span class="n">ct</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="mi">301</span><span class="p">:</span> <span class="mf">1.1293320940114195</span><span class="p">,</span>
+                <span class="mi">302</span><span class="p">:</span> <span class="mf">2.2996731828360466</span><span class="p">,</span>
+                <span class="mi">303</span><span class="p">:</span> <span class="mf">1.1460693669609412</span><span class="p">,</span>
+                <span class="mi">304</span><span class="p">:</span> <span class="mf">1.5378918905751389</span><span class="p">,</span>
+                <span class="mi">305</span><span class="p">:</span> <span class="mf">1.6606575751914816</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">12912</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="n">s</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">get_ct</span><span class="p">()</span>
+
+    <span class="n">rfs</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">fs</span>
+    <span class="n">lfs</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">local_fs</span>
+    <span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">tmp_folder</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">s</span><span class="o">.</span><span class="n">print_scenario_info</span><span class="p">()</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">create_scenario</span><span class="p">()</span>
+
+    <span class="n">scenario_list</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">get_scenario_table</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="mi">1</span> <span class="o">==</span> <span class="n">scenario_list</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">fs</span> <span class="ow">in</span> <span class="p">(</span><span class="n">lfs</span><span class="p">,</span> <span class="n">rfs</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">fs</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="s2">&quot;data/input/1_ct.pkl&quot;</span><span class="p">)</span>
+
+    <span class="c1"># hack to use truncated profiles so the test runs quickly</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;test_usa_tamu&quot;</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">prepare_simulation_input</span><span class="p">()</span>
+
+    <span class="n">tmp_files</span> <span class="o">=</span> <span class="n">rfs</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">tmp_files</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+    <span class="n">s</span><span class="o">.</span><span class="n">change</span><span class="p">(</span><span class="n">Delete</span><span class="p">)</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">delete_scenario</span><span class="p">(</span><span class="n">confirm</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">fs</span> <span class="ow">in</span> <span class="p">(</span><span class="n">rfs</span><span class="p">,</span> <span class="n">lfs</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">fs</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">fs</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="s2">&quot;data/input&quot;</span><span class="p">))</span> <span class="o">==</span> <span class="mi">0</span>
+
+    <span class="n">scenario_list</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">()</span><span class="o">.</span><span class="n">get_scenario_table</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="mi">0</span> <span class="o">==</span> <span class="n">scenario_list</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
 </pre></div>
 
           </div>

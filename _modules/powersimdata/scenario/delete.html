@@ -34,8 +34,7 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.scenario.delete</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">powersimdata.data_access.data_access</span> <span class="kn">import</span> <span class="n">LocalDataAccess</span>
-<span class="kn">from</span> <span class="nn">powersimdata.scenario.ready</span> <span class="kn">import</span> <span class="n">Ready</span>
+<span></span><span class="kn">from</span> <span class="nn">powersimdata.scenario.ready</span> <span class="kn">import</span> <span class="n">Ready</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
 
 
@@ -51,28 +50,32 @@
 
 <span class="sd">        :param bool confirm: prompt before each batch</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># Delete entry in scenario list</span>
         <span class="n">scenario_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+        <span class="n">_join</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">join</span>
+
+        <span class="n">input_dir</span> <span class="o">=</span> <span class="n">_join</span><span class="p">(</span><span class="o">*</span><span class="n">server_setup</span><span class="o">.</span><span class="n">INPUT_DIR</span><span class="p">)</span>
+        <span class="n">output_dir</span> <span class="o">=</span> <span class="n">_join</span><span class="p">(</span><span class="o">*</span><span class="n">server_setup</span><span class="o">.</span><span class="n">OUTPUT_DIR</span><span class="p">)</span>
+
+        <span class="n">proceed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span>
+            <span class="n">input_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">_*&quot;</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">proceed</span><span class="p">:</span>
+            <span class="n">proceed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span>
+                <span class="n">output_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">_*&quot;</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">proceed</span><span class="p">:</span>
+            <span class="n">pattern</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;scenario_</span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">/*&quot;</span>
+            <span class="n">proceed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span>
+                <span class="n">server_setup</span><span class="o">.</span><span class="n">EXECUTE_DIR</span><span class="p">,</span> <span class="n">pattern</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">proceed</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Cancelling deletion.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Deleting entries in scenario and execute list&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_list_manager</span><span class="o">.</span><span class="n">delete_entry</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_execute_list_manager</span><span class="o">.</span><span class="n">delete_entry</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">)</span>
-
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Deleting scenario input data&quot;</span><span class="p">)</span>
-        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="o">*</span><span class="n">server_setup</span><span class="o">.</span><span class="n">INPUT_DIR</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">_*&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
-
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Deleting scenario output data&quot;</span><span class="p">)</span>
-        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="o">*</span><span class="n">server_setup</span><span class="o">.</span><span class="n">OUTPUT_DIR</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">_*&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
-
-        <span class="c1"># Delete temporary folder enclosing simulation inputs</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Deleting temporary folder&quot;</span><span class="p">)</span>
-        <span class="n">tmp_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">tmp_folder</span><span class="p">(</span><span class="n">scenario_id</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">tmp_dir</span><span class="si">}</span><span class="s2">/**&quot;</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
-
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Deleting input and output data on local machine&quot;</span><span class="p">)</span>
-        <span class="n">local_data_access</span> <span class="o">=</span> <span class="n">LocalDataAccess</span><span class="p">()</span>
-        <span class="n">target</span> <span class="o">=</span> <span class="n">local_data_access</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;**&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">scenario_id</span><span class="si">}</span><span class="s2">_*&quot;</span><span class="p">)</span>
-        <span class="n">local_data_access</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
 
         <span class="c1"># Delete attributes</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_clean</span><span class="p">()</span></div>

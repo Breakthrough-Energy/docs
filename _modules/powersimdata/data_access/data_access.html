@@ -35,10 +35,14 @@
             
   <h1>Source code for powersimdata.data_access.data_access</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">posixpath</span>
-<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">contextmanager</span>
 <span class="kn">from</span> <span class="nn">subprocess</span> <span class="kn">import</span> <span class="n">Popen</span>
 
-<span class="kn">import</span> <span class="nn">fs</span> <span class="k">as</span> <span class="nn">fs2</span>
+<span class="kn">import</span> <span class="nn">fs</span>
+<span class="kn">from</span> <span class="nn">fs</span> <span class="kn">import</span> <span class="n">errors</span>
+<span class="kn">from</span> <span class="nn">fs.glob</span> <span class="kn">import</span> <span class="n">Globber</span>
+<span class="kn">from</span> <span class="nn">fs.multifs</span> <span class="kn">import</span> <span class="n">MultiFS</span>
+<span class="kn">from</span> <span class="nn">fs.path</span> <span class="kn">import</span> <span class="n">basename</span><span class="p">,</span> <span class="n">dirname</span>
 <span class="kn">from</span> <span class="nn">fs.tempfs</span> <span class="kn">import</span> <span class="n">TempFS</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.data_access.profile_helper</span> <span class="kn">import</span> <span class="p">(</span>
@@ -49,12 +53,37 @@
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
 
 
+<div class="viewcode-block" id="get_blob_fs"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.get_blob_fs">[docs]</a><span class="k">def</span> <span class="nf">get_blob_fs</span><span class="p">(</span><span class="n">container</span><span class="p">):</span>
+    <span class="n">account</span> <span class="o">=</span> <span class="s2">&quot;besciences&quot;</span>
+    <span class="k">return</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;azblob://</span><span class="si">{</span><span class="n">account</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="n">container</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="get_ssh_fs"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.get_ssh_fs">[docs]</a><span class="k">def</span> <span class="nf">get_ssh_fs</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
     <span class="n">host</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">SERVER_ADDRESS</span>
     <span class="n">port</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">SERVER_SSH_PORT</span>
     <span class="n">username</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">get_server_user</span><span class="p">()</span>
-    <span class="n">base_fs</span> <span class="o">=</span> <span class="n">fs2</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ssh://</span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="n">host</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">base_fs</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ssh://</span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="n">host</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">WrapSSHFS</span><span class="p">(</span><span class="n">base_fs</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_multi_fs"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.get_multi_fs">[docs]</a><span class="k">def</span> <span class="nf">get_multi_fs</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Create filesystem combining the server (if connected) with profile and scenario</span>
+<span class="sd">    containers in blob storage. The priority is in descending order, so the server will</span>
+<span class="sd">    be used first if possible</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">scenario_data</span> <span class="o">=</span> <span class="n">get_blob_fs</span><span class="p">(</span><span class="s2">&quot;scenariodata&quot;</span><span class="p">)</span>
+    <span class="n">profiles</span> <span class="o">=</span> <span class="n">get_blob_fs</span><span class="p">(</span><span class="s2">&quot;profiles&quot;</span><span class="p">)</span>
+    <span class="n">mfs</span> <span class="o">=</span> <span class="n">MultiFS</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">ssh_fs</span> <span class="o">=</span> <span class="n">get_ssh_fs</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+        <span class="n">mfs</span><span class="o">.</span><span class="n">add_fs</span><span class="p">(</span><span class="s2">&quot;ssh_fs&quot;</span><span class="p">,</span> <span class="n">ssh_fs</span><span class="p">,</span> <span class="n">write</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+    <span class="k">except</span><span class="p">:</span>  <span class="c1"># noqa</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Could not connect to ssh server&quot;</span><span class="p">)</span>
+    <span class="n">mfs</span><span class="o">.</span><span class="n">add_fs</span><span class="p">(</span><span class="s2">&quot;profile_fs&quot;</span><span class="p">,</span> <span class="n">profiles</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">mfs</span><span class="o">.</span><span class="n">add_fs</span><span class="p">(</span><span class="s2">&quot;scenario_fs&quot;</span><span class="p">,</span> <span class="n">scenario_data</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">remotes</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">mfs</span><span class="o">.</span><span class="n">iterate_fs</span><span class="p">()])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Initialized remote filesystem with </span><span class="si">{</span><span class="n">remotes</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mfs</span></div>
 
 
 <div class="viewcode-block" id="DataAccess"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess">[docs]</a><span class="k">class</span> <span class="nc">DataAccess</span><span class="p">:</span>
@@ -63,24 +92,71 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">root</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">join</span> <span class="o">=</span> <span class="n">fs2</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">join</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span> <span class="o">=</span> <span class="kc">None</span>
 
-<div class="viewcode-block" id="DataAccess.copy_from"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.copy_from">[docs]</a>    <span class="k">def</span> <span class="nf">copy_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">):</span>
+<div class="viewcode-block" id="DataAccess.get"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.get">[docs]</a>    <span class="nd">@contextmanager</span>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Copy file from remote filesystem if needed and read into memory</span>
+
+<span class="sd">        :param str filepath: path to file</span>
+<span class="sd">        :return: (*tuple*) -- file object and filepath to be handled by caller</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2"> not found on local machine&quot;</span><span class="p">)</span>
+            <span class="n">from_dir</span><span class="p">,</span> <span class="n">filename</span> <span class="o">=</span> <span class="n">dirname</span><span class="p">(</span><span class="n">filepath</span><span class="p">),</span> <span class="n">basename</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">copy_from</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">from_dir</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="o">.</span><span class="n">openbin</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">filepath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="o">.</span><span class="n">getsyspath</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+            <span class="k">yield</span> <span class="n">f</span><span class="p">,</span> <span class="n">filepath</span></div>
+
+<div class="viewcode-block" id="DataAccess.write"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.write">[docs]</a>    <span class="nd">@contextmanager</span>
+    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">,</span> <span class="n">save_local</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Write a file to data store.</span>
+
+<span class="sd">        :param str filepath: path to save data to</span>
+<span class="sd">        :param bool save_local: whether a copy should also be saved to the local filesystem, if</span>
+<span class="sd">            such a filesystem is configured. Defaults to True.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_file_exists</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">should_exist</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Writing </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">filepath</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="s2">&quot;mem://&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">mem_fs</span><span class="p">:</span>
+            <span class="n">mem_fs</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">dirname</span><span class="p">(</span><span class="n">filepath</span><span class="p">),</span> <span class="n">recreate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">with</span> <span class="n">mem_fs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">f</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_copy</span><span class="p">(</span><span class="n">mem_fs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">save_local</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_copy</span><span class="p">(</span><span class="n">mem_fs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_copy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src_fs</span><span class="p">,</span> <span class="n">dst_fs</span><span class="p">,</span> <span class="n">filepath</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Copy file from one filesystem to another.</span>
+
+<span class="sd">        :param fs.base.FS src_fs: source filesystem</span>
+<span class="sd">        :param fs.base.FS dst_fs: destination filesystem</span>
+<span class="sd">        :param str filepath: path to file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dst_fs</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">dirname</span><span class="p">(</span><span class="n">filepath</span><span class="p">),</span> <span class="n">recreate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">fs</span><span class="o">.</span><span class="n">copy</span><span class="o">.</span><span class="n">copy_file</span><span class="p">(</span><span class="n">src_fs</span><span class="p">,</span> <span class="n">filepath</span><span class="p">,</span> <span class="n">dst_fs</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span>
+
+<div class="viewcode-block" id="DataAccess.copy_from"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.copy_from">[docs]</a>    <span class="k">def</span> <span class="nf">copy_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Copy a file from data store to userspace.</span>
 
 <span class="sd">        :param str file_name: file name to copy.</span>
 <span class="sd">        :param str from_dir: data store directory to copy file from.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+        <span class="n">from_dir</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="n">from_dir</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">from_dir</span>
+        <span class="n">from_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">from_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_file_exists</span><span class="p">(</span><span class="n">from_path</span><span class="p">,</span> <span class="n">should_exist</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-<div class="viewcode-block" id="DataAccess.move_to"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.move_to">[docs]</a>    <span class="k">def</span> <span class="nf">move_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">to_dir</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Copy a file from userspace to data store.</span>
-
-<span class="sd">        :param str file_name: file name to copy.</span>
-<span class="sd">        :param str to_dir: data store directory to copy file to.</span>
-<span class="sd">        :param str change_name_to: new name for file when copied to data store.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+        <span class="n">location</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="n">from_path</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Transferring </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2"> from </span><span class="si">{</span><span class="n">location</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">TempFS</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmp_fs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">from_dir</span><span class="p">,</span> <span class="n">recreate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">tmp_fs</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">from_dir</span><span class="p">,</span> <span class="n">recreate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">fs</span><span class="o">.</span><span class="n">copy</span><span class="o">.</span><span class="n">copy_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="n">from_path</span><span class="p">,</span> <span class="n">tmp_fs</span><span class="p">,</span> <span class="n">from_path</span><span class="p">)</span>
+            <span class="n">fs</span><span class="o">.</span><span class="n">move</span><span class="o">.</span><span class="n">move_file</span><span class="p">(</span><span class="n">tmp_fs</span><span class="p">,</span> <span class="n">from_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="p">,</span> <span class="n">from_path</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="DataAccess.tmp_folder"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.tmp_folder">[docs]</a>    <span class="k">def</span> <span class="nf">tmp_folder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_id</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Get path to temporary scenario folder</span>
@@ -96,24 +172,33 @@
 <span class="sd">        :param str src: path to file</span>
 <span class="sd">        :param str dest: destination folder</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">dest</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">dest</span><span class="p">):</span>
-            <span class="n">dest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="n">fs2</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">src</span><span class="p">))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">dest</span><span class="p">):</span>
+            <span class="n">dest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="n">fs</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">src</span><span class="p">))</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dest</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="DataAccess.remove"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.remove">[docs]</a>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="DataAccess.remove"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.remove">[docs]</a>    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base_dir</span><span class="p">,</span> <span class="n">pattern</span><span class="p">,</span> <span class="n">confirm</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Delete files in current environment</span>
 
+<span class="sd">        :param str base_dir: root within which to search</span>
 <span class="sd">        :param str pattern: glob specifying files to remove</span>
 <span class="sd">        :param bool confirm: prompt before executing command</span>
+<span class="sd">        :return: (*bool*) -- True if the operation is completed</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">confirm</span><span class="p">:</span>
-            <span class="n">confirmed</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Delete &#39;</span><span class="si">{</span><span class="n">pattern</span><span class="si">}</span><span class="s2">&#39;? [y/n] (default is &#39;n&#39;)&quot;</span><span class="p">)</span>
+            <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">base_dir</span><span class="p">,</span> <span class="n">pattern</span><span class="p">)</span>
+            <span class="n">confirmed</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Delete &#39;</span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">&#39;? [y/n] (default is &#39;n&#39;)&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">confirmed</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Operation cancelled.&quot;</span><span class="p">)</span>
-                <span class="k">return</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">pattern</span><span class="p">)</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Done!&quot;</span><span class="p">)</span></div>
+                <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">for</span> <span class="n">_fs</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">write_fs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">Globber</span><span class="p">(</span><span class="n">_fs</span><span class="o">.</span><span class="n">opendir</span><span class="p">(</span><span class="n">base_dir</span><span class="p">),</span> <span class="n">pattern</span><span class="p">)</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+            <span class="k">except</span> <span class="n">errors</span><span class="o">.</span><span class="n">ResourceNotFound</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Skipping </span><span class="si">{</span><span class="n">base_dir</span><span class="si">}</span><span class="s2"> not found on </span><span class="si">{</span><span class="n">_fs</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Done!&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
 
     <span class="k">def</span> <span class="nf">_check_file_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">should_exist</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Check that file exists (or not) at the given path</span>
@@ -122,42 +207,13 @@
 <span class="sd">        :param bool should_exist: whether the file is expected to exist</span>
 <span class="sd">        :raises OSError: if the expected condition is not met</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">exists</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="n">location</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="n">exists</span> <span class="o">=</span> <span class="n">location</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">should_exist</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">exists</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> not found on </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">remotes</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">iterate_fs</span><span class="p">()]</span>
+            <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> not found on any of </span><span class="si">{</span><span class="n">remotes</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">should_exist</span> <span class="ow">and</span> <span class="n">exists</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> already exists on </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-<div class="viewcode-block" id="DataAccess.makedir"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.makedir">[docs]</a>    <span class="k">def</span> <span class="nf">makedir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Create path in current environment</span>
-
-<span class="sd">        :param str path: the relative path, excluding filename</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">recreate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="DataAccess.execute_command_async"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.execute_command_async">[docs]</a>    <span class="k">def</span> <span class="nf">execute_command_async</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Execute a command locally at the DataAccess, without waiting for completion.</span>
-
-<span class="sd">        :param list command: list of str to be passed to command line.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
-
-<div class="viewcode-block" id="DataAccess.checksum"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.checksum">[docs]</a>    <span class="k">def</span> <span class="nf">checksum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">relative_path</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return the checksum of the file path</span>
-
-<span class="sd">        :param str relative_path: path relative to root</span>
-<span class="sd">        :return: (*str*) -- the checksum of the file</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="s2">&quot;dummy_value&quot;</span></div>
-
-<div class="viewcode-block" id="DataAccess.push"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.push">[docs]</a>    <span class="k">def</span> <span class="nf">push</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">checksum</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Push the file from local to remote root folder, ensuring integrity</span>
-
-<span class="sd">        :param str file_name: the file name, located at the local root</span>
-<span class="sd">        :param str checksum: the checksum prior to download</span>
-<span class="sd">        :param str change_name_to: new name for file when copied to data store.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+            <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> already exists on </span><span class="si">{</span><span class="n">location</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="DataAccess.get_profile_version"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.get_profile_version">[docs]</a>    <span class="k">def</span> <span class="nf">get_profile_version</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns available raw profile from blob storage</span>
@@ -168,7 +224,23 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">blob_version</span> <span class="o">=</span> <span class="n">get_profile_version_cloud</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>
         <span class="n">local_version</span> <span class="o">=</span> <span class="n">get_profile_version_local</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>
-        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">blob_version</span> <span class="o">+</span> <span class="n">local_version</span><span class="p">))</span></div></div>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">blob_version</span> <span class="o">+</span> <span class="n">local_version</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="DataAccess.checksum"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.checksum">[docs]</a>    <span class="k">def</span> <span class="nf">checksum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">relative_path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the checksum of the file path</span>
+
+<span class="sd">        :param str relative_path: path relative to root</span>
+<span class="sd">        :return: (*str*) -- the checksum of the file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">hash</span><span class="p">(</span><span class="n">relative_path</span><span class="p">,</span> <span class="s2">&quot;sha256&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DataAccess.push"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess.push">[docs]</a>    <span class="k">def</span> <span class="nf">push</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">checksum</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Push the file from local to remote root folder, ensuring integrity</span>
+
+<span class="sd">        :param str file_name: the file name, located at the local root</span>
+<span class="sd">        :param str checksum: the checksum prior to download</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div></div>
 
 
 <div class="viewcode-block" id="LocalDataAccess"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.LocalDataAccess">[docs]</a><span class="k">class</span> <span class="nc">LocalDataAccess</span><span class="p">(</span><span class="n">DataAccess</span><span class="p">):</span>
@@ -176,116 +248,50 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;local machine&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">fs2</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_fs</span><span class="p">()</span>
 
-<div class="viewcode-block" id="LocalDataAccess.copy_from"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.LocalDataAccess.copy_from">[docs]</a>    <span class="k">def</span> <span class="nf">copy_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Copy a file from data store to userspace.</span>
+    <span class="k">def</span> <span class="nf">_get_fs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">mfs</span> <span class="o">=</span> <span class="n">MultiFS</span><span class="p">()</span>
+        <span class="n">profiles</span> <span class="o">=</span> <span class="n">get_blob_fs</span><span class="p">(</span><span class="s2">&quot;profiles&quot;</span><span class="p">)</span>
+        <span class="n">mfs</span><span class="o">.</span><span class="n">add_fs</span><span class="p">(</span><span class="s2">&quot;profile_fs&quot;</span><span class="p">,</span> <span class="n">profiles</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">mfs</span><span class="o">.</span><span class="n">add_fs</span><span class="p">(</span><span class="s2">&quot;local_fs&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="p">,</span> <span class="n">write</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mfs</span>
 
-<span class="sd">        :param str file_name: file name to copy.</span>
-<span class="sd">        :param str from_dir: data store directory to copy file from.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span></div>
-
-<div class="viewcode-block" id="LocalDataAccess.push"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.LocalDataAccess.push">[docs]</a>    <span class="k">def</span> <span class="nf">push</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">checksum</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Nothing to be done due to symlink</span>
+<div class="viewcode-block" id="LocalDataAccess.push"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.LocalDataAccess.push">[docs]</a>    <span class="nd">@contextmanager</span>
+    <span class="k">def</span> <span class="nf">push</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">checksum</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Write file if checksum matches</span>
 
 <span class="sd">        :param str file_name: the file name, located at the local root</span>
 <span class="sd">        :param str checksum: the checksum prior to download</span>
-<span class="sd">        :param str change_name_to: new name for file when copied to data store.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span></div>
-
-<div class="viewcode-block" id="LocalDataAccess.move_to"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.LocalDataAccess.move_to">[docs]</a>    <span class="k">def</span> <span class="nf">move_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">to_dir</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Copy a file from userspace to data store.</span>
-
-<span class="sd">        :param str file_name: file name to copy.</span>
-<span class="sd">        :param str to_dir: data store directory to copy file to.</span>
-<span class="sd">        :param str change_name_to: new name for file when copied to data store.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">change_name_to</span> <span class="o">=</span> <span class="n">file_name</span> <span class="k">if</span> <span class="n">change_name_to</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">change_name_to</span>
-        <span class="n">dest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">to_dir</span><span class="p">,</span> <span class="n">change_name_to</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--&gt; Moving file </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">to_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_file_exists</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="n">should_exist</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">makedir</span><span class="p">(</span><span class="n">to_dir</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">dest</span><span class="p">)</span></div></div>
+        <span class="k">if</span> <span class="n">checksum</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">checksum</span><span class="p">(</span><span class="n">file_name</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Checksums do not match&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="s2">&quot;temp://&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">tfs</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">tfs</span><span class="o">.</span><span class="n">openbin</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">f</span>
+            <span class="n">fs</span><span class="o">.</span><span class="n">move</span><span class="o">.</span><span class="n">move_file</span><span class="p">(</span><span class="n">tfs</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="SSHDataAccess"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess">[docs]</a><span class="k">class</span> <span class="nc">SSHDataAccess</span><span class="p">(</span><span class="n">DataAccess</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Interface to a remote data store, accessed via SSH.&quot;&quot;&quot;</span>
 
-    <span class="n">_last_attempt</span> <span class="o">=</span> <span class="mi">0</span>
-
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_fs</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_retry_after</span> <span class="o">=</span> <span class="mi">5</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">local_root</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span> <span class="o">=</span> <span class="n">fs2</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_root</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;server&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">fs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get or create the filesystem object, with attempts rate limited.</span>
+        <span class="sd">&quot;&quot;&quot;Get or create the filesystem object</span>
 
 <span class="sd">        :raises IOError: if connection failed or still within retry window</span>
-<span class="sd">        :return: (*powersimdata.data_access.ssh_fs.WrapSSHFS) -- filesystem instance</span>
+<span class="sd">        :return: (*fs.multifs.MultiFS*) -- filesystem instance</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">should_attempt</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">SSHDataAccess</span><span class="o">.</span><span class="n">_last_attempt</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retry_after</span>
-            <span class="p">)</span>
-            <span class="k">if</span> <span class="n">should_attempt</span><span class="p">:</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">_fs</span> <span class="o">=</span> <span class="n">get_ssh_fs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">)</span>
-                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fs</span>
-                <span class="k">except</span><span class="p">:</span>  <span class="c1"># noqa</span>
-                    <span class="n">SSHDataAccess</span><span class="o">.</span><span class="n">_last_attempt</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-            <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Could not connect to server, will try again after </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_retry_after</span><span class="si">}</span><span class="s2"> seconds&quot;</span>
-            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-
+            <span class="bp">self</span><span class="o">.</span><span class="n">_fs</span> <span class="o">=</span> <span class="n">get_multi_fs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fs</span>
-
-<div class="viewcode-block" id="SSHDataAccess.copy_from"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess.copy_from">[docs]</a>    <span class="k">def</span> <span class="nf">copy_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Copy a file from data store to userspace.</span>
-
-<span class="sd">        :param str file_name: file name to copy.</span>
-<span class="sd">        :param str from_dir: data store directory to copy file from.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">from_dir</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="n">from_dir</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">from_dir</span>
-        <span class="n">from_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">from_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_file_exists</span><span class="p">(</span><span class="n">from_path</span><span class="p">,</span> <span class="n">should_exist</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Transferring </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2"> from server&quot;</span><span class="p">)</span>
-        <span class="k">with</span> <span class="n">TempFS</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmp_fs</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">from_dir</span><span class="p">,</span> <span class="n">recreate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">tmp_fs</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">from_dir</span><span class="p">,</span> <span class="n">recreate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">fs2</span><span class="o">.</span><span class="n">copy</span><span class="o">.</span><span class="n">copy_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="n">from_path</span><span class="p">,</span> <span class="n">tmp_fs</span><span class="p">,</span> <span class="n">from_path</span><span class="p">)</span>
-            <span class="n">fs2</span><span class="o">.</span><span class="n">move</span><span class="o">.</span><span class="n">move_file</span><span class="p">(</span><span class="n">tmp_fs</span><span class="p">,</span> <span class="n">from_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="p">,</span> <span class="n">from_path</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="SSHDataAccess.move_to"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess.move_to">[docs]</a>    <span class="k">def</span> <span class="nf">move_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">to_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Copy a file from userspace to data store.</span>
-
-<span class="sd">        :param str file_name: file name to copy.</span>
-<span class="sd">        :param str to_dir: data store directory to copy file to.</span>
-<span class="sd">        :param str change_name_to: new name for file when copied to data store.</span>
-<span class="sd">        :raises FileNotFoundError: if specified file does not exist</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">file_name</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2"> not found in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">local_root</span><span class="si">}</span><span class="s2"> on local machine&quot;</span>
-            <span class="p">)</span>
-
-        <span class="n">change_name_to</span> <span class="o">=</span> <span class="n">file_name</span> <span class="k">if</span> <span class="n">change_name_to</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">change_name_to</span>
-        <span class="n">to_dir</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="n">to_dir</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">to_dir</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">makedir</span><span class="p">(</span><span class="n">to_dir</span><span class="p">)</span>
-
-        <span class="n">to_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">to_dir</span><span class="p">,</span> <span class="n">change_name_to</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_file_exists</span><span class="p">(</span><span class="n">to_path</span><span class="p">,</span> <span class="n">should_exist</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Transferring </span><span class="si">{</span><span class="n">change_name_to</span><span class="si">}</span><span class="s2"> to server&quot;</span><span class="p">)</span>
-        <span class="n">fs2</span><span class="o">.</span><span class="n">move</span><span class="o">.</span><span class="n">move_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="n">to_path</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SSHDataAccess.execute_command_async"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess.execute_command_async">[docs]</a>    <span class="k">def</span> <span class="nf">execute_command_async</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Execute a command via ssh, without waiting for completion.</span>
@@ -305,25 +311,31 @@
 <span class="sd">        :param str relative_path: path relative to root</span>
 <span class="sd">        :return: (*str*) -- the checksum of the file</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">full_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">relative_path</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_file_exists</span><span class="p">(</span><span class="n">relative_path</span><span class="p">)</span>
+        <span class="n">full_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">relative_path</span><span class="p">)</span>
+        <span class="n">ssh_fs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">get_fs</span><span class="p">(</span><span class="s2">&quot;ssh_fs&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ssh_fs</span><span class="o">.</span><span class="n">checksum</span><span class="p">(</span><span class="n">full_path</span><span class="p">)</span></div>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">checksum</span><span class="p">(</span><span class="n">full_path</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="SSHDataAccess.push"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess.push">[docs]</a>    <span class="k">def</span> <span class="nf">push</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">checksum</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="SSHDataAccess.push"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess.push">[docs]</a>    <span class="nd">@contextmanager</span>
+    <span class="k">def</span> <span class="nf">push</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">checksum</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Push file to server and verify the checksum matches a prior value</span>
 
 <span class="sd">        :param str file_name: the file name, located at the local root</span>
 <span class="sd">        :param str checksum: the checksum prior to download</span>
-<span class="sd">        :param str change_name_to: new name for file when copied to data store.</span>
 <span class="sd">        :raises IOError: if command generated stderr</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">new_name</span> <span class="o">=</span> <span class="n">file_name</span> <span class="k">if</span> <span class="n">change_name_to</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">change_name_to</span>
-        <span class="n">backup</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">new_name</span><span class="si">}</span><span class="s2">.temp&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">move_to</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="n">backup</span><span class="p">)</span>
+        <span class="n">backup</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">.temp&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_file_exists</span><span class="p">(</span><span class="n">backup</span><span class="p">,</span> <span class="n">should_exist</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Transferring </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2"> to server&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="s2">&quot;temp://&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">tfs</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">tfs</span><span class="o">.</span><span class="n">openbin</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">f</span>
+            <span class="n">fs</span><span class="o">.</span><span class="n">move</span><span class="o">.</span><span class="n">move_file</span><span class="p">(</span><span class="n">tfs</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+            <span class="n">fs</span><span class="o">.</span><span class="n">copy</span><span class="o">.</span><span class="n">copy_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="n">backup</span><span class="p">)</span>
 
         <span class="n">values</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;original&quot;</span><span class="p">:</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">new_name</span><span class="p">),</span>
+            <span class="s2">&quot;original&quot;</span><span class="p">:</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">file_name</span><span class="p">),</span>
             <span class="s2">&quot;updated&quot;</span><span class="p">:</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">backup</span><span class="p">),</span>
             <span class="s2">&quot;lockfile&quot;</span><span class="p">:</span> <span class="n">posixpath</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="s2">&quot;scenario.lockfile&quot;</span><span class="p">),</span>
             <span class="s2">&quot;checksum&quot;</span><span class="p">:</span> <span class="n">checksum</span><span class="p">,</span>
@@ -337,7 +349,8 @@
 <span class="s2">                200&gt;</span><span class="si">{lockfile}</span><span class="s2">&quot;</span>
 
         <span class="n">command</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="o">**</span><span class="n">values</span><span class="p">)</span>
-        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">exec_command</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+        <span class="n">ssh_fs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">get_fs</span><span class="p">(</span><span class="s2">&quot;ssh_fs&quot;</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="n">ssh_fs</span><span class="o">.</span><span class="n">exec_command</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
 
         <span class="n">errors</span> <span class="o">=</span> <span class="n">stderr</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">errors</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
@@ -346,25 +359,53 @@
             <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;Failed to push file - most likely a conflict was detected.&quot;</span><span class="p">)</span></div></div>
 
 
-<div class="viewcode-block" id="MemoryDataAccess"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.MemoryDataAccess">[docs]</a><span class="k">class</span> <span class="nc">MemoryDataAccess</span><span class="p">(</span><span class="n">SSHDataAccess</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Mimic a client server architecture using in memory filesystems&quot;&quot;&quot;</span>
+<span class="k">class</span> <span class="nc">_DataAccessTemplate</span><span class="p">(</span><span class="n">SSHDataAccess</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Template for data access object using temp or in memory filesystems&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span> <span class="o">=</span> <span class="n">fs2</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="s2">&quot;mem://&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_fs</span> <span class="o">=</span> <span class="n">fs2</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="s2">&quot;mem://&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;in-memory&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">local_root</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="s2">&quot;dummy&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">join</span> <span class="o">=</span> <span class="n">fs2</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fs_url</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="n">fs_url</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_fs</span><span class="p">(</span><span class="n">fs_url</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="s2">&quot;foo&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">join</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span>
 
-<div class="viewcode-block" id="MemoryDataAccess.push"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.MemoryDataAccess.push">[docs]</a>    <span class="k">def</span> <span class="nf">push</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">checksum</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_get_fs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fs_url</span><span class="p">):</span>
+        <span class="n">mfs</span> <span class="o">=</span> <span class="n">MultiFS</span><span class="p">()</span>
+        <span class="n">mfs</span><span class="o">.</span><span class="n">add_fs</span><span class="p">(</span><span class="s2">&quot;remotefs&quot;</span><span class="p">,</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="n">fs_url</span><span class="p">),</span> <span class="n">write</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mfs</span>
+
+    <span class="k">def</span> <span class="nf">checksum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">relative_path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the checksum of the file path</span>
+
+<span class="sd">        :param str relative_path: path relative to root</span>
+<span class="sd">        :return: (*str*) -- the checksum of the file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">hash</span><span class="p">(</span><span class="n">relative_path</span><span class="p">,</span> <span class="s2">&quot;sha256&quot;</span><span class="p">)</span>
+
+    <span class="nd">@contextmanager</span>
+    <span class="k">def</span> <span class="nf">push</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">checksum</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Push file from local to remote filesystem, bypassing checksum since this is</span>
 <span class="sd">        in memory.</span>
 
 <span class="sd">        :param str file_name: the file name, located at the local root</span>
 <span class="sd">        :param str checksum: the checksum prior to download</span>
-<span class="sd">        :param str change_name_to: new name for file when copied to data store.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">move_to</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">change_name_to</span><span class="o">=</span><span class="n">change_name_to</span><span class="p">)</span></div></div>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="o">.</span><span class="n">openbin</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">f</span>
+        <span class="n">fs</span><span class="o">.</span><span class="n">move</span><span class="o">.</span><span class="n">move_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fs</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="TempDataAccess"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.TempDataAccess">[docs]</a><span class="k">class</span> <span class="nc">TempDataAccess</span><span class="p">(</span><span class="n">_DataAccessTemplate</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Mimic a client server architecture using temp filesystems&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;temp://&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MemoryDataAccess"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.MemoryDataAccess">[docs]</a><span class="k">class</span> <span class="nc">MemoryDataAccess</span><span class="p">(</span><span class="n">_DataAccessTemplate</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Mimic a client server architecture using in memory filesystems&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;mem://&quot;</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

@@ -41,6 +41,7 @@
 <span class="kn">from</span> <span class="nn">prereise.gather.griddata.transmission.geometry</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">Conductor</span><span class="p">,</span>
     <span class="n">ConductorBundle</span><span class="p">,</span>
+    <span class="n">Line</span><span class="p">,</span>
     <span class="n">PhaseLocations</span><span class="p">,</span>
     <span class="n">Tower</span><span class="p">,</span>
 <span class="p">)</span>
@@ -58,7 +59,6 @@
     <span class="n">rated_dc_resistance_per_km</span> <span class="o">=</span> <span class="n">rated_dc_resistance_per_1000_ft</span> <span class="o">*</span> <span class="mf">3.2808</span>
     <span class="c1"># Calculate for solid-aluminum (resistance should be lower than rated)</span>
     <span class="n">conductor</span> <span class="o">=</span> <span class="n">Conductor</span><span class="p">(</span><span class="n">radius</span><span class="o">=</span><span class="p">(</span><span class="n">outer_diameter</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">material</span><span class="o">=</span><span class="s2">&quot;aluminum&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">conductor</span><span class="o">.</span><span class="n">resistance_per_km</span><span class="p">)</span>
     <span class="k">assert</span> <span class="n">conductor</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">&lt;</span> <span class="n">rated_dc_resistance_per_km</span>
     <span class="c1"># Count 54 aluminum strands only for conductance purposes, ignore 7 steel strands</span>
     <span class="c1"># (resistance should be approximately equal to rated)</span>
@@ -158,6 +158,26 @@
     <span class="c1"># Check</span>
     <span class="k">assert</span> <span class="n">series_reactance_per_mi</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span><span class="n">expected_series_reactance</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
     <span class="k">assert</span> <span class="n">shunt_admittance_per_mi</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span><span class="n">expected_shunt_admittance</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_line"><a class="viewcode-back" href="../../../../../../prereise.gather.griddata.transmission.tests.html#prereise.gather.griddata.transmission.tests.test_geometry.test_line">[docs]</a><span class="k">def</span> <span class="nf">test_line</span><span class="p">():</span>
+    <span class="c1"># ACSR &#39;Rook&#39;</span>
+    <span class="n">conductor</span> <span class="o">=</span> <span class="n">Conductor</span><span class="p">(</span>
+        <span class="n">radius</span><span class="o">=</span><span class="mf">0.012408</span><span class="p">,</span>
+        <span class="n">gmr</span><span class="o">=</span><span class="mf">0.009967</span><span class="p">,</span>
+        <span class="n">material</span><span class="o">=</span><span class="s2">&quot;ACSR&quot;</span><span class="p">,</span>  <span class="c1"># No constants for this material, but they&#39;re un-needed</span>
+        <span class="n">resistance_per_km</span><span class="o">=</span><span class="mf">0.09963</span><span class="p">,</span>  <span class="c1"># rated value at 50 C</span>
+    <span class="p">)</span>
+    <span class="n">locations</span> <span class="o">=</span> <span class="n">PhaseLocations</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">7.25</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span> <span class="n">b</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span> <span class="n">c</span><span class="o">=</span><span class="p">(</span><span class="mf">7.25</span><span class="p">,</span> <span class="mi">50</span><span class="p">))</span>
+    <span class="n">bundle</span> <span class="o">=</span> <span class="n">ConductorBundle</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">conductor</span><span class="o">=</span><span class="n">conductor</span><span class="p">)</span>
+    <span class="n">tower</span> <span class="o">=</span> <span class="n">Tower</span><span class="p">(</span><span class="n">locations</span><span class="o">=</span><span class="n">locations</span><span class="p">,</span> <span class="n">bundle</span><span class="o">=</span><span class="n">bundle</span><span class="p">)</span>
+    <span class="n">line</span> <span class="o">=</span> <span class="n">Line</span><span class="p">(</span><span class="n">tower</span><span class="o">=</span><span class="n">tower</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">370</span><span class="p">,</span> <span class="n">voltage</span><span class="o">=</span><span class="mi">215</span><span class="p">)</span>
+    <span class="c1"># The following values are appreciably different than what we would see using a</span>
+    <span class="c1"># short-line model that just multiplies per-length by total length</span>
+    <span class="k">assert</span> <span class="n">line</span><span class="o">.</span><span class="n">series_impedance</span><span class="o">.</span><span class="n">imag</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span><span class="mf">183.6619</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="mf">0.005</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">line</span><span class="o">.</span><span class="n">series_impedance</span><span class="o">.</span><span class="n">real</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span><span class="mf">34.20553</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="mf">0.005</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">line</span><span class="o">.</span><span class="n">shunt_admittance</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span><span class="mf">0.001198</span><span class="n">j</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="mf">0.005</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">line</span><span class="o">.</span><span class="n">surge_impedance_loading</span> <span class="o">==</span> <span class="n">pytest</span><span class="o">.</span><span class="n">approx</span><span class="p">(</span><span class="mi">215</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mf">406.4</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="mf">0.005</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

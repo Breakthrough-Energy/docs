@@ -34,7 +34,8 @@
           <div class="body" role="main">
             
   <h1>Source code for prereise.gather.griddata.transmission.geometry</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span></span><span class="kn">import</span> <span class="nn">cmath</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
 <span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">combinations</span>
 <span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">exp</span><span class="p">,</span> <span class="n">log</span><span class="p">,</span> <span class="n">pi</span><span class="p">,</span> <span class="n">sqrt</span>
 <span class="kn">from</span> <span class="nn">statistics</span> <span class="kn">import</span> <span class="n">geometric_mean</span>
@@ -68,7 +69,7 @@
     <span class="n">resistance_per_km</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">gmr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">area</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">permeability</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">permeability</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># Validate inputs</span>
@@ -284,6 +285,58 @@
             <span class="p">)</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">capacitance_per_km</span></div></div>
+
+
+<div class="viewcode-block" id="Line"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.Line">[docs]</a><span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Line</span><span class="p">(</span><span class="n">DataclassWithValidation</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given a Tower design, line voltage, and length, calculate whole-line impedances</span>
+<span class="sd">    and rating.</span>
+
+<span class="sd">    :param Tower tower: tower parameters (containing per-kilometer impedances).</span>
+<span class="sd">    :param int/float length: line length (kilometers).</span>
+<span class="sd">    :param int/float voltage: line voltage (kilovolts).</span>
+<span class="sd">    :param int/float freq: the system nominal frequency (Hz).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">tower</span><span class="p">:</span> <span class="n">Tower</span>
+    <span class="n">length</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">voltage</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">freq</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">60.0</span>
+    <span class="n">series_impedance_per_km</span><span class="p">:</span> <span class="nb">complex</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">shunt_admittance_per_km</span><span class="p">:</span> <span class="nb">complex</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">propogation_constant_per_km</span><span class="p">:</span> <span class="nb">complex</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">surge_impedance</span><span class="p">:</span> <span class="nb">complex</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">series_impedance</span><span class="p">:</span> <span class="nb">complex</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">shunt_admittance</span><span class="p">:</span> <span class="nb">complex</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Convert integers to floats as necessary</span>
+        <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;freq&quot;</span><span class="p">,</span> <span class="s2">&quot;length&quot;</span><span class="p">,</span> <span class="s2">&quot;voltage&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">),</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">validate_input_types</span><span class="p">()</span>  <span class="c1"># defined in DataclassWithValidation</span>
+        <span class="c1"># Calculate second-order electrical parameters which depend on frequency</span>
+        <span class="n">omega</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">pi</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">freq</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">series_impedance_per_km</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tower</span><span class="o">.</span><span class="n">resistance</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">tower</span><span class="o">.</span><span class="n">inductance</span> <span class="o">*</span> <span class="n">omega</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shunt_admittance_per_km</span> <span class="o">=</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">tower</span><span class="o">.</span><span class="n">capacitance</span> <span class="o">*</span> <span class="n">omega</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">surge_impedance</span> <span class="o">=</span> <span class="n">cmath</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">series_impedance_per_km</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">shunt_admittance_per_km</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">propogation_constant_per_km</span> <span class="o">=</span> <span class="n">cmath</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">series_impedance_per_km</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">shunt_admittance_per_km</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">surge_impedance_loading</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">voltage</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">surge_impedance</span><span class="p">)</span>
+        <span class="c1"># Use the long-line transmission model to calculate lumped-element parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">series_impedance</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">series_impedance_per_km</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
+            <span class="n">cmath</span><span class="o">.</span><span class="n">sinh</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">propogation_constant_per_km</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
+            <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">propogation_constant_per_km</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shunt_admittance</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shunt_admittance_per_km</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
+            <span class="n">cmath</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">propogation_constant_per_km</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">propogation_constant_per_km</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="p">)</span></div>
 
 
 <span class="k">def</span> <span class="nf">_euclidian</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>

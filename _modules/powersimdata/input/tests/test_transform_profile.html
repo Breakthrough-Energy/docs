@@ -34,22 +34,20 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.input.tests.test_transform_profile</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span></span><span class="kn">from</span> <span class="nn">unittest.mock</span> <span class="kn">import</span> <span class="n">patch</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pytest</span>
 <span class="kn">from</span> <span class="nn">numpy.testing</span> <span class="kn">import</span> <span class="n">assert_almost_equal</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.input.change_table</span> <span class="kn">import</span> <span class="n">ChangeTable</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
-<span class="kn">from</span> <span class="nn">powersimdata.input.input_data</span> <span class="kn">import</span> <span class="n">InputData</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_profile</span> <span class="kn">import</span> <span class="n">TransformProfile</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_input_data</span> <span class="kn">import</span> <span class="n">MockInputData</span>
 
 <span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Western&quot;</span><span class="p">]</span>
 <span class="n">param</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;demand&quot;</span><span class="p">:</span> <span class="s2">&quot;vJan2021&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;hydro&quot;</span><span class="p">:</span> <span class="s2">&quot;vJan2021&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="s2">&quot;vJan2021&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="s2">&quot;vJan2021&quot;</span><span class="p">,</span>
     <span class="s2">&quot;n_zone_to_scale&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
     <span class="s2">&quot;n_plant_to_scale&quot;</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
     <span class="s2">&quot;n_plant_to_add&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span>
@@ -124,7 +122,7 @@
     <span class="k">return</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span></div>
 
 
-<span class="k">def</span> <span class="nf">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">profile_info</span><span class="p">,</span> <span class="n">raw_profile</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_profile</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
     <span class="n">plant_id_type</span> <span class="o">=</span> <span class="n">get_plant_with_resource</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">resource</span><span class="p">)</span>
 
     <span class="n">base_profile</span> <span class="o">=</span> <span class="p">(</span>
@@ -134,7 +132,8 @@
     <span class="n">tg</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">ct</span><span class="p">)</span>
     <span class="n">transformed_grid</span> <span class="o">=</span> <span class="n">tg</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
 
-    <span class="n">tp</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="n">profile_info</span><span class="p">,</span> <span class="n">transformed_grid</span><span class="p">,</span> <span class="n">ct</span><span class="p">)</span>
+    <span class="n">empty_scenario_info</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># scenario_info not needed since input_data is mocked</span>
+    <span class="n">tp</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="n">empty_scenario_info</span><span class="p">,</span> <span class="n">transformed_grid</span><span class="p">,</span> <span class="n">ct</span><span class="p">)</span>
     <span class="n">transformed_profile</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
 
     <span class="n">scaled_plant_id</span> <span class="o">=</span> <span class="p">[]</span>
@@ -170,7 +169,7 @@
     <span class="k">return</span> <span class="n">transformed_profile</span>
 
 
-<span class="k">def</span> <span class="nf">_check_new_plants_are_added</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">profile_info</span><span class="p">,</span> <span class="n">raw_profile</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_check_new_plants_are_added</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_profile</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
     <span class="n">n_plant</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="s2">&quot;n_plant_to_add&quot;</span><span class="p">]</span>
     <span class="n">plant_id_type</span> <span class="o">=</span> <span class="p">(</span>
         <span class="n">base_grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">profile_type</span><span class="p">[</span><span class="n">resource</span><span class="p">])</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;type == True&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span>
@@ -182,7 +181,8 @@
     <span class="n">tg</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">ct</span><span class="p">)</span>
     <span class="n">transformed_grid</span> <span class="o">=</span> <span class="n">tg</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
 
-    <span class="n">tp</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="n">profile_info</span><span class="p">,</span> <span class="n">transformed_grid</span><span class="p">,</span> <span class="n">ct</span><span class="p">)</span>
+    <span class="n">empty_scenario_info</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># scenario_info not needed since input_data is mocked</span>
+    <span class="n">tp</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="n">empty_scenario_info</span><span class="p">,</span> <span class="n">transformed_grid</span><span class="p">,</span> <span class="n">ct</span><span class="p">)</span>
     <span class="n">transformed_profile</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
 
     <span class="k">assert</span> <span class="ow">not</span> <span class="n">transformed_profile</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">base_profile</span><span class="p">)</span>
@@ -195,30 +195,24 @@
     <span class="k">return</span> <span class="n">transformed_profile</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">base_profile</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_check_new_plants_are_not_scaled</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">profile_info</span><span class="p">,</span> <span class="n">raw_profile</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_check_new_plants_are_not_scaled</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_profile</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
     <span class="n">ct_zone</span> <span class="o">=</span> <span class="n">get_change_table_for_zone_scaling</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">resource</span><span class="p">)</span>
     <span class="n">ct_id</span> <span class="o">=</span> <span class="n">get_change_table_for_id_scaling</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">resource</span><span class="p">)</span>
     <span class="n">ct_new</span> <span class="o">=</span> <span class="n">get_change_table_for_new_plant_addition</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">resource</span><span class="p">)</span>
     <span class="n">ct</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">ct_zone</span><span class="p">,</span> <span class="o">**</span><span class="n">ct_id</span><span class="p">[</span><span class="n">resource</span><span class="p">],</span> <span class="o">**</span><span class="n">ct_new</span><span class="p">}</span>
     <span class="c1"># profile of new plants</span>
-    <span class="n">new_profile</span> <span class="o">=</span> <span class="n">_check_new_plants_are_added</span><span class="p">(</span>
-        <span class="n">ct_new</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">profile_info</span><span class="p">,</span> <span class="n">raw_profile</span><span class="p">,</span> <span class="n">resource</span>
-    <span class="p">)</span>
+    <span class="n">new_profile</span> <span class="o">=</span> <span class="n">_check_new_plants_are_added</span><span class="p">(</span><span class="n">ct_new</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_profile</span><span class="p">,</span> <span class="n">resource</span><span class="p">)</span>
     <span class="c1"># transformed profile</span>
-    <span class="n">scaled_profile</span> <span class="o">=</span> <span class="n">_check_plants_are_scaled</span><span class="p">(</span>
-        <span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">profile_info</span><span class="p">,</span> <span class="n">raw_profile</span><span class="p">,</span> <span class="n">resource</span>
-    <span class="p">)</span>
+    <span class="n">scaled_profile</span> <span class="o">=</span> <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_profile</span><span class="p">,</span> <span class="n">resource</span><span class="p">)</span>
     <span class="c1"># check that the profiles of new plants in the scaled profile are not scaled</span>
     <span class="k">assert</span> <span class="n">new_profile</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">scaled_profile</span><span class="p">[</span><span class="n">new_profile</span><span class="o">.</span><span class="n">columns</span><span class="p">])</span>
 
 
 <span class="k">def</span> <span class="nf">_check_profile_of_new_plants_are_produced_correctly</span><span class="p">(</span>
-    <span class="n">base_grid</span><span class="p">,</span> <span class="n">profile_info</span><span class="p">,</span> <span class="n">raw_profile</span><span class="p">,</span> <span class="n">resource</span>
+    <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_profile</span><span class="p">,</span> <span class="n">resource</span>
 <span class="p">):</span>
     <span class="n">ct_new</span> <span class="o">=</span> <span class="n">get_change_table_for_new_plant_addition</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">resource</span><span class="p">)</span>
-    <span class="n">new_profile</span> <span class="o">=</span> <span class="n">_check_new_plants_are_added</span><span class="p">(</span>
-        <span class="n">ct_new</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">profile_info</span><span class="p">,</span> <span class="n">raw_profile</span><span class="p">,</span> <span class="n">resource</span>
-    <span class="p">)</span>
+    <span class="n">new_profile</span> <span class="o">=</span> <span class="n">_check_new_plants_are_added</span><span class="p">(</span><span class="n">ct_new</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_profile</span><span class="p">,</span> <span class="n">resource</span><span class="p">)</span>
     <span class="n">neighbor_id</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;plant_id_neighbor&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">ct_new</span><span class="p">[</span><span class="s2">&quot;new_plant&quot;</span><span class="p">]]</span>
     <span class="n">new_plant_pmax</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">ct_new</span><span class="p">[</span><span class="s2">&quot;new_plant&quot;</span><span class="p">]]</span>
 
@@ -233,39 +227,42 @@
     <span class="k">return</span> <span class="n">grid</span></div>
 
 
-<div class="viewcode-block" id="raw_profile"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.raw_profile">[docs]</a><span class="k">def</span> <span class="nf">raw_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">):</span>
-    <span class="n">input_data</span> <span class="o">=</span> <span class="n">InputData</span><span class="p">()</span>
-    <span class="n">grid_model</span> <span class="o">=</span> <span class="s2">&quot;test_usa_tamu&quot;</span>
-    <span class="n">profile_info</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;grid_model&quot;</span><span class="p">:</span> <span class="n">grid_model</span><span class="p">,</span>
-        <span class="sa">f</span><span class="s2">&quot;base_</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">param</span><span class="p">[</span><span class="n">kind</span><span class="p">],</span>
-    <span class="p">}</span>
-    <span class="n">profile</span> <span class="o">=</span> <span class="n">input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">profile_info</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">profile_info</span><span class="p">,</span> <span class="n">profile</span></div>
+<div class="viewcode-block" id="input_data"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.input_data">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="s2">&quot;module&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">input_data</span><span class="p">(</span><span class="n">base_grid</span><span class="p">):</span>
+    <span class="n">mock_input_data</span> <span class="o">=</span> <span class="n">MockInputData</span><span class="p">(</span><span class="n">base_grid</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mock_input_data</span></div>
+
+
+<div class="viewcode-block" id="mock_input_data_class"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.mock_input_data_class">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="s2">&quot;module&quot;</span><span class="p">,</span> <span class="n">autouse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">mock_input_data_class</span><span class="p">(</span><span class="n">input_data</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">patch</span><span class="p">(</span>
+        <span class="s2">&quot;powersimdata.input.transform_profile.InputData&quot;</span>
+    <span class="p">)</span> <span class="k">as</span> <span class="n">mock_input_data_class</span><span class="p">:</span>
+        <span class="n">mock_input_data_class</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="n">input_data</span>
+        <span class="k">yield</span></div>
 
 
 <div class="viewcode-block" id="raw_hydro"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.raw_hydro">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="s2">&quot;module&quot;</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">raw_hydro</span><span class="p">():</span>
-    <span class="k">return</span> <span class="n">raw_profile</span><span class="p">(</span><span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
+<span class="k">def</span> <span class="nf">raw_hydro</span><span class="p">(</span><span class="n">input_data</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">({},</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="raw_wind"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.raw_wind">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="s2">&quot;module&quot;</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">raw_wind</span><span class="p">():</span>
-    <span class="k">return</span> <span class="n">raw_profile</span><span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
+<span class="k">def</span> <span class="nf">raw_wind</span><span class="p">(</span><span class="n">input_data</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">({},</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="raw_solar"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.raw_solar">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="s2">&quot;module&quot;</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">raw_solar</span><span class="p">():</span>
-    <span class="k">return</span> <span class="n">raw_profile</span><span class="p">(</span><span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
+<span class="k">def</span> <span class="nf">raw_solar</span><span class="p">(</span><span class="n">input_data</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">({},</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="raw_demand"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.raw_demand">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="s2">&quot;module&quot;</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">raw_demand</span><span class="p">():</span>
-    <span class="k">return</span> <span class="n">raw_profile</span><span class="p">(</span><span class="s2">&quot;demand&quot;</span><span class="p">)</span></div>
+<span class="k">def</span> <span class="nf">raw_demand</span><span class="p">(</span><span class="n">input_data</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">({},</span> <span class="s2">&quot;demand&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_demand_is_scaled"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_demand_is_scaled">[docs]</a><span class="k">def</span> <span class="nf">test_demand_is_scaled</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_demand</span><span class="p">):</span>
-    <span class="n">demand_info</span><span class="p">,</span> <span class="n">raw_demand</span> <span class="o">=</span> <span class="n">raw_demand</span>
     <span class="n">base_demand</span> <span class="o">=</span> <span class="n">raw_demand</span><span class="p">[</span><span class="n">base_grid</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
 
     <span class="n">n_zone</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="s2">&quot;n_zone_to_scale&quot;</span><span class="p">]</span>
@@ -285,7 +282,8 @@
     <span class="n">tg</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span>
     <span class="n">transformed_grid</span> <span class="o">=</span> <span class="n">tg</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
 
-    <span class="n">tp</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="n">demand_info</span><span class="p">,</span> <span class="n">transformed_grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span>
+    <span class="n">empty_scenario_info</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># scenario_info not needed since input_data is mocked</span>
+    <span class="n">tp</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="n">empty_scenario_info</span><span class="p">,</span> <span class="n">transformed_grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span>
     <span class="n">transformed_profile</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;demand&quot;</span><span class="p">)</span>
     <span class="k">assert</span> <span class="ow">not</span> <span class="n">base_demand</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">transformed_profile</span><span class="p">)</span>
 
@@ -301,92 +299,92 @@
 
 <div class="viewcode-block" id="test_solar_is_scaled_by_zone"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_solar_is_scaled_by_zone">[docs]</a><span class="k">def</span> <span class="nf">test_solar_is_scaled_by_zone</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_solar</span><span class="p">):</span>
     <span class="n">ct</span> <span class="o">=</span> <span class="n">get_change_table_for_zone_scaling</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span>
-    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_solar</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_solar</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_solar_is_scaled_by_id"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_solar_is_scaled_by_id">[docs]</a><span class="k">def</span> <span class="nf">test_solar_is_scaled_by_id</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_solar</span><span class="p">):</span>
     <span class="n">ct</span> <span class="o">=</span> <span class="n">get_change_table_for_id_scaling</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span>
-    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_solar</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_solar</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_solar_is_scaled_by_zone_and_id"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_solar_is_scaled_by_zone_and_id">[docs]</a><span class="k">def</span> <span class="nf">test_solar_is_scaled_by_zone_and_id</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_solar</span><span class="p">):</span>
     <span class="n">ct_zone</span> <span class="o">=</span> <span class="n">get_change_table_for_zone_scaling</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span>
     <span class="n">ct_id</span> <span class="o">=</span> <span class="n">get_change_table_for_id_scaling</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span>
     <span class="n">ct</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">ct_zone</span><span class="p">,</span> <span class="o">**</span><span class="n">ct_id</span><span class="p">[</span><span class="s2">&quot;solar&quot;</span><span class="p">]}</span>
-    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_solar</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_solar</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_wind_is_scaled_by_zone"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_wind_is_scaled_by_zone">[docs]</a><span class="k">def</span> <span class="nf">test_wind_is_scaled_by_zone</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_wind</span><span class="p">):</span>
     <span class="n">ct</span> <span class="o">=</span> <span class="n">get_change_table_for_zone_scaling</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span>
-    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_wind</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_wind</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_wind_is_scaled_by_id"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_wind_is_scaled_by_id">[docs]</a><span class="k">def</span> <span class="nf">test_wind_is_scaled_by_id</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_wind</span><span class="p">):</span>
     <span class="n">ct</span> <span class="o">=</span> <span class="n">get_change_table_for_id_scaling</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span>
-    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_wind</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_wind</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_wind_is_scaled_by_zone_and_id"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_wind_is_scaled_by_zone_and_id">[docs]</a><span class="k">def</span> <span class="nf">test_wind_is_scaled_by_zone_and_id</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_wind</span><span class="p">):</span>
     <span class="n">ct_zone</span> <span class="o">=</span> <span class="n">get_change_table_for_zone_scaling</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span>
     <span class="n">ct_id</span> <span class="o">=</span> <span class="n">get_change_table_for_id_scaling</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span>
     <span class="n">ct</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">ct_zone</span><span class="p">,</span> <span class="o">**</span><span class="n">ct_id</span><span class="p">[</span><span class="s2">&quot;wind&quot;</span><span class="p">]}</span>
-    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_wind</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_wind</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_hydro_is_scaled_by_zone"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_hydro_is_scaled_by_zone">[docs]</a><span class="k">def</span> <span class="nf">test_hydro_is_scaled_by_zone</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_hydro</span><span class="p">):</span>
     <span class="n">ct</span> <span class="o">=</span> <span class="n">get_change_table_for_zone_scaling</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span>
-    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_hydro</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_hydro</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_hydro_is_scaled_by_id"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_hydro_is_scaled_by_id">[docs]</a><span class="k">def</span> <span class="nf">test_hydro_is_scaled_by_id</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_hydro</span><span class="p">):</span>
     <span class="n">ct</span> <span class="o">=</span> <span class="n">get_change_table_for_id_scaling</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span>
-    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_hydro</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_hydro</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_hydro_is_scaled_by_zone_and_id"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_hydro_is_scaled_by_zone_and_id">[docs]</a><span class="k">def</span> <span class="nf">test_hydro_is_scaled_by_zone_and_id</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_hydro</span><span class="p">):</span>
     <span class="n">ct_zone</span> <span class="o">=</span> <span class="n">get_change_table_for_zone_scaling</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span>
     <span class="n">ct_id</span> <span class="o">=</span> <span class="n">get_change_table_for_id_scaling</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span>
     <span class="n">ct</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">ct_zone</span><span class="p">,</span> <span class="o">**</span><span class="n">ct_id</span><span class="p">[</span><span class="s2">&quot;hydro&quot;</span><span class="p">]}</span>
-    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_hydro</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_plants_are_scaled</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_hydro</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_new_solar_are_added"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_new_solar_are_added">[docs]</a><span class="k">def</span> <span class="nf">test_new_solar_are_added</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_solar</span><span class="p">):</span>
     <span class="n">ct</span> <span class="o">=</span> <span class="n">get_change_table_for_new_plant_addition</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span>
-    <span class="n">_</span> <span class="o">=</span> <span class="n">_check_new_plants_are_added</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_solar</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
+    <span class="n">_</span> <span class="o">=</span> <span class="n">_check_new_plants_are_added</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_solar</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_new_wind_are_added"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_new_wind_are_added">[docs]</a><span class="k">def</span> <span class="nf">test_new_wind_are_added</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_wind</span><span class="p">):</span>
     <span class="n">ct</span> <span class="o">=</span> <span class="n">get_change_table_for_new_plant_addition</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span>
-    <span class="n">_</span> <span class="o">=</span> <span class="n">_check_new_plants_are_added</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_wind</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
+    <span class="n">_</span> <span class="o">=</span> <span class="n">_check_new_plants_are_added</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_wind</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_new_hydro_added"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_new_hydro_added">[docs]</a><span class="k">def</span> <span class="nf">test_new_hydro_added</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_hydro</span><span class="p">):</span>
     <span class="n">ct</span> <span class="o">=</span> <span class="n">get_change_table_for_new_plant_addition</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span>
-    <span class="n">_</span> <span class="o">=</span> <span class="n">_check_new_plants_are_added</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_hydro</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
+    <span class="n">_</span> <span class="o">=</span> <span class="n">_check_new_plants_are_added</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_hydro</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_new_solar_are_not_scaled"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_new_solar_are_not_scaled">[docs]</a><span class="k">def</span> <span class="nf">test_new_solar_are_not_scaled</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_solar</span><span class="p">):</span>
-    <span class="n">_check_new_plants_are_not_scaled</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_solar</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_new_plants_are_not_scaled</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_solar</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_new_wind_are_not_scaled"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_new_wind_are_not_scaled">[docs]</a><span class="k">def</span> <span class="nf">test_new_wind_are_not_scaled</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_wind</span><span class="p">):</span>
-    <span class="n">_check_new_plants_are_not_scaled</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_wind</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_new_plants_are_not_scaled</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_wind</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_new_hydro_are_not_scaled"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_new_hydro_are_not_scaled">[docs]</a><span class="k">def</span> <span class="nf">test_new_hydro_are_not_scaled</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_hydro</span><span class="p">):</span>
-    <span class="n">_check_new_plants_are_not_scaled</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_hydro</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_new_plants_are_not_scaled</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_hydro</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_new_solar_profile"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_new_solar_profile">[docs]</a><span class="k">def</span> <span class="nf">test_new_solar_profile</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_solar</span><span class="p">):</span>
-    <span class="n">_check_profile_of_new_plants_are_produced_correctly</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_solar</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_profile_of_new_plants_are_produced_correctly</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_solar</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_new_wind_profile"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_new_wind_profile">[docs]</a><span class="k">def</span> <span class="nf">test_new_wind_profile</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_wind</span><span class="p">):</span>
-    <span class="n">_check_profile_of_new_plants_are_produced_correctly</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_wind</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_profile_of_new_plants_are_produced_correctly</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_wind</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_new_hydro_profile"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_new_hydro_profile">[docs]</a><span class="k">def</span> <span class="nf">test_new_hydro_profile</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_hydro</span><span class="p">):</span>
-    <span class="n">_check_profile_of_new_plants_are_produced_correctly</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="o">*</span><span class="n">raw_hydro</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
+    <span class="n">_check_profile_of_new_plants_are_produced_correctly</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_hydro</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

@@ -229,7 +229,7 @@ Here's a quick example:
             return datetime.now()
 
     def get_time_of_day(date_time_getter):
-        time = time_getter.get_time()
+        time = date_time_getter.get_time()
 
         if (time.hour >= 0 and time.hour < 6):
             return "Night"
@@ -243,11 +243,11 @@ Here's a quick example:
         def __init__(self, date_time):
             self.date_time = date_time
 
-        def get_time():
+        def get_time(self):
             return self.date_time
 
     def test_get_time_of_day_at_6AM_returns_morning():
-        time_getter = MockDateTimeGetter(datetime(2015, 12, 31, 06, 00, 00))
+        time_getter = MockDateTimeGetter(datetime(2015, 12, 31, 6, 0, 0))
         time_of_day = get_time_of_day(time_getter)
         assert time_of_day == "morning"
 

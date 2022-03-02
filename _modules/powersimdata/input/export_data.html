@@ -35,11 +35,146 @@
             
   <h1>Source code for powersimdata.input.export_data</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">from</span> <span class="nn">scipy.io</span> <span class="kn">import</span> <span class="n">savemat</span>
 
+<span class="kn">from</span> <span class="nn">powersimdata</span> <span class="kn">import</span> <span class="n">Grid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_profile</span> <span class="kn">import</span> <span class="n">TransformProfile</span>
+
+<span class="n">PYPSA_AVAILABLE</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pypsa</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">PYPSA_AVAILABLE</span> <span class="o">=</span> <span class="kc">False</span>
+
+
+<span class="n">pypsa_const</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;rename&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;baseKV&quot;</span><span class="p">:</span> <span class="s2">&quot;v_nom&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;control&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Gs&quot;</span><span class="p">:</span> <span class="s2">&quot;g_pu&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Bs&quot;</span><span class="p">:</span> <span class="s2">&quot;b_pu&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;rename_t&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;Pd&quot;</span><span class="p">:</span> <span class="s2">&quot;p&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Qd&quot;</span><span class="p">:</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Vm&quot;</span><span class="p">:</span> <span class="s2">&quot;v_mag_pu&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Va&quot;</span><span class="p">:</span> <span class="s2">&quot;v_ang&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;default_drop_cols&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Vmax&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Vmin&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;lam_P&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;lam_Q&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;mu_Vmax&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;mu_Vmin&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;GenFuelCost&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;generator&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;rename&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;bus_id&quot;</span><span class="p">:</span> <span class="s2">&quot;bus&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="s2">&quot;p_nom&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pmin&quot;</span><span class="p">:</span> <span class="s2">&quot;p_min_pu&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;startup_cost&quot;</span><span class="p">:</span> <span class="s2">&quot;start_up_cost&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;shutdown_cost&quot;</span><span class="p">:</span> <span class="s2">&quot;shut_down_cost&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ramp_30&quot;</span><span class="p">:</span> <span class="s2">&quot;ramp_limit&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;carrier&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;rename_t&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;Pg&quot;</span><span class="p">:</span> <span class="s2">&quot;p&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Qg&quot;</span><span class="p">:</span> <span class="s2">&quot;q&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;status&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;default_drop_cols&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;ramp_10&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;mu_Pmax&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;mu_Pmin&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;mu_Qmax&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;mu_Qmin&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ramp_agc&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pc1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pc2&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Qc1min&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Qc1max&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Qc2min&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Qc2max&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;GenIOB&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;GenIOC&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;GenIOD&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;cost&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;rename&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;startup&quot;</span><span class="p">:</span> <span class="s2">&quot;startup_cost&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;shutdown&quot;</span><span class="p">:</span> <span class="s2">&quot;shutdown_cost&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;c1&quot;</span><span class="p">:</span> <span class="s2">&quot;marginal_cost&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;rename&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;from_bus_id&quot;</span><span class="p">:</span> <span class="s2">&quot;bus0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;to_bus_id&quot;</span><span class="p">:</span> <span class="s2">&quot;bus1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;rateA&quot;</span><span class="p">:</span> <span class="s2">&quot;s_nom&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ratio&quot;</span><span class="p">:</span> <span class="s2">&quot;tap_ratio&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="s2">&quot;x_pu&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;r&quot;</span><span class="p">:</span> <span class="s2">&quot;r_pu&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;g&quot;</span><span class="p">:</span> <span class="s2">&quot;g_pu&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;b&quot;</span><span class="p">:</span> <span class="s2">&quot;b_pu&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;rename_t&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;Pf&quot;</span><span class="p">:</span> <span class="s2">&quot;p0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Qf&quot;</span><span class="p">:</span> <span class="s2">&quot;q0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pt&quot;</span><span class="p">:</span> <span class="s2">&quot;p1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Qt&quot;</span><span class="p">:</span> <span class="s2">&quot;q1&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;default_drop_cols&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;rateB&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;rateC&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;mu_St&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;mu_angmin&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;mu_angmax&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;link&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;rename&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;from_bus_id&quot;</span><span class="p">:</span> <span class="s2">&quot;bus0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;to_bus_id&quot;</span><span class="p">:</span> <span class="s2">&quot;bus1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;rateA&quot;</span><span class="p">:</span> <span class="s2">&quot;s_nom&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;ratio&quot;</span><span class="p">:</span> <span class="s2">&quot;tap_ratio&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="s2">&quot;x_pu&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;r&quot;</span><span class="p">:</span> <span class="s2">&quot;r_pu&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;g&quot;</span><span class="p">:</span> <span class="s2">&quot;g_pu&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;b&quot;</span><span class="p">:</span> <span class="s2">&quot;b_pu&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pmin&quot;</span><span class="p">:</span> <span class="s2">&quot;p_min_pu&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="s2">&quot;p_nom&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;rename_t&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;Pf&quot;</span><span class="p">:</span> <span class="s2">&quot;p0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Qf&quot;</span><span class="p">:</span> <span class="s2">&quot;q0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pt&quot;</span><span class="p">:</span> <span class="s2">&quot;p1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Qt&quot;</span><span class="p">:</span> <span class="s2">&quot;q1&quot;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;default_drop_cols&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;QminF&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;QmaxF&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;QminT&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;QmaxT&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;muPmin&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;muPmax&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;muQminF&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;muQmaxF&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;muQminT&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;muQmaxT&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">},</span>
+<span class="p">}</span>
 
 
 <div class="viewcode-block" id="export_case_mat"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.export_data.export_case_mat">[docs]</a><span class="k">def</span> <span class="nf">export_case_mat</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">filepath</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">storage_filepath</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -186,6 +321,246 @@
     <span class="n">profile</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Writing scaled </span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2"> profile to </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2"> on local machine&quot;</span><span class="p">)</span>
     <span class="n">profile</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="export_to_pypsa"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.export_data.export_to_pypsa">[docs]</a><span class="k">def</span> <span class="nf">export_to_pypsa</span><span class="p">(</span>
+    <span class="n">scenario_or_grid</span><span class="p">,</span>
+    <span class="n">add_all_columns</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">add_substations</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">add_load_shedding</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Export a Scenario/Grid instance to a PyPSA network.</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">        This function does not export storages yet.</span>
+
+<span class="sd">    :param scenario_or_grid powersimdata.scenario.scenrario.Scenario/</span>
+<span class="sd">        powersimdata.input.grid.Grid:</span>
+<span class="sd">        Input object. If a Grid instance is passed, operational values</span>
+<span class="sd">        will be used for the single snapshot &quot;now&quot;.</span>
+<span class="sd">        If a Scenario instance is passed, all available time-series will be</span>
+<span class="sd">        imported.</span>
+<span class="sd">    :param add_all_columns bool: Whether to add all columns of the</span>
+<span class="sd">        corresponding component. If true, this will also import columns</span>
+<span class="sd">        that PyPSA does not process. The default is False.</span>
+<span class="sd">    :param add_substations bool: Whether to export substations. If set</span>
+<span class="sd">        to True, artificial links of infinite capacity are added from each bus</span>
+<span class="sd">        to its substation. This is necessary as the substations are imported</span>
+<span class="sd">        as regualar buses in pypsa and thus require a connection to the network.</span>
+<span class="sd">        If set to False, the substations will not be exported. This is</span>
+<span class="sd">        helpful when there are no branches or dclinks connecting the</span>
+<span class="sd">        substations. Note that the voltage level of the substation buses is set</span>
+<span class="sd">        to the first bus connected to that substation. The default is False.</span>
+<span class="sd">    :param add_load_shedding bool: Whether to add artificial load shedding</span>
+<span class="sd">        generators to the exported pypsa network. This ensures feasibility when</span>
+<span class="sd">        optimizing the exported pypsa network as is. The default is True.</span>
+
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span> <span class="nn">powersimdata.scenario.scenario</span> <span class="kn">import</span> <span class="n">Scenario</span>  <span class="c1"># avoid circular import</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">PYPSA_AVAILABLE</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;PyPSA is not installed.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scenario_or_grid</span><span class="p">,</span> <span class="n">Grid</span><span class="p">):</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario_or_grid</span>
+        <span class="n">scenario</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scenario_or_grid</span><span class="p">,</span> <span class="n">Scenario</span><span class="p">):</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario_or_grid</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+        <span class="n">scenario</span> <span class="o">=</span> <span class="n">scenario_or_grid</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="s2">&quot;Expected type powersimdata.Grid or powersimdata.Scenario, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;get </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">drop_cols</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># BUS, LOAD &amp; SUBSTATION</span>
+    <span class="n">bus_rename</span> <span class="o">=</span> <span class="n">pypsa_const</span><span class="p">[</span><span class="s2">&quot;bus&quot;</span><span class="p">][</span><span class="s2">&quot;rename&quot;</span><span class="p">]</span>
+    <span class="n">bus_rename_t</span> <span class="o">=</span> <span class="n">pypsa_const</span><span class="p">[</span><span class="s2">&quot;bus&quot;</span><span class="p">][</span><span class="s2">&quot;rename_t&quot;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">add_all_columns</span><span class="p">:</span>
+        <span class="n">drop_cols</span> <span class="o">=</span> <span class="n">pypsa_const</span><span class="p">[</span><span class="s2">&quot;bus&quot;</span><span class="p">][</span><span class="s2">&quot;default_drop_cols&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">scenario</span><span class="p">:</span>
+            <span class="n">drop_cols</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">bus_rename_t</span><span class="p">)</span>
+
+    <span class="n">buses</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">bus_rename</span><span class="p">)</span>
+    <span class="n">buses</span><span class="o">.</span><span class="n">control</span><span class="o">.</span><span class="n">replace</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;PQ&quot;</span><span class="p">,</span> <span class="s2">&quot;PV&quot;</span><span class="p">,</span> <span class="s2">&quot;slack&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">buses</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">buses</span><span class="o">.</span><span class="n">zone_id</span><span class="o">.</span><span class="n">map</span><span class="p">({</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+    <span class="n">buses</span><span class="p">[</span><span class="s2">&quot;substation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;sub&quot;</span> <span class="o">+</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus2sub</span><span class="p">[</span><span class="s2">&quot;sub_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+
+    <span class="c1"># ensure compatibility with substations (these are imported later)</span>
+    <span class="n">buses</span><span class="p">[</span><span class="s2">&quot;is_substation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">buses</span><span class="p">[</span><span class="s2">&quot;interconnect_sub_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">buses</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+    <span class="n">loads</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;proportionality_factor&quot;</span><span class="p">:</span> <span class="n">buses</span><span class="p">[</span><span class="s2">&quot;Pd&quot;</span><span class="p">]}</span>
+
+    <span class="n">shunts</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">buses</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;b_pu&quot;</span><span class="p">,</span> <span class="s2">&quot;g_pu&quot;</span><span class="p">]}</span>
+
+    <span class="n">substations</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">sub</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="s2">&quot;x&quot;</span><span class="p">})</span>
+    <span class="n">substations</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="s2">&quot;sub&quot;</span> <span class="o">+</span> <span class="n">substations</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">substations</span><span class="p">[</span><span class="s2">&quot;is_substation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">substations</span><span class="p">[</span><span class="s2">&quot;substation&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">substations</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">v_nom</span> <span class="o">=</span> <span class="n">buses</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;substation&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">v_nom</span><span class="o">.</span><span class="n">first</span><span class="p">()</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">substations</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="n">substations</span><span class="p">[</span><span class="s2">&quot;v_nom&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">v_nom</span>
+
+    <span class="n">buses</span> <span class="o">=</span> <span class="n">buses</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">drop_cols</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">sort_index</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># now time-dependent</span>
+    <span class="k">if</span> <span class="n">scenario</span><span class="p">:</span>
+        <span class="n">buses_t</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">loads_t</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;p_set&quot;</span><span class="p">:</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_bus_demand</span><span class="p">()}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">buses_t</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">buses</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;now&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">T</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">bus_rename_t</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="n">buses_t</span><span class="p">[</span><span class="s2">&quot;v_ang&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">buses_t</span><span class="p">[</span><span class="s2">&quot;v_ang&quot;</span><span class="p">])</span>
+
+        <span class="n">loads_t</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;p&quot;</span><span class="p">:</span> <span class="n">buses_t</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;p&quot;</span><span class="p">),</span> <span class="s2">&quot;q&quot;</span><span class="p">:</span> <span class="n">buses_t</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;q&quot;</span><span class="p">)}</span>
+
+    <span class="c1"># GENERATOR &amp; COSTS</span>
+    <span class="n">generator_rename</span> <span class="o">=</span> <span class="n">pypsa_const</span><span class="p">[</span><span class="s2">&quot;generator&quot;</span><span class="p">][</span><span class="s2">&quot;rename&quot;</span><span class="p">]</span>
+    <span class="n">generator_rename_t</span> <span class="o">=</span> <span class="n">pypsa_const</span><span class="p">[</span><span class="s2">&quot;generator&quot;</span><span class="p">][</span><span class="s2">&quot;rename_t&quot;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">add_all_columns</span><span class="p">:</span>
+        <span class="n">drop_cols</span> <span class="o">=</span> <span class="n">pypsa_const</span><span class="p">[</span><span class="s2">&quot;generator&quot;</span><span class="p">][</span><span class="s2">&quot;default_drop_cols&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">scenario</span><span class="p">:</span>
+            <span class="n">drop_cols</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">generator_rename_t</span><span class="p">)</span>
+
+    <span class="n">generators</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">generator_rename</span><span class="p">)</span>
+    <span class="n">generators</span><span class="o">.</span><span class="n">p_min_pu</span> <span class="o">/=</span> <span class="n">generators</span><span class="o">.</span><span class="n">p_nom</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">generators</span><span class="o">.</span><span class="n">p_nom</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">generators</span><span class="p">[</span><span class="s2">&quot;committable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">generators</span><span class="o">.</span><span class="n">p_min_pu</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">generators</span><span class="p">[</span><span class="s2">&quot;ramp_limit_down&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">generators</span><span class="o">.</span><span class="n">ramp_limit</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="n">generators</span><span class="p">[</span><span class="s2">&quot;rpreserve_all_columnsamp_limit_up&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">generators</span><span class="o">.</span><span class="n">ramp_limit</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+        <span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="p">)</span>
+    <span class="n">generators</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">drop_cols</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;ramp_limit&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">gencost</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span>
+    <span class="n">gencost</span> <span class="o">=</span> <span class="n">gencost</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">pypsa_const</span><span class="p">[</span><span class="s2">&quot;cost&quot;</span><span class="p">][</span><span class="s2">&quot;rename&quot;</span><span class="p">])</span>
+    <span class="n">gencost</span> <span class="o">=</span> <span class="n">gencost</span><span class="p">[</span><span class="n">pypsa_const</span><span class="p">[</span><span class="s2">&quot;cost&quot;</span><span class="p">][</span><span class="s2">&quot;rename&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+
+    <span class="n">carriers</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">generators</span><span class="o">.</span><span class="n">carrier</span><span class="o">.</span><span class="n">unique</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+
+    <span class="n">cars</span> <span class="o">=</span> <span class="n">carriers</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">constants</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">plants</span>
+    <span class="n">carriers</span><span class="p">[</span><span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;type2color&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">cars</span><span class="p">)</span>
+    <span class="n">carriers</span><span class="p">[</span><span class="s2">&quot;nice_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;type2label&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">cars</span><span class="p">)</span>
+    <span class="n">carriers</span><span class="p">[</span><span class="s2">&quot;co2_emissions&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;carbon_per_mwh&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">cars</span><span class="p">)</span>
+
+    <span class="c1"># now time-dependent</span>
+    <span class="k">if</span> <span class="n">scenario</span><span class="p">:</span>
+        <span class="n">dfs</span> <span class="o">=</span> <span class="p">[</span><span class="n">scenario</span><span class="o">.</span><span class="n">get_wind</span><span class="p">(),</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_solar</span><span class="p">(),</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_hydro</span><span class="p">()]</span>
+        <span class="n">p_max_pu</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">p_nom</span> <span class="o">=</span> <span class="n">generators</span><span class="o">.</span><span class="n">p_nom</span><span class="p">[</span><span class="n">p_max_pu</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+        <span class="n">p_max_pu</span> <span class="o">=</span> <span class="n">p_max_pu</span> <span class="o">/</span> <span class="n">p_nom</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">p_nom</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">generators_t</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;p_max_pu&quot;</span><span class="p">:</span> <span class="n">p_max_pu</span><span class="p">}</span>
+        <span class="c1"># drop p_nom_min of renewables, make them non-committable</span>
+        <span class="n">generators</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">p_max_pu</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="s2">&quot;p_min_pu&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">generators</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">p_max_pu</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="s2">&quot;committable&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">generators_t</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">v</span><span class="p">:</span> <span class="n">generators</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;now&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">generator_rename_t</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+
+    <span class="c1"># BRANCHES</span>
+    <span class="n">branch_rename</span> <span class="o">=</span> <span class="n">pypsa_const</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;rename&quot;</span><span class="p">]</span>
+    <span class="n">branch_rename_t</span> <span class="o">=</span> <span class="n">pypsa_const</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;rename_t&quot;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">add_all_columns</span><span class="p">:</span>
+        <span class="n">drop_cols</span> <span class="o">=</span> <span class="n">pypsa_const</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">][</span><span class="s2">&quot;default_drop_cols&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">scenario</span><span class="p">:</span>
+            <span class="n">drop_cols</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">branch_rename_t</span><span class="p">)</span>
+
+    <span class="n">branches</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">branch_rename</span><span class="p">)</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">drop_cols</span><span class="p">)</span>
+    <span class="n">branches</span><span class="p">[</span><span class="s2">&quot;v_nom&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branches</span><span class="o">.</span><span class="n">bus0</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">buses</span><span class="o">.</span><span class="n">v_nom</span><span class="p">)</span>
+    <span class="c1"># BE model assumes a 100 MVA base, pypsa &quot;assumes&quot; a 1 MVA base</span>
+    <span class="n">branches</span><span class="p">[[</span><span class="s2">&quot;x_pu&quot;</span><span class="p">,</span> <span class="s2">&quot;r_pu&quot;</span><span class="p">]]</span> <span class="o">/=</span> <span class="mi">100</span>
+    <span class="n">branches</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branches</span><span class="o">.</span><span class="n">x_pu</span> <span class="o">*</span> <span class="n">branches</span><span class="o">.</span><span class="n">v_nom</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">branches</span><span class="p">[</span><span class="s2">&quot;r&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">branches</span><span class="o">.</span><span class="n">r_pu</span> <span class="o">*</span> <span class="n">branches</span><span class="o">.</span><span class="n">v_nom</span><span class="o">**</span><span class="mi">2</span>
+
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">branches</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;branch_device_type == &#39;Line&#39;&quot;</span><span class="p">)</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="s2">&quot;branch_device_type&quot;</span><span class="p">)</span>
+
+    <span class="n">transformers</span> <span class="o">=</span> <span class="n">branches</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+        <span class="s2">&quot;branch_device_type in [&#39;TransformerWinding&#39;, &#39;Transformer&#39;]&quot;</span>
+    <span class="p">)</span>
+    <span class="n">transformers</span> <span class="o">=</span> <span class="n">transformers</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="s2">&quot;branch_device_type&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">scenario</span><span class="p">:</span>
+        <span class="n">lines_t</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">transformers_t</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">lines_t</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">v</span><span class="p">:</span> <span class="n">lines</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;now&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">T</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">branch_rename_t</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="n">transformers_t</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">v</span><span class="p">:</span> <span class="n">transformers</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;now&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">T</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">branch_rename_t</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+
+    <span class="c1"># DC LINES</span>
+    <span class="n">link_rename</span> <span class="o">=</span> <span class="n">pypsa_const</span><span class="p">[</span><span class="s2">&quot;link&quot;</span><span class="p">][</span><span class="s2">&quot;rename&quot;</span><span class="p">]</span>
+    <span class="n">link_rename_t</span> <span class="o">=</span> <span class="n">pypsa_const</span><span class="p">[</span><span class="s2">&quot;link&quot;</span><span class="p">][</span><span class="s2">&quot;rename_t&quot;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">add_all_columns</span><span class="p">:</span>
+        <span class="n">drop_cols</span> <span class="o">=</span> <span class="n">pypsa_const</span><span class="p">[</span><span class="s2">&quot;link&quot;</span><span class="p">][</span><span class="s2">&quot;default_drop_cols&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">scenario</span><span class="p">:</span>
+            <span class="n">drop_cols</span> <span class="o">+=</span> <span class="nb">list</span><span class="p">(</span><span class="n">link_rename_t</span><span class="p">)</span>
+
+    <span class="n">links</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">dcline</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">link_rename</span><span class="p">)</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">drop_cols</span><span class="p">)</span>
+    <span class="n">links</span><span class="o">.</span><span class="n">p_min_pu</span> <span class="o">/=</span> <span class="n">links</span><span class="o">.</span><span class="n">p_nom</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">links</span><span class="o">.</span><span class="n">p_nom</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># SUBSTATION CONNECTORS</span>
+    <span class="n">sublinks</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+        <span class="n">bus0</span><span class="o">=</span><span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">bus1</span><span class="o">=</span><span class="n">buses</span><span class="o">.</span><span class="n">substation</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">p_nom</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">p_min_pu</span><span class="o">=-</span><span class="mi">1</span>
+    <span class="p">)</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="s2">&quot;sub&quot;</span> <span class="o">+</span> <span class="n">pd</span><span class="o">.</span><span class="n">RangeIndex</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">buses</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">sublinks</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">sublinks</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">scenario</span><span class="p">:</span>
+        <span class="n">links_t</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">links_t</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">links</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;now&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">T</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">link_rename_t</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+    <span class="c1"># TODO: add storage export</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;The export of storages are not implemented yet.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Import everything to a new pypsa network</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">pypsa</span><span class="o">.</span><span class="n">Network</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">scenario</span><span class="p">:</span>
+        <span class="n">n</span><span class="o">.</span><span class="n">snapshots</span> <span class="o">=</span> <span class="n">loads_t</span><span class="p">[</span><span class="s2">&quot;p_set&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">n</span><span class="o">.</span><span class="n">madd</span><span class="p">(</span><span class="s2">&quot;Bus&quot;</span><span class="p">,</span> <span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="o">**</span><span class="n">buses</span><span class="p">,</span> <span class="o">**</span><span class="n">buses_t</span><span class="p">)</span>
+    <span class="n">n</span><span class="o">.</span><span class="n">madd</span><span class="p">(</span><span class="s2">&quot;Load&quot;</span><span class="p">,</span> <span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">bus</span><span class="o">=</span><span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="o">**</span><span class="n">loads</span><span class="p">,</span> <span class="o">**</span><span class="n">loads_t</span><span class="p">)</span>
+    <span class="n">n</span><span class="o">.</span><span class="n">madd</span><span class="p">(</span><span class="s2">&quot;ShuntImpedance&quot;</span><span class="p">,</span> <span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">bus</span><span class="o">=</span><span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="o">**</span><span class="n">shunts</span><span class="p">)</span>
+    <span class="n">n</span><span class="o">.</span><span class="n">madd</span><span class="p">(</span><span class="s2">&quot;Generator&quot;</span><span class="p">,</span> <span class="n">generators</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="o">**</span><span class="n">generators</span><span class="p">,</span> <span class="o">**</span><span class="n">gencost</span><span class="p">,</span> <span class="o">**</span><span class="n">generators_t</span><span class="p">)</span>
+    <span class="n">n</span><span class="o">.</span><span class="n">madd</span><span class="p">(</span><span class="s2">&quot;Carrier&quot;</span><span class="p">,</span> <span class="n">carriers</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="o">**</span><span class="n">carriers</span><span class="p">)</span>
+    <span class="n">n</span><span class="o">.</span><span class="n">madd</span><span class="p">(</span><span class="s2">&quot;Line&quot;</span><span class="p">,</span> <span class="n">lines</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="o">**</span><span class="n">lines</span><span class="p">,</span> <span class="o">**</span><span class="n">lines_t</span><span class="p">)</span>
+    <span class="n">n</span><span class="o">.</span><span class="n">madd</span><span class="p">(</span><span class="s2">&quot;Transformer&quot;</span><span class="p">,</span> <span class="n">transformers</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="o">**</span><span class="n">transformers</span><span class="p">,</span> <span class="o">**</span><span class="n">transformers_t</span><span class="p">)</span>
+    <span class="n">n</span><span class="o">.</span><span class="n">madd</span><span class="p">(</span><span class="s2">&quot;Link&quot;</span><span class="p">,</span> <span class="n">links</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="o">**</span><span class="n">links</span><span class="p">,</span> <span class="o">**</span><span class="n">links_t</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">add_substations</span><span class="p">:</span>
+        <span class="n">n</span><span class="o">.</span><span class="n">madd</span><span class="p">(</span><span class="s2">&quot;Bus&quot;</span><span class="p">,</span> <span class="n">substations</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="o">**</span><span class="n">substations</span><span class="p">)</span>
+        <span class="n">n</span><span class="o">.</span><span class="n">madd</span><span class="p">(</span><span class="s2">&quot;Link&quot;</span><span class="p">,</span> <span class="n">sublinks</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="o">**</span><span class="n">sublinks</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">add_load_shedding</span><span class="p">:</span>
+        <span class="c1"># Load shedding is moddelled by very costy generators whos power output</span>
+        <span class="c1"># is measured in kW (see the factor `sign`). This keeps the coefficient</span>
+        <span class="c1"># range in the LOPF low.</span>
+        <span class="n">n</span><span class="o">.</span><span class="n">madd</span><span class="p">(</span>
+            <span class="s2">&quot;Generator&quot;</span><span class="p">,</span>
+            <span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot; load shedding&quot;</span><span class="p">,</span>
+            <span class="n">bus</span><span class="o">=</span><span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="n">sign</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span>
+            <span class="n">marginal_cost</span><span class="o">=</span><span class="mf">1e2</span><span class="p">,</span>
+            <span class="n">p_nom</span><span class="o">=</span><span class="mf">1e9</span><span class="p">,</span>
+            <span class="n">carrier</span><span class="o">=</span><span class="s2">&quot;load&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">n</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;Carrier&quot;</span><span class="p">,</span> <span class="s2">&quot;load&quot;</span><span class="p">,</span> <span class="n">nice_name</span><span class="o">=</span><span class="s2">&quot;Load Shedding&quot;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">n</span></div>
 </pre></div>
 
           </div>

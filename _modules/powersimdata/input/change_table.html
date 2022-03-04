@@ -41,6 +41,8 @@
     <span class="n">scale_congested_mesh_branches</span><span class="p">,</span>
     <span class="n">scale_renewable_stubs</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.changes.helpers</span> <span class="kn">import</span> <span class="n">ordinal</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.changes.storage</span> <span class="kn">import</span> <span class="n">add_storage_capacity</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.distance</span> <span class="kn">import</span> <span class="n">find_closest_neighbor</span>
 
@@ -59,16 +61,6 @@
 <span class="p">)</span>
 
 <span class="n">_renewable_resource</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;wind_offshore&quot;</span><span class="p">}</span>
-
-
-<div class="viewcode-block" id="ordinal"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ordinal">[docs]</a><span class="k">def</span> <span class="nf">ordinal</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Translate a 0-based index into a 1-based ordinal, e.g. 0 -&gt; 1st, 1 -&gt; 2nd, etc.</span>
-
-<span class="sd">    :param int n: the index to be translated.</span>
-<span class="sd">    :return: (*str*) -- Ordinal.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">ord_dict</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="s2">&quot;st&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="s2">&quot;nd&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="s2">&quot;rd&quot;</span><span class="p">}</span>
-    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">ord_dict</span><span class="o">.</span><span class="n">get</span><span class="p">((</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">20</span> <span class="k">else</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;th&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="ChangeTable"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable">[docs]</a><span class="k">class</span> <span class="nc">ChangeTable</span><span class="p">:</span>
@@ -538,50 +530,7 @@
 <span class="sd">        :raises TypeError: if ``info`` is not a list.</span>
 <span class="sd">        :raises ValueError: if any of the new storages to be added have bad values.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Argument enclosing new storage(s) must be a list&quot;</span><span class="p">)</span>
-
-        <span class="n">info</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
-        <span class="n">new_storages</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">required</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;bus_id&quot;</span><span class="p">,</span> <span class="s2">&quot;capacity&quot;</span><span class="p">}</span>
-        <span class="n">optional</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;duration&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;min_stor&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;max_stor&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;energy_value&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;InEff&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;OutEff&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;LossFactor&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;terminal_min&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;terminal_max&quot;</span><span class="p">,</span>
-        <span class="p">}</span>
-        <span class="n">anticipated_bus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;bus&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">storage</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">info</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_check_entry_keys</span><span class="p">(</span><span class="n">storage</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;storage&quot;</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">optional</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">storage</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">anticipated_bus</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;No bus id </span><span class="si">{</span><span class="n">storage</span><span class="p">[</span><span class="s1">&#39;bus_id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> available for </span><span class="si">{</span><span class="n">ordinal</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="si">}</span><span class="s2"> storage&quot;</span>
-                <span class="p">)</span>
-            <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">optional</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">o</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">storage</span><span class="p">:</span>
-                    <span class="n">storage</span><span class="p">[</span><span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="n">o</span><span class="p">]</span>
-            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">storage</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
-                    <span class="n">err_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;values must be numeric, bad type for </span><span class="si">{</span><span class="n">ordinal</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">err_msg</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">v</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;values must be non-negative, bad value for </span><span class="si">{</span><span class="n">ordinal</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">&quot;</span>
-                    <span class="p">)</span>
-            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;min_stor&quot;</span><span class="p">,</span> <span class="s2">&quot;max_stor&quot;</span><span class="p">,</span> <span class="s2">&quot;InEff&quot;</span><span class="p">,</span> <span class="s2">&quot;OutEff&quot;</span><span class="p">,</span> <span class="s2">&quot;LossFactor&quot;</span><span class="p">}:</span>
-                <span class="k">if</span> <span class="n">storage</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;value for </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> must be &lt;=1, bad value for </span><span class="si">{</span><span class="n">ordinal</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="si">}</span><span class="s2"> storage&quot;</span>
-                    <span class="p">)</span>
-            <span class="n">new_storages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">storage</span><span class="p">)</span>
-        <span class="k">if</span> <span class="s2">&quot;storage&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;storage&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;storage&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">new_storages</span></div>
+        <span class="n">add_storage_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="ChangeTable.add_dcline"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.add_dcline">[docs]</a>    <span class="k">def</span> <span class="nf">add_dcline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Adds HVDC line(s).</span>

@@ -114,8 +114,8 @@ On Server
 + Create the **ScenarioList.csv** and **ExecuteList.csv** files in **DATA_ROOT_DIR**
   on the server following templates in **powersimdata/utility/templates/**
 + Fork `REISE.jl`_ into **MODEL_DIR**
-  and install it following the instructions located in the :doc:`../reisejl_package`
-  README
+  and install it following the instructions located in the :doc:`../reisejl/index`
+  installation guide
 
 
 

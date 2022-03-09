@@ -21,7 +21,7 @@ Please review our :doc:`code_of_conduct` before joining the community.
 
 
 Project Ideas
----------
+-------------
 For new contributors, we have compiled some project ideas we would love to work on with
 you. Ideas for each repository can be found as issues with the ``good first issue``
 label. Within each issue, we provide prerequisites along with a level of difficulty that

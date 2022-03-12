@@ -46,13 +46,25 @@
     <span class="n">relative_permeability</span><span class="p">,</span>
     <span class="n">resistivity</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">prereise.gather.griddata.transmission.helpers</span> <span class="kn">import</span> <span class="n">DataclassWithValidation</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.griddata.transmission.helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DataclassWithValidation</span><span class="p">,</span>
+    <span class="n">approximate_loadability</span><span class="p">,</span>
+    <span class="n">get_standard_conductors</span><span class="p">,</span>
+<span class="p">)</span>
 
 
 <div class="viewcode-block" id="Conductor"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.Conductor">[docs]</a><span class="nd">@dataclass</span>
 <span class="k">class</span> <span class="nc">Conductor</span><span class="p">(</span><span class="n">DataclassWithValidation</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Represent a single conductor (which may be a stranded compsite).</span>
+    <span class="sd">&quot;&quot;&quot;Represent a single conductor (which may be a stranded composite). Conductors can</span>
+<span class="sd">    be instantiated by either:</span>
+<span class="sd">    - looking them up via their standardized bird ``name``,</span>
+<span class="sd">    - passing the parameters relevant to impedance and rating calculations</span>
+<span class="sd">    (``radius``, ``gmr``, ``resistance_per_km``, and ``current_limit``), or</span>
+<span class="sd">    - passing paramters which can be used to estimate parameters relevant to impedance</span>
+<span class="sd">    and rating calculations (``radius``, ``material``, and ``current_limit``). In this</span>
+<span class="sd">    case, a solid conductor is assumed.</span>
 
+<span class="sd">    :param str name: name of standard conductor.</span>
 <span class="sd">    :param float radius: outer radius of conductor.</span>
 <span class="sd">    :param str material: material of conductor. Used to calculate ``resistance_per_km``</span>
 <span class="sd">        and ``gmr`` if these aren&#39;t passed to the constructor, unnecessary otherwise.</span>
@@ -64,16 +76,35 @@
 <span class="sd">        other parameters if it isn&#39;t passed.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">material</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">resistance_per_km</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">gmr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">area</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">permeability</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">current_limit</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">physical_parameters</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">material</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">resistance_per_km</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">gmr</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">area</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">permeability</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">current_limit</span><span class="p">,</span>
+        <span class="p">}</span>
         <span class="c1"># Validate inputs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">validate_input_types</span><span class="p">()</span>  <span class="c1"># defined in DataclassWithValidation</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="n">a</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">physical_parameters</span><span class="p">]):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;If name is specified, no other parameters can be&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_get_parameters_from_standard_conductor_table</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_infer_missing_parameters</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_infer_missing_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">gmr</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">material</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;If gmr is not provided, material and radius are needed to estimate&quot;</span>
@@ -103,7 +134,19 @@
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">area</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">area</span> <span class="o">=</span> <span class="n">pi</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="o">**</span><span class="mi">2</span>
             <span class="c1"># convert per-m to per-km</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resistivity</span> <span class="o">*</span> <span class="mi">1000</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">area</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resistivity</span> <span class="o">*</span> <span class="mi">1000</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">area</span>
+
+    <span class="k">def</span> <span class="nf">_get_parameters_from_standard_conductor_table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">standard_conductors</span> <span class="o">=</span> <span class="n">get_standard_conductors</span><span class="p">()</span>
+        <span class="n">title_cased_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">title</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">title_cased_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">standard_conductors</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No conductor named &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; in standard table&quot;</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">standard_conductors</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">title_cased_name</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gmr</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;gmr_mm&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e3</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;radius_mm&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e3</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;resistance_ac_per_km_75c&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_limit</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;max_amps&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">title_cased_name</span></div>
 
 
 <div class="viewcode-block" id="ConductorBundle"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.ConductorBundle">[docs]</a><span class="nd">@dataclass</span>
@@ -118,19 +161,24 @@
 <span class="sd">        regular spacing ``spacing``).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">n</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">conductor</span><span class="p">:</span> <span class="n">Conductor</span>
+    <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="n">spacing</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># we need to be able to ignore spacing for a single conductor</span>
     <span class="n">layout</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;circular&quot;</span>
     <span class="n">resistance_per_km</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">spacing_L</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># noqa: N815</span>
     <span class="n">spacing_C</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># noqa: N815</span>
+    <span class="n">current_limit</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">validate_input_types</span><span class="p">()</span>  <span class="c1"># defined in DataclassWithValidation</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">spacing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;With multiple conductors, spacing must be specified&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conductor</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">spacing_L</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_equivalent_spacing</span><span class="p">(</span><span class="s2">&quot;inductance&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">spacing_C</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_equivalent_spacing</span><span class="p">(</span><span class="s2">&quot;capacitance&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">conductor</span><span class="o">.</span><span class="n">current_limit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">current_limit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conductor</span><span class="o">.</span><span class="n">current_limit</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span>
 
 <div class="viewcode-block" id="ConductorBundle.calculate_equivalent_spacing"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.ConductorBundle.calculate_equivalent_spacing">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_equivalent_spacing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">&quot;inductance&quot;</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">type</span> <span class="o">==</span> <span class="s2">&quot;inductance&quot;</span><span class="p">:</span>
@@ -199,7 +247,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">validate_input_types</span><span class="p">()</span>  <span class="c1"># defined in DataclassWithValidation</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">c</span><span class="p">)):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;each phase location must have the same length&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuits</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">circuits</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
             <span class="c1"># Single-circuit specified as (x, y) will be converted to ((x, y))</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">a</span><span class="p">,)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">b</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">,)</span>
@@ -257,12 +305,17 @@
     <span class="n">resistance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">inductance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">capacitance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">phase_current_limit</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">validate_input_types</span><span class="p">()</span>  <span class="c1"># defined in DataclassWithValidation</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">resistance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bundle</span><span class="o">.</span><span class="n">resistance_per_km</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">locations</span><span class="o">.</span><span class="n">circuits</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">inductance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_inductance_per_km</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">capacitance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_shunt_capacitance_per_km</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bundle</span><span class="o">.</span><span class="n">current_limit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">phase_current_limit</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bundle</span><span class="o">.</span><span class="n">current_limit</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">locations</span><span class="o">.</span><span class="n">circuits</span>
+            <span class="p">)</span>
 
 <div class="viewcode-block" id="Tower.calculate_inductance_per_km"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.geometry.Tower.calculate_inductance_per_km">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_inductance_per_km</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">denominator</span> <span class="o">=</span> <span class="n">_circuit_bundle_distances</span><span class="p">(</span>
@@ -308,6 +361,9 @@
     <span class="n">surge_impedance</span><span class="p">:</span> <span class="nb">complex</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">series_impedance</span><span class="p">:</span> <span class="nb">complex</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">shunt_admittance</span><span class="p">:</span> <span class="nb">complex</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">thermal_rating</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">stability_rating</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">power_rating</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># Convert integers to floats as necessary</span>
@@ -327,7 +383,22 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">propogation_constant_per_km</span> <span class="o">=</span> <span class="n">cmath</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">series_impedance_per_km</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">shunt_admittance_per_km</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">surge_impedance_loading</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">voltage</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">surge_impedance</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">surge_impedance_loading</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tower</span><span class="o">.</span><span class="n">locations</span><span class="o">.</span><span class="n">circuits</span>
+            <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">voltage</span><span class="o">**</span><span class="mi">2</span>
+            <span class="o">/</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">surge_impedance</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="c1"># Calculate loadability (depends on length)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">tower</span><span class="o">.</span><span class="n">phase_current_limit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">thermal_rating</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">voltage</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">tower</span><span class="o">.</span><span class="n">phase_current_limit</span> <span class="o">*</span> <span class="n">sqrt</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1e3</span>  <span class="c1"># MW</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stability_rating</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">tower</span><span class="o">.</span><span class="n">locations</span><span class="o">.</span><span class="n">circuits</span>
+                <span class="o">*</span> <span class="n">approximate_loadability</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">surge_impedance_loading</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">power_rating</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">thermal_rating</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stability_rating</span><span class="p">)</span>
         <span class="c1"># Use the long-line transmission model to calculate lumped-element parameters</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">series_impedance</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">series_impedance_per_km</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
             <span class="n">cmath</span><span class="o">.</span><span class="n">sinh</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">propogation_constant_per_km</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>

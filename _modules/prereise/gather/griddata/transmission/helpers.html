@@ -34,7 +34,18 @@
           <div class="body" role="main">
             
   <h1>Source code for prereise.gather.griddata.transmission.helpers</h1><div class="highlight"><pre>
-<div class="viewcode-block" id="DataclassWithValidation"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.helpers.DataclassWithValidation">[docs]</a><span></span><span class="k">class</span> <span class="nc">DataclassWithValidation</span><span class="p">:</span>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">prereise.gather.griddata.transmission.const</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">kilometers_per_mile</span><span class="p">,</span>
+    <span class="n">st_clair_power_approx_coeff</span><span class="p">,</span>
+    <span class="n">st_clair_power_approx_exponent</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="DataclassWithValidation"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.helpers.DataclassWithValidation">[docs]</a><span class="k">class</span> <span class="nc">DataclassWithValidation</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;A stub class which defines a method that checks dataclasses.dataclass types.&quot;&quot;&quot;</span>
 
     <span class="n">_required_dataclass_attrs</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;__annotations__&quot;</span><span class="p">,</span> <span class="s2">&quot;__dataclass_fields__&quot;</span><span class="p">)</span>
@@ -52,8 +63,12 @@
             <span class="c1"># Check whether the attribute is the specified or default type</span>
             <span class="c1"># This supports inputs which have a default value of None</span>
             <span class="n">default_type</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__dataclass_fields__</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">default</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="p">(</span><span class="n">specified_type</span><span class="p">,</span> <span class="n">default_type</span><span class="p">)):</span>
-                <span class="n">current_type</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
+            <span class="n">value_received</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">specified_type</span> <span class="o">==</span> <span class="nb">float</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_received</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="c1"># per PEP 484, accept an int when a float is specified</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_received</span><span class="p">,</span> <span class="p">(</span><span class="n">specified_type</span><span class="p">,</span> <span class="n">default_type</span><span class="p">)):</span>
+                <span class="n">current_type</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">value_received</span><span class="p">)</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;for </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: expected </span><span class="si">{</span><span class="n">specified_type</span><span class="si">}</span><span class="s2">, but got </span><span class="si">{</span><span class="n">current_type</span><span class="si">}</span><span class="s2">&quot;</span>
                 <span class="p">)</span></div></div>
@@ -84,6 +99,31 @@
     <span class="k">if</span> <span class="n">nominal_unit</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;siemen&quot;</span><span class="p">,</span> <span class="s2">&quot;siemens&quot;</span><span class="p">}:</span>
         <span class="k">return</span> <span class="n">x</span> <span class="o">*</span> <span class="n">z_base</span>
     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown nominal unit: </span><span class="si">{</span><span class="n">nominal_unit</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_standard_conductors"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.helpers.get_standard_conductors">[docs]</a><span class="k">def</span> <span class="nf">get_standard_conductors</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Read the data file on standard conductor parameter values.</span>
+
+<span class="sd">    :return: (*pandas.DataFrame*) -- data frame, indexed by conductor code name.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">filepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;conductors.csv&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="approximate_loadability"><a class="viewcode-back" href="../../../../../prereise.gather.griddata.transmission.html#prereise.gather.griddata.transmission.helpers.approximate_loadability">[docs]</a><span class="k">def</span> <span class="nf">approximate_loadability</span><span class="p">(</span><span class="n">length_km</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;power&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Approximate the value of the St. Clair curve at a given point, using a given</span>
+<span class="sd">    approximation method.</span>
+
+<span class="sd">    :param float length_km: line length (kilometers).</span>
+<span class="sd">    :param str method: curve approximation method. Currently, only &#39;power&#39; is supported.</span>
+<span class="sd">    :return: (*float*) -- line loadibility (normalized to surge impedance loading).</span>
+<span class="sd">    :raises ValueError: if the ``method`` is not supported.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">miles</span> <span class="o">=</span> <span class="n">length_km</span> <span class="o">/</span> <span class="n">kilometers_per_mile</span>
+    <span class="n">allowable_methods</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;power&quot;</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;power&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">st_clair_power_approx_coeff</span> <span class="o">*</span> <span class="n">miles</span><span class="o">**</span><span class="n">st_clair_power_approx_exponent</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported method: </span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">. Choose from: </span><span class="si">{</span><span class="n">allowable_methods</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

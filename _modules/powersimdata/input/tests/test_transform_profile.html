@@ -37,13 +37,16 @@
 <span></span><span class="kn">from</span> <span class="nn">unittest.mock</span> <span class="kn">import</span> <span class="n">patch</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">import</span> <span class="nn">pytest</span>
 <span class="kn">from</span> <span class="nn">numpy.testing</span> <span class="kn">import</span> <span class="n">assert_almost_equal</span>
 
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.context</span> <span class="kn">import</span> <span class="n">Context</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.change_table</span> <span class="kn">import</span> <span class="n">ChangeTable</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_profile</span> <span class="kn">import</span> <span class="n">TransformProfile</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_context</span> <span class="kn">import</span> <span class="n">MockContext</span>
 <span class="kn">from</span> <span class="nn">powersimdata.tests.mock_input_data</span> <span class="kn">import</span> <span class="n">MockInputData</span>
 
 <span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Western&quot;</span><span class="p">]</span>
@@ -262,6 +265,16 @@
     <span class="k">return</span> <span class="n">input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">({},</span> <span class="s2">&quot;demand&quot;</span><span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="raw_demand_flexibility_up"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.raw_demand_flexibility_up">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="s2">&quot;module&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">raw_demand_flexibility_up</span><span class="p">(</span><span class="n">input_data</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">({},</span> <span class="s2">&quot;demand_flexibility_up&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="raw_demand_flexibility_dn"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.raw_demand_flexibility_dn">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="s2">&quot;module&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">raw_demand_flexibility_dn</span><span class="p">(</span><span class="n">input_data</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">({},</span> <span class="s2">&quot;demand_flexibility_dn&quot;</span><span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="test_demand_is_scaled"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_demand_is_scaled">[docs]</a><span class="k">def</span> <span class="nf">test_demand_is_scaled</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_demand</span><span class="p">):</span>
     <span class="n">base_demand</span> <span class="o">=</span> <span class="n">raw_demand</span><span class="p">[</span><span class="n">base_grid</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
 
@@ -385,6 +398,50 @@
 
 <div class="viewcode-block" id="test_new_hydro_profile"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_new_hydro_profile">[docs]</a><span class="k">def</span> <span class="nf">test_new_hydro_profile</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_hydro</span><span class="p">):</span>
     <span class="n">_check_profile_of_new_plants_are_produced_correctly</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_hydro</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_flexible_demand_profiles_are_trimmed"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_transform_profile.test_flexible_demand_profiles_are_trimmed">[docs]</a><span class="k">def</span> <span class="nf">test_flexible_demand_profiles_are_trimmed</span><span class="p">(</span>
+    <span class="n">base_grid</span><span class="p">,</span> <span class="n">raw_demand_flexibility_up</span><span class="p">,</span> <span class="n">raw_demand_flexibility_dn</span><span class="p">,</span> <span class="n">monkeypatch</span>
+<span class="p">):</span>
+    <span class="n">monkeypatch</span><span class="o">.</span><span class="n">setattr</span><span class="p">(</span><span class="n">Context</span><span class="p">,</span> <span class="s2">&quot;get_data_access&quot;</span><span class="p">,</span> <span class="n">MockContext</span><span class="p">()</span><span class="o">.</span><span class="n">get_data_access</span><span class="p">)</span>
+    <span class="n">data_access</span> <span class="o">=</span> <span class="n">Context</span><span class="o">.</span><span class="n">get_data_access</span><span class="p">()</span>
+
+    <span class="c1"># Specify the fake demand flexibility profiles from MockInputData</span>
+    <span class="n">zone_keys</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;zone.</span><span class="si">{</span><span class="n">z</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
+    <span class="n">base_demand_flexibility_up</span> <span class="o">=</span> <span class="n">raw_demand_flexibility_up</span><span class="p">[</span><span class="n">zone_keys</span><span class="p">]</span>
+    <span class="n">base_demand_flexibility_dn</span> <span class="o">=</span> <span class="n">raw_demand_flexibility_dn</span><span class="p">[</span><span class="n">zone_keys</span><span class="p">]</span>
+
+    <span class="c1"># Create fake files in the expected directory path</span>
+    <span class="n">exp_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;raw/</span><span class="si">{</span><span class="n">base_grid</span><span class="o">.</span><span class="n">grid_model</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="k">for</span> <span class="n">csv_file</span> <span class="ow">in</span> <span class="p">(</span>
+        <span class="s2">&quot;demand_flexibility_up_Test.csv&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;demand_flexibility_dn_Test.csv&quot;</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">with</span> <span class="n">data_access</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">exp_path</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span> <span class="o">+</span> <span class="n">csv_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="c1"># Specify the change table</span>
+    <span class="n">ct</span> <span class="o">=</span> <span class="n">ChangeTable</span><span class="p">(</span><span class="n">base_grid</span><span class="p">)</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">add_demand_flexibility</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;demand_flexibility_up&quot;</span><span class="p">:</span> <span class="s2">&quot;Test&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;demand_flexibility_dn&quot;</span><span class="p">:</span> <span class="s2">&quot;Test&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;demand_flexibility_duration&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Transform the grid object accordingly</span>
+    <span class="n">tg</span> <span class="o">=</span> <span class="n">TransformGrid</span><span class="p">(</span><span class="n">base_grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span>
+    <span class="n">transformed_grid</span> <span class="o">=</span> <span class="n">tg</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+
+    <span class="c1"># Test that the demand flexibility profiles are pruned</span>
+    <span class="n">empty_scenario_info</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;grid_model&quot;</span><span class="p">:</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">grid_model</span><span class="p">}</span>
+    <span class="n">tp</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="n">empty_scenario_info</span><span class="p">,</span> <span class="n">transformed_grid</span><span class="p">,</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">)</span>
+    <span class="n">transformed_demand_flexibility_up</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;demand_flexibility_up&quot;</span><span class="p">)</span>
+    <span class="n">transformed_demand_flexibility_dn</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;demand_flexibility_dn&quot;</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">base_demand_flexibility_up</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">transformed_demand_flexibility_up</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">base_demand_flexibility_dn</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">transformed_demand_flexibility_dn</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

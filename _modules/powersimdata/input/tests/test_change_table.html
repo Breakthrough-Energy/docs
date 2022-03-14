@@ -34,10 +34,13 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.input.tests.test_change_table</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">pytest</span>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">pytest</span>
 
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.context</span> <span class="kn">import</span> <span class="n">Context</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.change_table</span> <span class="kn">import</span> <span class="n">ChangeTable</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_context</span> <span class="kn">import</span> <span class="n">MockContext</span>
 
 <span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">([</span><span class="s2">&quot;USA&quot;</span><span class="p">])</span>
 
@@ -474,13 +477,26 @@
 
 <div class="viewcode-block" id="test_change_table_clear_success"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_change_table.test_change_table_clear_success">[docs]</a><span class="k">def</span> <span class="nf">test_change_table_clear_success</span><span class="p">(</span><span class="n">ct</span><span class="p">):</span>
     <span class="n">fake_scaling</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;branch&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;ng_cost&quot;</span><span class="p">,</span> <span class="s2">&quot;coal_pmin&quot;</span><span class="p">,</span> <span class="s2">&quot;dcline&quot;</span><span class="p">}</span>
-    <span class="n">fake_additions</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;storage&quot;</span><span class="p">,</span> <span class="s2">&quot;new_dcline&quot;</span><span class="p">,</span> <span class="s2">&quot;new_branch&quot;</span><span class="p">,</span> <span class="s2">&quot;new_plant&quot;</span><span class="p">}</span>
+    <span class="n">fake_additions</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;storage&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;new_dcline&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;new_branch&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;new_plant&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;demand_flexibility&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
     <span class="n">all_fakes</span> <span class="o">=</span> <span class="n">fake_scaling</span> <span class="o">|</span> <span class="n">fake_additions</span>
     <span class="n">original_dict_object</span> <span class="o">=</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span>
     <span class="k">for</span> <span class="n">fake</span> <span class="ow">in</span> <span class="n">all_fakes</span><span class="p">:</span>
         <span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">fake</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="c1"># Test that each individual clear makes a change, and the ct ends up empty</span>
-    <span class="n">clear_keys</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;branch&quot;</span><span class="p">,</span> <span class="s2">&quot;dcline&quot;</span><span class="p">,</span> <span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;plant&quot;</span><span class="p">,</span> <span class="s2">&quot;storage&quot;</span><span class="p">}</span>
+    <span class="n">clear_keys</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;branch&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;dcline&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;demand&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;plant&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;storage&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;demand_flexibility&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
     <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">clear_keys</span><span class="p">:</span>
         <span class="n">old_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">ct</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
         <span class="n">ct</span><span class="o">.</span><span class="n">clear</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
@@ -528,6 +544,65 @@
         <span class="n">ct</span><span class="o">.</span><span class="n">remove_bus</span><span class="p">({</span><span class="mi">845</span><span class="p">})</span>
     <span class="n">ct</span><span class="o">.</span><span class="n">scale_plant_capacity</span><span class="p">(</span><span class="n">resource</span><span class="o">=</span><span class="s2">&quot;ng&quot;</span><span class="p">,</span> <span class="n">plant_id</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">0</span><span class="p">})</span>
     <span class="n">ct</span><span class="o">.</span><span class="n">remove_bus</span><span class="p">({</span><span class="mi">845</span><span class="p">})</span></div>
+
+
+<div class="viewcode-block" id="test_add_demand_flexibility"><a class="viewcode-back" href="../../../../powersimdata.input.tests.html#powersimdata.input.tests.test_change_table.test_add_demand_flexibility">[docs]</a><span class="k">def</span> <span class="nf">test_add_demand_flexibility</span><span class="p">(</span><span class="n">ct</span><span class="p">,</span> <span class="n">monkeypatch</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+        <span class="c1"># Fails because &quot;demand_flexibility_dn&quot;, a required key, is not included</span>
+        <span class="n">ct</span><span class="o">.</span><span class="n">add_demand_flexibility</span><span class="p">(</span>
+            <span class="p">{</span><span class="s2">&quot;demand_flexibility_up&quot;</span><span class="p">:</span> <span class="s2">&quot;Test&quot;</span><span class="p">,</span> <span class="s2">&quot;demand_flexibility_duration&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+        <span class="c1"># Fails because there is a key that should not be there</span>
+        <span class="n">ct</span><span class="o">.</span><span class="n">add_demand_flexibility</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;demand_flexibility_up&quot;</span><span class="p">:</span> <span class="s2">&quot;Test&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;demand_flexibility_dn&quot;</span><span class="p">:</span> <span class="s2">&quot;Test&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;demand_flexibility_duration&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
+                <span class="s2">&quot;demand_flexibility_wrong_key&quot;</span><span class="p">:</span> <span class="s2">&quot;Test&quot;</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+        <span class="c1"># Fails because there are no profiles available that match the specified version</span>
+        <span class="n">ct</span><span class="o">.</span><span class="n">add_demand_flexibility</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;demand_flexibility_up&quot;</span><span class="p">:</span> <span class="s2">&quot;Test&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;demand_flexibility_dn&quot;</span><span class="p">:</span> <span class="s2">&quot;Test&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;demand_flexibility_duration&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+    <span class="n">monkeypatch</span><span class="o">.</span><span class="n">setattr</span><span class="p">(</span><span class="n">Context</span><span class="p">,</span> <span class="s2">&quot;get_data_access&quot;</span><span class="p">,</span> <span class="n">MockContext</span><span class="p">()</span><span class="o">.</span><span class="n">get_data_access</span><span class="p">)</span>
+    <span class="n">data_access</span> <span class="o">=</span> <span class="n">Context</span><span class="o">.</span><span class="n">get_data_access</span><span class="p">()</span>
+
+    <span class="c1"># Create fake files in the expected directory path</span>
+    <span class="n">exp_path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;raw/</span><span class="si">{</span><span class="n">grid</span><span class="o">.</span><span class="n">grid_model</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="k">for</span> <span class="n">csv_file</span> <span class="ow">in</span> <span class="p">(</span>
+        <span class="s2">&quot;demand_flexibility_up_Test.csv&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;demand_flexibility_dn_Test.csv&quot;</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">with</span> <span class="n">data_access</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">exp_path</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span> <span class="o">+</span> <span class="n">csv_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="c1"># Add a test instance of demand flexibility to the change table</span>
+    <span class="n">ct</span><span class="o">.</span><span class="n">add_demand_flexibility</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;demand_flexibility_up&quot;</span><span class="p">:</span> <span class="s2">&quot;Test&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;demand_flexibility_dn&quot;</span><span class="p">:</span> <span class="s2">&quot;Test&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;demand_flexibility_duration&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">exp_dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;demand_flexibility&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;demand_flexibility_up&quot;</span><span class="p">:</span> <span class="s2">&quot;Test&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;demand_flexibility_dn&quot;</span><span class="p">:</span> <span class="s2">&quot;Test&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;demand_flexibility_duration&quot;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+    <span class="k">assert</span> <span class="n">ct</span><span class="o">.</span><span class="n">ct</span> <span class="o">==</span> <span class="n">exp_dict</span></div>
 </pre></div>
 
           </div>

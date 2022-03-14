@@ -153,6 +153,48 @@
                 <span class="n">demand</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">key</span><span class="p">]</span> <span class="o">*=</span> <span class="n">value</span>
         <span class="k">return</span> <span class="n">demand</span>
 
+    <span class="k">def</span> <span class="nf">_get_demand_flexibility_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the appropriately pruned demand flexibility profiles. Provides support</span>
+<span class="sd">        for profiles that might have a mixed input of zones and buses.</span>
+
+<span class="sd">        :param string name: The type of demand flexibility profile being specified. Can</span>
+<span class="sd">            be one of: *&#39;demand_flexibility_up&#39;*, *&#39;demand_flexibility_dn&#39;*,</span>
+<span class="sd">            *&#39;demand_flexibility_cost_up&#39;*, or *&#39;demand_flexibility_cost_dn&#39;*.</span>
+<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of a demand flexibility profile.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Access the specified demand flexibility profile</span>
+        <span class="n">flex_dem_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand_flexibility&quot;</span><span class="p">]</span>
+        <span class="n">flex_dem_dict</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_data</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">flex_dem_dict</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+        <span class="c1"># Determine if the demand flexibility profile is indexed by zone, bus, or both</span>
+        <span class="n">area_indicator</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span> <span class="k">if</span> <span class="s2">&quot;zone.&quot;</span> <span class="ow">in</span> <span class="n">x</span> <span class="k">else</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+        <span class="n">area_ids</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">area_indicator</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Demand flexibility profile contains zone IDs</span>
+            <span class="n">zone_id</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">zone_id</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+            <span class="n">zone_id</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;zone.</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">zone_id</span><span class="p">]</span>
+            <span class="n">area_ids</span> <span class="o">+=</span> <span class="n">zone_id</span>
+        <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">area_indicator</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">area_indicator</span><span class="p">):</span>
+            <span class="c1"># Demand flexibility profile contains bus IDs</span>
+            <span class="n">bus_id</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+            <span class="n">bus_id</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">bus_id</span><span class="p">]</span>
+            <span class="n">area_ids</span> <span class="o">+=</span> <span class="n">bus_id</span>
+
+        <span class="c1"># Prune the data frame according to the mix of zone IDs and bus IDs</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">area_ids</span><span class="p">)]</span>
+
+        <span class="c1"># Warn if data frame is now empty (i.e., no relevant zones/buses were provided)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> profile does not contain zone or buse IDs located in the &quot;</span>
+                <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="p">[</span><span class="s1">&#39;interconnect&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> interconnect of the &quot;</span>
+                <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scenario_info</span><span class="p">[</span><span class="s1">&#39;grid_model&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> grid model.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Return the pruned data frame</span>
+        <span class="k">return</span> <span class="n">df</span>
+
     <span class="k">def</span> <span class="nf">_slice_df</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return dataframe, sliced by the times specified in scenario_info if and only</span>
 <span class="sd">        if ``self.slice`` = True.</span>
@@ -167,16 +209,30 @@
 <div class="viewcode-block" id="TransformProfile.get_profile"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.transform_profile.TransformProfile.get_profile">[docs]</a>    <span class="k">def</span> <span class="nf">get_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return profile.</span>
 
-<span class="sd">        :param str name: either *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*.</span>
+<span class="sd">        :param str name: either *demand*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*,</span>
+<span class="sd">            *&#39;demand_flexibility_up&#39;*, *&#39;demand_flexibility_dn&#39;*,</span>
+<span class="sd">            *&#39;demand_flexibility_cost_up&#39;*, or *&#39;demand_flexibility_cost_dn&#39;*.</span>
 <span class="sd">        :return: (*pandas.DataFrame*) -- profile.</span>
-<span class="sd">        :raises ValueError: if argument not one of *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;* or</span>
-<span class="sd">            *&#39;wind&#39;*.</span>
+<span class="sd">        :raises ValueError: if argument not one of *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*,</span>
+<span class="sd">            *&#39;wind&#39;*, *&#39;demand_flexibility_up&#39;*, *&#39;demand_flexibility_dn&#39;*,</span>
+<span class="sd">            *&#39;demand_flexibility_cost_up&#39;*, or *&#39;demand_flexibility_cost_dn&#39;*.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">possible</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">]</span>
+        <span class="n">possible</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;demand&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hydro&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;solar&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;wind&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;demand_flexibility_up&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;demand_flexibility_dn&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;demand_flexibility_cost_up&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;demand_flexibility_cost_dn&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
         <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Choose from </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">))</span>
         <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;demand&quot;</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_slice_df</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_demand_profile</span><span class="p">())</span>
+        <span class="k">elif</span> <span class="s2">&quot;demand_flexibility&quot;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_slice_df</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_demand_flexibility_profile</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_slice_df</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_renewable_profile</span><span class="p">(</span><span class="n">name</span><span class="p">))</span></div></div>
 </pre></div>

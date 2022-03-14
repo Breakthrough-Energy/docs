@@ -34,7 +34,8 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.scenario.execute</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">scipy.io</span> <span class="kn">import</span> <span class="n">savemat</span>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">scipy.io</span> <span class="kn">import</span> <span class="n">savemat</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.data_access.context</span> <span class="kn">import</span> <span class="n">Context</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.export_data</span> <span class="kn">import</span> <span class="n">export_case_mat</span>
@@ -144,6 +145,15 @@
 
             <span class="n">si</span><span class="o">.</span><span class="n">prepare_mpc_file</span><span class="p">()</span>
 
+            <span class="k">if</span> <span class="s2">&quot;demand_flexibility&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+                <span class="c1"># Prepare all specified demand flexibility profiles</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand_flexibility&quot;</span><span class="p">]):</span>
+                    <span class="k">if</span> <span class="n">p</span> <span class="o">!=</span> <span class="s2">&quot;demand_flexibility_duration&quot;</span><span class="p">:</span>
+                        <span class="n">si</span><span class="o">.</span><span class="n">prepare_profile</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">profiles_as</span><span class="p">)</span>
+
+                <span class="c1"># Create the demand_flexibility_parameters file</span>
+                <span class="n">si</span><span class="o">.</span><span class="n">prepare_demand_flexibility_parameters_file</span><span class="p">()</span>
+
             <span class="n">prepared</span> <span class="o">=</span> <span class="s2">&quot;prepared&quot;</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_execute_list_manager</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scenario_id</span><span class="p">,</span> <span class="n">prepared</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_status</span> <span class="o">=</span> <span class="n">prepared</span>
@@ -248,7 +258,9 @@
 <div class="viewcode-block" id="SimulationInput.prepare_profile"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput.prepare_profile">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">profile_as</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">slice</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Prepares profile for simulation.</span>
 
-<span class="sd">        :param kind: one of *demand*, *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
+<span class="sd">        :param kind: one of *demand*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*,</span>
+<span class="sd">            *&#39;demand_flexibility_up&#39;*, *&#39;demand_flexibility_dn&#39;*,</span>
+<span class="sd">            *&#39;demand_flexibility_cost_up&#39;*, or *&#39;demand_flexibility_cost_dn&#39;*.</span>
 <span class="sd">        :param int/str profile_as: if given, copy profile from this scenario.</span>
 <span class="sd">        :param bool slice: whether to slice the profiles by the Scenario&#39;s time range.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -264,7 +276,33 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">from_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">tmp_folder</span><span class="p">(</span><span class="n">profile_as</span><span class="p">)</span>
             <span class="n">src</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">from_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">])</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">)</span></div></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="SimulationInput.prepare_demand_flexibility_parameters_file"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput.prepare_demand_flexibility_parameters_file">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_demand_flexibility_parameters_file</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Creates the demand_flexibility_parameters file.&quot;&quot;&quot;</span>
+        <span class="c1"># Construct a dictionary of the necessary parameters</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Building demand flexibility parameters file&quot;</span><span class="p">)</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">params</span><span class="p">[</span><span class="s2">&quot;enabled&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="kc">True</span><span class="p">]</span>
+        <span class="n">params</span><span class="p">[</span><span class="s2">&quot;interval_balance&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="kc">True</span><span class="p">]</span>
+        <span class="n">params</span><span class="p">[</span><span class="s2">&quot;rolling_balance&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="kc">True</span>
+            <span class="k">if</span> <span class="s2">&quot;demand_flexibility_duration&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand_flexibility&quot;</span><span class="p">]</span>
+            <span class="k">else</span> <span class="kc">False</span>
+        <span class="p">]</span>
+        <span class="n">params</span><span class="p">[</span><span class="s2">&quot;duration&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand_flexibility&quot;</span><span class="p">][</span><span class="s2">&quot;demand_flexibility_duration&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="s2">&quot;demand_flexibility_duration&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand_flexibility&quot;</span><span class="p">]</span>
+            <span class="k">else</span> <span class="mi">0</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Convert the dictionary to a DataFrame to more easily save as a .csv file</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+
+        <span class="c1"># Save the parameters as a .csv file and move the file to the correct location</span>
+        <span class="n">file_path</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="s2">&quot;demand_flexibility_parameters.csv&quot;</span><span class="p">])</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">save_local</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">params</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">f</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>

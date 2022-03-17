@@ -1,0 +1,224 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.input.changes.bus &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.input.changes.bus</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">copy</span>
+
+
+<div class="viewcode-block" id="add_bus"><a class="viewcode-back" href="../../../../powersimdata.input.changes.html#powersimdata.input.changes.bus.add_bus">[docs]</a><span class="k">def</span> <span class="nf">add_bus</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Sets parameters of new bus(es) in change table.</span>
+
+<span class="sd">    :param powersimdata.input.change_table.ChangeTable obj: change table</span>
+<span class="sd">    :param list info: each entry is a dictionary. The dictionary gathers</span>
+<span class="sd">        the information needed to create a new bus.</span>
+<span class="sd">        Required keys: &quot;lat&quot;, &quot;lon&quot;, [&quot;zone_id&quot; XOR &quot;zone_name&quot;].</span>
+<span class="sd">        Optional key: &quot;Pd&quot;, &quot;baseKV&quot;.</span>
+<span class="sd">    :raises TypeError: if ``info`` is not a list.</span>
+<span class="sd">    :raises ValueError: if any new bus doesn&#39;t have appropriate keys/values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Argument enclosing new bus(es) must be a list&quot;</span><span class="p">)</span>
+
+    <span class="n">info</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
+    <span class="n">new_buses</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">required</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">}</span>
+    <span class="n">xor_sets</span> <span class="o">=</span> <span class="p">{(</span><span class="s2">&quot;zone_id&quot;</span><span class="p">,</span> <span class="s2">&quot;zone_name&quot;</span><span class="p">)}</span>
+    <span class="n">defaults</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Pd&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;baseKV&quot;</span><span class="p">:</span> <span class="mi">230</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">new_bus</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">info</span><span class="p">):</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">_check_entry_keys</span><span class="p">(</span>
+            <span class="n">new_bus</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;new_bus&quot;</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">xor_sets</span><span class="p">,</span> <span class="n">defaults</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">}:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_bus</span><span class="p">[</span><span class="n">l</span><span class="p">],</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">l</span><span class="si">}</span><span class="s2"> must be numeric (int/float)&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">90</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;lat&#39; must be between -90 and +90&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">180</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;lon&#39; must be between -180 and +180&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;zone_id&quot;</span> <span class="ow">in</span> <span class="n">new_bus</span> <span class="ow">and</span> <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">id2zone</span><span class="p">:</span>
+            <span class="n">zone_id</span> <span class="o">=</span> <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;zone_id </span><span class="si">{</span><span class="n">zone_id</span><span class="si">}</span><span class="s2"> not present in Grid&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;zone_name&quot;</span> <span class="ow">in</span> <span class="n">new_bus</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="n">zone_name</span> <span class="o">=</span> <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;zone_name </span><span class="si">{</span><span class="n">zone_name</span><span class="si">}</span><span class="s2"> not present in Grid&quot;</span><span class="p">)</span>
+            <span class="k">del</span> <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;Pd&quot;</span> <span class="ow">in</span> <span class="n">new_bus</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;Pd&quot;</span><span class="p">],</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Pd must be numeric (int/float)&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;Pd&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">defaults</span><span class="p">[</span><span class="s2">&quot;Pd&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="s2">&quot;baseKV&quot;</span> <span class="ow">in</span> <span class="n">new_bus</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;baseKV&quot;</span><span class="p">],</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;baseKV must be numeric (int/float)&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;baseKV&quot;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;baseKV must be positive&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_bus</span><span class="p">[</span><span class="s2">&quot;baseKV&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">defaults</span><span class="p">[</span><span class="s2">&quot;baseKV&quot;</span><span class="p">]</span>
+        <span class="n">new_buses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_bus</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;new_bus&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_bus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">obj</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_bus&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">new_buses</span></div>
+
+
+<div class="viewcode-block" id="remove_bus"><a class="viewcode-back" href="../../../../powersimdata.input.changes.html#powersimdata.input.changes.bus.remove_bus">[docs]</a><span class="k">def</span> <span class="nf">remove_bus</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Remove one or more buses.</span>
+
+<span class="sd">    :param powersimdata.input.change_table.ChangeTable obj: change table</span>
+<span class="sd">    :param int/iterable info: iterable of bus indices, or a single bus index.</span>
+<span class="sd">    :raises ValueError: if ``info`` contains one or more entries not present in the</span>
+<span class="sd">        bus table index.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="p">{</span><span class="n">info</span><span class="p">}</span>
+    <span class="c1"># Check whether all buses to be removed are present in the grid</span>
+    <span class="n">diff</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">info</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;bus&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No bus with the following id(s): </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="c1"># Check whether there exist any plants with non-zero capacity at these buses</span>
+    <span class="n">anticipated_plant</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;plant&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;Pmax &gt; 0&quot;</span><span class="p">)</span>
+    <span class="n">plants_at_removal_buses</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">info</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">anticipated_plant</span><span class="o">.</span><span class="n">bus_id</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">plants_at_removal_buses</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Generators exist at bus id(s): </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">plants_at_removal_buses</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="c1"># Check whether storage exists at these buses</span>
+    <span class="n">anticipated_storage</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="s2">&quot;storage_gen&quot;</span><span class="p">)</span>
+    <span class="n">storage_at_removal_buses</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">info</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">anticipated_storage</span><span class="o">.</span><span class="n">bus_id</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">storage_at_removal_buses</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Storage units exist at bus id(s): </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">storage_at_removal_buses</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="c1"># Check whether there exist branches or DC lines at these buses</span>
+    <span class="k">for</span> <span class="n">table</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;branch&quot;</span><span class="p">,</span> <span class="s2">&quot;dcline&quot;</span><span class="p">):</span>
+        <span class="n">anticipated</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">_get_transformed_df</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
+        <span class="n">overlap</span> <span class="o">=</span> <span class="n">anticipated</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;from_bus_id in @info or to_bus_id in @info&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">overlap</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;These </span><span class="si">{</span><span class="n">table</span><span class="si">}</span><span class="s2"> IDs connect to a bus to be removed: </span><span class="si">{</span><span class="n">overlap</span><span class="o">.</span><span class="n">index</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+    <span class="c1"># All checks have passed, and we can add this to the change table</span>
+    <span class="k">if</span> <span class="s2">&quot;remove_bus&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;remove_bus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="n">obj</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;remove_bus&quot;</span><span class="p">]</span> <span class="o">|=</span> <span class="nb">set</span><span class="p">(</span><span class="n">info</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reisejl_package.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.4.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

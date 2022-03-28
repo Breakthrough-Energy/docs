@@ -5,13 +5,14 @@ not done so already.
 
 There are multiple ways to install this software. For most people, using docker will be
 the easiest and fastest way to run a simulation. We recommend using a commercial solver
-with this framework, but not all license types are compatible with docker. If using such a
-license, this software can also be installed and run natively with slightly more effort.
+with this framework, but not all license types are compatible with docker. If using
+such a license, this software can also be installed and run natively with slightly more
+effort.
 
-This framework can also be installed in a client-server configuration. This is most useful
-for groups where multiple people will want to run simulations and access results on an
-appropriately-sized central server. In this case, both the server and each user's local
-environment will need to be configured accordingly.
+This framework can also be installed in a client-server configuration. This is most
+useful for groups where multiple people will want to run simulations and access results
+on an appropriately-sized central server. In this case, both the server and each user's
+local environment will need to be configured accordingly.
 
 Using docker
 ------------
@@ -25,24 +26,26 @@ There are also usage examples.
 
 Natively
 --------
+The framework can be used natively after some initial setup. This first requires the
+following:
 
-The framework can be used natively after some initial setup. This first requires the following:
-
-+ Install julia 1.5 and create an environment as described in `REISE.jl`_
++ Install Julia 1.5 and create an environment as described in the REISE.jl
+  :doc:`../reisejl/installation` notes
 + Clone `PowerSimData`_ and `REISE.jl`_ (preferably in the same directory)
-+ Install the solver you wish to use within your julia environment (either Gurobi or GLPK)
++ Install the solver you wish to use within your Julia environment (either Gurobi or
+  GLPK)
 
-Create a virtualenv and activate it using the following. For the activate step, it's important
-to follow exactly (instead of using the ``source`` command) - this ensures that ``sys.executable`` will give back the python
-interpreter within this environment.
+Create a virtualenv and activate it using the following. For the activate step, it's
+important to follow exactly (instead of using the ``source`` command) - this ensures
+that ``sys.executable`` will give back the python interpreter within this environment.
 
 .. code-block:: console
 
     python -m venv .env
     . .env/bin/activate
 
-Install PowerSimData dependencies into a virtual environment, along with the requirements
-for REISE.jl:
+Install PowerSimData dependencies into a virtual environment, along with the
+requirements for REISE.jl:
 
 .. code-block:: console
 
@@ -59,16 +62,17 @@ create a config file called ``config.ini`` with the following contents
     ENGINE_DIR = /full/path/to/REISE.jl
     JULIA_PROJECT = /full/path/to/REISE.jl
 
-The last step is provisioning a directory where data will be stored. Copy paste this command
-(still in your virtualenv):
+The last step is provisioning a directory where data will be stored. Copy paste this
+command (still in your virtualenv):
 
 .. code-block:: console
-    
+
     python -c "from powersimdata.utility.config import LocalConfig; LocalConfig().initialize()"
 
 
 You should now be able to run a scenario, per the following section.
-Note: when doing so, your working directory should be the root of the PowerSimData repository.
+Note: when doing so, your working directory should be the root of the PowerSimData
+repository.
 
 Client-Server Installation
 --------------------------
@@ -114,8 +118,8 @@ On Server
 + Create the **ScenarioList.csv** and **ExecuteList.csv** files in **DATA_ROOT_DIR**
   on the server following templates in **powersimdata/utility/templates/**
 + Fork `REISE.jl`_ into **MODEL_DIR**
-  and install it following the instructions located in the :doc:`../reisejl_package`
-  README
+  and install it following the instructions located in the :doc:`../reisejl/index`
+  installation guide
 
 
 

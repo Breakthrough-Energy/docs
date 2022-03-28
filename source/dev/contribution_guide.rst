@@ -29,7 +29,7 @@ How to Contribute
 #. Make a pull request (see our :doc:`../user/git_guide` page)
 
 Bug Report and Feature Request
-++++++++++++++
+++++++++++++++++++++++++++++++
 Thank you for reporting your bug or requesting a feature. Navigate to the repository you have identified
 as the most likely source of your bug or where you think your feature may belong to.
 

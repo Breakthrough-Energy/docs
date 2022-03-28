@@ -115,4 +115,4 @@ Please review our :doc:`communication/code_of_conduct` before contributing.
    powersimdata/index
    prereise/index
    postreise/index
-   reisejl_package.md
+   reisejl/index

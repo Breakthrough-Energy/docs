@@ -1,0 +1,344 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.translate_zones &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.translate_zones</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">shapely.validation</span> <span class="kn">import</span> <span class="n">make_valid</span>
+
+<span class="c1"># IMPORTANT: rtree is required for overlay function, but not imported</span>
+
+
+<div class="viewcode-block" id="make_zones_valid"><a class="viewcode-back" href="../../../prereise.gather.html#prereise.gather.translate_zones.make_zones_valid">[docs]</a><span class="k">def</span> <span class="nf">make_zones_valid</span><span class="p">(</span><span class="n">gdf</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Fixes any invalid shapes within a GeoDataFrame</span>
+<span class="sd">    From the Shapely docs:</span>
+<span class="sd">    A valid Polygon may not possess any overlapping exterior or interior rings.</span>
+<span class="sd">    A valid MultiPolygon may not collect any overlapping polygons.</span>
+<span class="sd">    https://shapely.readthedocs.io/en/stable/manual.html#object.is_valid</span>
+
+<span class="sd">    :param geopandas.geodataframe.GeoDataFrame gdf: GeoDataFrame with columns = [&#39;geometry&#39;]</span>
+<span class="sd">    :return: (*geopandas.geodataframe.GeoDataFrame*) -- GeoDataFrame where is_valid returns true for all rows</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">gdf</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+        <span class="n">gdf</span><span class="p">[</span><span class="s2">&quot;geometry&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="o">~</span><span class="n">gdf</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">is_valid</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">geom</span><span class="p">:</span> <span class="n">make_valid</span><span class="p">(</span><span class="n">geom</span><span class="p">))</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">gdf</span></div>
+
+
+<div class="viewcode-block" id="plot_zone_map"><a class="viewcode-back" href="../../../prereise.gather.html#prereise.gather.translate_zones.plot_zone_map">[docs]</a><span class="k">def</span> <span class="nf">plot_zone_map</span><span class="p">(</span><span class="n">gdf</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Plot map of zones as choropleth. Has 20 colors; buckets zones in</span>
+<span class="sd">    alphabetical order</span>
+
+<span class="sd">    :param geopandas.geodataframe.GeoDataFrame gdf: GeoDataFrame with</span>
+<span class="sd">        index = zone names, columns = [&#39;geometry&#39;]</span>
+<span class="sd">    :param \\*\\*kwargs: arbitrary keyword arguments passed to matplotlib plotting function</span>
+<span class="sd">    :return: (*matplotlib.axes._subplots.AxesSubplot) -- the plot object</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">gdf</span><span class="p">[</span><span class="s2">&quot;coords&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gdf</span><span class="p">[</span><span class="s2">&quot;geometry&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">representative_point</span><span class="p">()</span><span class="o">.</span><span class="n">coords</span><span class="p">[:])</span>
+    <span class="n">gdf</span><span class="p">[</span><span class="s2">&quot;coords&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">coords</span> <span class="ow">in</span> <span class="n">gdf</span><span class="p">[</span><span class="s2">&quot;coords&quot;</span><span class="p">]]</span>
+
+    <span class="c1"># kwargs are used for plot visuals</span>
+    <span class="n">default_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;figsize&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span>
+        <span class="s2">&quot;linewidth&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;edgecolor&quot;</span><span class="p">:</span> <span class="s2">&quot;white&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cmap&quot;</span><span class="p">:</span> <span class="s2">&quot;tab20&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;alpha&quot;</span><span class="p">:</span> <span class="mf">0.66</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">plt</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="o">**</span><span class="n">default_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">})</span>
+
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">gdf</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">annotate</span><span class="p">(</span><span class="n">s</span><span class="o">=</span><span class="n">idx</span><span class="p">,</span> <span class="n">xy</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;coords&quot;</span><span class="p">],</span> <span class="n">horizontalalignment</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">plt</span></div>
+
+
+<div class="viewcode-block" id="filter_interesting_zones"><a class="viewcode-back" href="../../../prereise.gather.html#prereise.gather.translate_zones.filter_interesting_zones">[docs]</a><span class="k">def</span> <span class="nf">filter_interesting_zones</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">rounding</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Locate all rows and cols that include values that are not 1 or 0</span>
+
+<span class="sd">    :param pandas.DataFrame df: matrix of zone_set_a x zone_set_b</span>
+<span class="sd">    :param int rounding: round all values</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- subset of original matrix</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">df_copy</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">rounding</span><span class="p">)</span>
+    <span class="n">df_copy</span> <span class="o">=</span> <span class="n">df_copy</span><span class="o">.</span><span class="n">replace</span><span class="p">({</span><span class="mf">1.0</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">})</span>
+
+    <span class="k">return</span> <span class="n">df_copy</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">df_copy</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="n">df_copy</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+        <span class="p">{</span><span class="mf">0.0</span><span class="p">:</span> <span class="s2">&quot;-&quot;</span><span class="p">}</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="format_zone_df"><a class="viewcode-back" href="../../../prereise.gather.html#prereise.gather.translate_zones.format_zone_df">[docs]</a><span class="k">def</span> <span class="nf">format_zone_df</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;copies df, checks if it contains invalid geometry and adds col for zone area</span>
+
+<span class="sd">    :param geopandas.geodataframe.GeoDataFrame df: GeoDataFrame where</span>
+<span class="sd">        index = zone names, columns = [&#39;geometry&#39;]</span>
+<span class="sd">    :param str name: the name of the data set</span>
+<span class="sd">    :return: (*geopandas.geodataframe.GeoDataFrame*) -- the formatted df</span>
+<span class="sd">    :raises ValueError: if the zone set contains invalid geometry</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Check for invalid geometries</span>
+    <span class="n">invalid_geom</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="o">~</span><span class="n">df</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">is_valid</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">invalid_geom</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> contains invalid geometries: </span><span class="si">{</span><span class="n">invalid_geom</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">df_copy</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="n">df_copy</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+    <span class="n">df_copy</span> <span class="o">=</span> <span class="n">df_copy</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+
+    <span class="c1"># change coordinate reference system to Pseudo-Mercator to get more accurate area</span>
+    <span class="n">df_copy</span> <span class="o">=</span> <span class="n">df_copy</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="s2">&quot;EPSG:3857&quot;</span><span class="p">)</span>
+
+    <span class="c1"># get zone area</span>
+    <span class="n">df_copy</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_area&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_copy</span><span class="p">[</span><span class="s2">&quot;geometry&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">area</span>
+
+    <span class="k">return</span> <span class="n">df_copy</span></div>
+
+
+<div class="viewcode-block" id="translate_zone_set"><a class="viewcode-back" href="../../../prereise.gather.html#prereise.gather.translate_zones.translate_zone_set">[docs]</a><span class="k">def</span> <span class="nf">translate_zone_set</span><span class="p">(</span>
+    <span class="n">prev_zones</span><span class="p">,</span> <span class="n">new_zones</span><span class="p">,</span> <span class="n">name_prev</span><span class="o">=</span><span class="s2">&quot;prev_zones&quot;</span><span class="p">,</span> <span class="n">name_new</span><span class="o">=</span><span class="s2">&quot;new_zones&quot;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;returns matrix of prev_zones to new_zones. Scales rows proportionally so</span>
+<span class="sd">    that each row adds up to 1</span>
+
+<span class="sd">    :param geopandas.geodataframe.GeoDataFrame prev_zones: GeoDataFrame with</span>
+<span class="sd">        index = zone names, columns = [&#39;geometry&#39;]</span>
+<span class="sd">    :param geopandas.geodataframe.GeoDataFrame new_zones: GeoDataFrame with</span>
+<span class="sd">        index = zone names, columns = [&#39;geometry&#39;]</span>
+<span class="sd">    :param str name_prev: name of the first data set</span>
+<span class="sd">    :param str name_new: name of the second data set</span>
+<span class="sd">    :param bool verbose: adds extra print statements for debugging data issues</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- matrix of prev_zones to new_zones</span>
+<span class="sd">    :raises ValueError: if either zone set has no CRS (coordinate reference system).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">prev_zones</span><span class="o">.</span><span class="n">crs</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">new_zones</span><span class="o">.</span><span class="n">crs</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Missing CRS on one or both of </span><span class="si">{</span><span class="n">name_prev</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">name_new</span><span class="si">}</span><span class="s2">. Assign CRS with df.set_crs().&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ZONES: </span><span class="si">{</span><span class="n">name_prev</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">prev_zones</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">ZONES: </span><span class="si">{</span><span class="n">name_new</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">new_zones</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">()</span>
+
+    <span class="n">prev_zones</span> <span class="o">=</span> <span class="n">format_zone_df</span><span class="p">(</span><span class="n">prev_zones</span><span class="p">,</span> <span class="n">name_prev</span><span class="p">)</span>
+    <span class="n">new_zones</span> <span class="o">=</span> <span class="n">format_zone_df</span><span class="p">(</span><span class="n">new_zones</span><span class="p">,</span> <span class="n">name_new</span><span class="p">)</span>
+
+    <span class="c1"># get overlapping areas as new polygons</span>
+    <span class="c1"># this drops areas of new zones that do not overlap prev zones</span>
+    <span class="c1"># dropped areas will be re-added at the end this function</span>
+    <span class="n">prev_overlapped_by_new</span> <span class="o">=</span> <span class="n">prev_zones</span><span class="o">.</span><span class="n">overlay</span><span class="p">(</span>
+        <span class="n">new_zones</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;identity&quot;</span><span class="p">,</span> <span class="n">keep_geom_type</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+
+    <span class="c1"># calculate area of overlap as a percentage of the original shape</span>
+    <span class="n">prev_overlapped_by_new</span><span class="p">[</span><span class="s2">&quot;overlap_area&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">prev_overlapped_by_new</span><span class="p">[</span><span class="s2">&quot;geometry&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">area</span>
+    <span class="n">prev_overlapped_by_new</span><span class="p">[</span><span class="s2">&quot;pct_of_prev_area&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">prev_overlapped_by_new</span><span class="p">[</span><span class="s2">&quot;overlap_area&quot;</span><span class="p">]</span>
+        <span class="o">/</span> <span class="n">prev_overlapped_by_new</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name_prev</span><span class="si">}</span><span class="s2">_area&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="c1"># pivots dataframe into a matrix where rows=prev_zones and cols=new_zones</span>
+    <span class="n">prev_to_new_matrix</span> <span class="o">=</span> <span class="n">prev_overlapped_by_new</span><span class="o">.</span><span class="n">pivot</span><span class="p">(</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">name_prev</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">name_new</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="s2">&quot;pct_of_prev_area&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># clean NaNs</span>
+    <span class="n">prev_to_new_matrix</span> <span class="o">=</span> <span class="n">prev_to_new_matrix</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">:</span> <span class="s2">&quot;none&quot;</span><span class="p">})</span>
+    <span class="n">prev_to_new_matrix</span> <span class="o">=</span> <span class="n">prev_to_new_matrix</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1"># check for prev_zones that do not overlap new_zones, then remove</span>
+    <span class="k">if</span> <span class="s2">&quot;none&quot;</span> <span class="ow">in</span> <span class="n">prev_to_new_matrix</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">isolated_zones</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="n">prev_to_new_matrix</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">prev_to_new_matrix</span><span class="p">[</span><span class="s2">&quot;none&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">index</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">isolated_zones</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">WARNING: Detected </span><span class="si">{</span><span class="n">name_prev</span><span class="si">}</span><span class="s2"> zones that do not overlap with </span><span class="si">{</span><span class="n">name_new</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">isolated_zones</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="n">prev_to_new_matrix</span> <span class="o">=</span> <span class="n">prev_to_new_matrix</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">prev_to_new_matrix</span><span class="p">[</span><span class="s2">&quot;none&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">prev_to_new_matrix</span><span class="p">[</span><span class="s2">&quot;none&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1"># Alert if sum &gt; 1 (e.g. new zones overlap each other)</span>
+    <span class="c1"># NOTE: only checks to three decimal places</span>
+    <span class="n">prev_to_new_matrix</span><span class="p">[</span><span class="s2">&quot;sum&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">prev_to_new_matrix</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">sum_greater_than_one</span> <span class="o">=</span> <span class="n">prev_to_new_matrix</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+        <span class="n">prev_to_new_matrix</span><span class="p">[</span><span class="s2">&quot;sum&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span>
+    <span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sum_greater_than_one</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;WARNING: Detected rows with a sum greater than one. This most likely means that several </span><span class="si">{</span><span class="n">name_new</span><span class="si">}</span><span class="s2"> zones overlap each other.&quot;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">ROWS WITH SUM GREATER THAN ONE:&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">sum_greater_than_one</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+
+    <span class="c1"># Scale matrix such that all rows add up to 1 by distributing demand mismatch</span>
+    <span class="c1"># proportionally between new zones.</span>
+    <span class="c1"># if new zones overlap each other, we may end up with &gt; 100% coverage of old zones</span>
+    <span class="c1"># if old zones aren&#39;t completely covered by new zones, we have &lt; 100% coverage</span>
+    <span class="c1"># Note: we could technically simplify this to just scale_factor = 1/(sum - none) but</span>
+    <span class="c1"># the extra cols are nice for verbose mode</span>
+    <span class="n">prev_to_new_matrix</span><span class="p">[</span><span class="s2">&quot;sum_without_none&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">prev_to_new_matrix</span><span class="p">[</span><span class="s2">&quot;sum&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">prev_to_new_matrix</span><span class="p">[</span><span class="s2">&quot;none&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">prev_to_new_matrix</span><span class="p">[</span><span class="s2">&quot;to_distribute&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">prev_to_new_matrix</span><span class="p">[</span><span class="s2">&quot;sum_without_none&quot;</span><span class="p">]</span>
+    <span class="n">prev_to_new_matrix</span><span class="p">[</span><span class="s2">&quot;scale_factor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="mi">1</span> <span class="o">+</span> <span class="n">prev_to_new_matrix</span><span class="p">[</span><span class="s2">&quot;to_distribute&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">prev_to_new_matrix</span><span class="p">[</span><span class="s2">&quot;sum_without_none&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">MATRIX BEFORE SCALING&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">prev_to_new_matrix</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+
+    <span class="n">scaled_matrix</span> <span class="o">=</span> <span class="n">prev_to_new_matrix</span><span class="o">.</span><span class="n">mul</span><span class="p">(</span>
+        <span class="n">prev_to_new_matrix</span><span class="p">[</span><span class="s2">&quot;scale_factor&quot;</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;rows&quot;</span>
+    <span class="p">)</span>
+    <span class="n">scaled_matrix</span> <span class="o">=</span> <span class="n">scaled_matrix</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span>
+        <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="s2">&quot;sum_without_none&quot;</span><span class="p">,</span> <span class="s2">&quot;to_distribute&quot;</span><span class="p">,</span> <span class="s2">&quot;scale_factor&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Add any rows that got dropped because they do not overlap. Fill with zeros.</span>
+    <span class="n">new_rows</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">prev_zones</span><span class="p">[</span><span class="n">name_prev</span><span class="p">])</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">scaled_matrix</span><span class="o">.</span><span class="n">index</span><span class="p">))</span>
+    <span class="n">new_rows_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">new_rows</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">scaled_matrix</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+    <span class="n">scaled_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">scaled_matrix</span><span class="p">,</span> <span class="n">new_rows_df</span><span class="p">])</span>
+
+    <span class="c1"># Similarly, add missing columns</span>
+    <span class="n">new_cols</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">new_zones</span><span class="p">[</span><span class="n">name_new</span><span class="p">])</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">scaled_matrix</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+    <span class="n">scaled_matrix</span><span class="p">[</span><span class="n">new_cols</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">INTERESTING ZONES: rows and cols that include values that are not 1 or 0&quot;</span>
+        <span class="p">)</span>
+        <span class="k">with</span> <span class="n">pd</span><span class="o">.</span><span class="n">option_context</span><span class="p">(</span><span class="s2">&quot;display.max_rows&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;display.max_columns&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">filter_interesting_zones</span><span class="p">(</span><span class="n">scaled_matrix</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">scaled_matrix</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.5.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

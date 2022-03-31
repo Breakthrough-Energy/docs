@@ -65,9 +65,8 @@
 <div class="viewcode-block" id="test_calculate_pout_blended"><a class="viewcode-back" href="../../../../../../prereise.gather.winddata.hrrr.tests.html#prereise.gather.winddata.hrrr.tests.test_calculations.test_calculate_pout_blended">[docs]</a><span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;prereise.gather.winddata.hrrr.calculations.get_power&quot;</span><span class="p">)</span>
 <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;prereise.gather.winddata.hrrr.calculations.get_wind_data_lat_long&quot;</span><span class="p">)</span>
 <span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;prereise.gather.winddata.hrrr.calculations.find_closest_wind_grids&quot;</span><span class="p">)</span>
-<span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;prereise.gather.winddata.hrrr.calculations.pygrib&quot;</span><span class="p">)</span>
 <span class="k">def</span> <span class="nf">test_calculate_pout_blended</span><span class="p">(</span>
-    <span class="n">pygrib</span><span class="p">,</span> <span class="n">find_closest_wind_grids</span><span class="p">,</span> <span class="n">get_wind_data_lat_long</span><span class="p">,</span> <span class="n">get_power</span>
+    <span class="n">find_closest_wind_grids</span><span class="p">,</span> <span class="n">get_wind_data_lat_long</span><span class="p">,</span> <span class="n">get_power</span>
 <span class="p">):</span>
     <span class="c1"># we assume get_power is well tested and simply return the magnitude value passed in</span>
     <span class="c1"># for straightforward testing</span>
@@ -82,24 +81,26 @@
     <span class="n">get_power</span><span class="o">.</span><span class="n">side_effect</span> <span class="o">=</span> <span class="n">get_power_mock</span>
     <span class="n">find_closest_wind_grids</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
 
-    <span class="n">grib_mock</span> <span class="o">=</span> <span class="n">MagicMock</span><span class="p">()</span>
-
-    <span class="n">grib_mock</span><span class="o">.</span><span class="n">select</span><span class="o">.</span><span class="n">return_value</span><span class="o">.</span><span class="fm">__getitem__</span><span class="o">.</span><span class="n">return_value</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
-        <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
-    <span class="p">)</span>
-    <span class="n">pygrib</span><span class="o">.</span><span class="n">open</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="n">grib_mock</span>
     <span class="n">wind_farms</span> <span class="o">=</span> <span class="n">MagicMock</span><span class="p">()</span>
     <span class="n">wind_farms</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;state_abv&quot;</span><span class="p">]</span>
     <span class="n">wind_farms</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
     <span class="n">wind_farms</span><span class="o">.</span><span class="n">loc</span><span class="o">.</span><span class="fm">__getitem__</span><span class="o">.</span><span class="n">return_value</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="s2">&quot;wind_offshore&quot;</span>
     <span class="n">wind_farms</span><span class="o">.</span><span class="n">loc</span><span class="o">.</span><span class="fm">__getitem__</span><span class="o">.</span><span class="n">return_value</span><span class="o">.</span><span class="n">state_abv</span> <span class="o">=</span> <span class="s2">&quot;MA&quot;</span>
     <span class="n">wind_farms</span><span class="o">.</span><span class="fm">__len__</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="mi">2</span>
-    <span class="n">df</span> <span class="o">=</span> <span class="n">calculate_pout_blended</span><span class="p">(</span>
-        <span class="n">wind_farms</span><span class="p">,</span>
-        <span class="n">datetime</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">),</span>
-        <span class="n">datetime</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">),</span>
-        <span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="n">grib_mock</span> <span class="o">=</span> <span class="n">MagicMock</span><span class="p">()</span>
+    <span class="n">grib_mock</span><span class="o">.</span><span class="n">select</span><span class="o">.</span><span class="n">return_value</span><span class="o">.</span><span class="fm">__getitem__</span><span class="o">.</span><span class="n">return_value</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+        <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
     <span class="p">)</span>
+
+    <span class="n">mocked_pygrib</span> <span class="o">=</span> <span class="n">MagicMock</span><span class="p">()</span>
+    <span class="n">mocked_pygrib</span><span class="o">.</span><span class="n">open</span> <span class="o">=</span> <span class="n">MagicMock</span><span class="p">(</span><span class="n">return_value</span><span class="o">=</span><span class="n">grib_mock</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">patch</span><span class="o">.</span><span class="n">dict</span><span class="p">(</span><span class="s2">&quot;sys.modules&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;pygrib&quot;</span><span class="p">:</span> <span class="n">mocked_pygrib</span><span class="p">}):</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">calculate_pout_blended</span><span class="p">(</span>
+            <span class="n">wind_farms</span><span class="p">,</span>
+            <span class="n">datetime</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">),</span>
+            <span class="n">datetime</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
     <span class="n">expected_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
         <span class="n">data</span><span class="o">=</span><span class="p">[[</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">8</span><span class="p">)]],</span>
         <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="n">datetime</span><span class="o">.</span><span class="n">fromisoformat</span><span class="p">(</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">)],</span>

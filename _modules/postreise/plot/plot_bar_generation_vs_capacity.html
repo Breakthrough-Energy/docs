@@ -54,6 +54,7 @@
     <span class="n">resource_types</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">resource_labels</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">horizontal</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">plot_show</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Plot any number of scenarios as bar or horizontal bar charts with two columns per</span>
 <span class="sd">    scenario - generation and capacity.</span>
@@ -78,6 +79,13 @@
 <span class="sd">        being labels to show in the plots, defaults to None, which uses</span>
 <span class="sd">        resource_types as labels.</span>
 <span class="sd">    :param bool horizontal: display bars horizontally, default to False.</span>
+<span class="sd">    :return: (*matplotlib.axes.Axes*) -- axes object of the plot.</span>
+<span class="sd">    :raises TypeError:</span>
+<span class="sd">        if ``resource_labels`` is not a dict.</span>
+<span class="sd">    :raises ValueError:</span>
+<span class="sd">        if length of ``area_types`` and ``areas`` is different.</span>
+<span class="sd">        if length of ``scenario_names`` and ``scenario_ids`` is different.</span>
+<span class="sd">        if only one scenario is provided with no ``custom_data``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
         <span class="n">areas</span> <span class="o">=</span> <span class="p">[</span><span class="n">areas</span><span class="p">]</span>
@@ -86,9 +94,7 @@
     <span class="k">if</span> <span class="ow">not</span> <span class="n">area_types</span><span class="p">:</span>
         <span class="n">area_types</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">areas</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">areas</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">area_types</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;ERROR: if area_types are provided, it should have the same number of entries with areas.&quot;</span>
-        <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;area_types must have same size as areas&quot;</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">scenario_ids</span><span class="p">:</span>
         <span class="n">scenario_ids</span> <span class="o">=</span> <span class="p">[]</span>
@@ -97,21 +103,17 @@
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scenario_names</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
         <span class="n">scenario_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">scenario_names</span><span class="p">]</span>
     <span class="k">if</span> <span class="n">scenario_names</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">scenario_names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">scenario_ids</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;ERROR: if scenario names are provided, number of scenario names must match number of scenario ids&quot;</span>
-        <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;scenario_names must have same size as scenario_ids&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">custom_data</span><span class="p">:</span>
         <span class="n">custom_data</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">scenario_ids</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">custom_data</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;ERROR: must include at least two scenario ids and/or custom data&quot;</span>
-        <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;two scenario and/or custom data must be provided&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resource_types</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
         <span class="n">resource_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">resource_types</span><span class="p">]</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">resource_labels</span><span class="p">:</span>
         <span class="n">resource_labels</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resource_labels</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;ERROR: resource_labels should be a dictionary&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;resource_labels must be a dict&quot;</span><span class="p">)</span>
 
     <span class="n">all_loadzone_data</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">scenario_data</span> <span class="o">=</span> <span class="p">{}</span>
@@ -188,9 +190,14 @@
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">horizontal</span><span class="p">:</span>
-            <span class="n">_construct_hbar_visuals</span><span class="p">(</span><span class="n">area</span><span class="p">,</span> <span class="n">ax_data_list</span><span class="p">)</span>
+            <span class="n">axes</span> <span class="o">=</span> <span class="n">_construct_hbar_visuals</span><span class="p">(</span><span class="n">area</span><span class="p">,</span> <span class="n">ax_data_list</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">_construct_bar_visuals</span><span class="p">(</span><span class="n">area</span><span class="p">,</span> <span class="n">ax_data_list</span><span class="p">)</span></div>
+            <span class="n">axes</span> <span class="o">=</span> <span class="n">_construct_bar_visuals</span><span class="p">(</span><span class="n">area</span><span class="p">,</span> <span class="n">ax_data_list</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">plot_show</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">axes</span></div>
 
 
 <span class="k">def</span> <span class="nf">_construct_bar_visuals</span><span class="p">(</span><span class="n">zone</span><span class="p">,</span> <span class="n">ax_data_list</span><span class="p">):</span>
@@ -237,7 +244,7 @@
             <span class="p">)</span>
 
     <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">get_legend</span><span class="p">()</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">axes</span>
 
 
 <span class="k">def</span> <span class="nf">_construct_hbar_visuals</span><span class="p">(</span><span class="n">zone</span><span class="p">,</span> <span class="n">ax_data_list</span><span class="p">):</span>
@@ -285,7 +292,7 @@
                 <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span>
                 <span class="n">verticalalignment</span><span class="o">=</span><span class="s2">&quot;top&quot;</span><span class="p">,</span>
             <span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">axes</span>
 
 
 <span class="k">def</span> <span class="nf">_get_bar_display_val</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>

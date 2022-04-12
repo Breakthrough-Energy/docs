@@ -43,7 +43,10 @@
 
 <span class="kn">from</span> <span class="nn">postreise.analyze.generation.curtailment</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">calculate_curtailment_percentage_by_resources</span><span class="p">,</span>
+    <span class="n">calculate_curtailment_time_series_by_areas</span><span class="p">,</span>
+    <span class="n">calculate_curtailment_time_series_by_areas_and_resources</span><span class="p">,</span>
     <span class="n">calculate_curtailment_time_series_by_resources</span><span class="p">,</span>
+    <span class="n">calculate_curtailment_time_series_by_resources_and_areas</span><span class="p">,</span>
     <span class="n">get_curtailment_time_series</span><span class="p">,</span>
     <span class="n">summarize_curtailment_by_bus</span><span class="p">,</span>
     <span class="n">summarize_curtailment_by_location</span><span class="p">,</span>
@@ -269,6 +272,122 @@
         <span class="p">]</span>
         <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">expected_return</span><span class="p">):</span>
             <span class="n">check_dataframe_matches</span><span class="p">(</span><span class="n">get_curtailment_time_series</span><span class="p">(</span><span class="o">*</span><span class="n">a</span><span class="p">),</span> <span class="n">e</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="TestCalculateCurtailmentTimeSeriesGrouped"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_curtailment.TestCalculateCurtailmentTimeSeriesGrouped">[docs]</a><span class="k">class</span> <span class="nc">TestCalculateCurtailmentTimeSeriesGrouped</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+<div class="viewcode-block" id="TestCalculateCurtailmentTimeSeriesGrouped.test_curtailment_time_series_by_areas"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_curtailment.TestCalculateCurtailmentTimeSeriesGrouped.test_curtailment_time_series_by_areas">[docs]</a>    <span class="k">def</span> <span class="nf">test_curtailment_time_series_by_areas</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">areas</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="s2">&quot;Washington&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;loadzone&quot;</span><span class="p">:</span> <span class="s2">&quot;Bay Area&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;Washington&quot;</span><span class="p">:</span> <span class="n">mock_curtailment_data</span><span class="p">[[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">]],</span>
+            <span class="s2">&quot;Bay Area&quot;</span><span class="p">:</span> <span class="n">mock_curtailment_data</span><span class="p">[[</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">]],</span>
+        <span class="p">}</span>
+        <span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series_by_areas</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">areas</span><span class="o">=</span><span class="n">areas</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">curtailment</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">areas</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="nb">set</span><span class="p">(</span><span class="n">expected</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">curtailment</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">curtailment</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span>
+            <span class="n">assert_array_equal</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">curtailment</span><span class="p">[</span><span class="n">key</span><span class="p">]),</span> <span class="nb">set</span><span class="p">(</span><span class="n">expected</span><span class="p">[</span><span class="n">key</span><span class="p">]))</span></div>
+
+<div class="viewcode-block" id="TestCalculateCurtailmentTimeSeriesGrouped.test_curtailment_time_series_by_areas_and_resources"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_curtailment.TestCalculateCurtailmentTimeSeriesGrouped.test_curtailment_time_series_by_areas_and_resources">[docs]</a>    <span class="k">def</span> <span class="nf">test_curtailment_time_series_by_areas_and_resources</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">areas</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="s2">&quot;Washington&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;loadzone&quot;</span><span class="p">:</span> <span class="s2">&quot;Bay Area&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;Washington&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="n">mock_curtailment_data</span><span class="p">[[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">]],</span>
+                <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">mock_curtailment_data</span><span class="o">.</span><span class="n">index</span><span class="p">),</span>
+                <span class="s2">&quot;wind_offshore&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">mock_curtailment_data</span><span class="o">.</span><span class="n">index</span><span class="p">),</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;Bay Area&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">mock_curtailment_data</span><span class="o">.</span><span class="n">index</span><span class="p">),</span>
+                <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="n">mock_curtailment_data</span><span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(),</span>
+                <span class="s2">&quot;wind_offshore&quot;</span><span class="p">:</span> <span class="n">mock_curtailment_data</span><span class="p">[</span><span class="s2">&quot;D&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(),</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+        <span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series_by_areas_and_resources</span><span class="p">(</span>
+            <span class="n">scenario</span><span class="p">,</span> <span class="n">areas</span><span class="o">=</span><span class="n">areas</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">curtailment</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">areas</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="nb">set</span><span class="p">(</span><span class="n">expected</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">curtailment</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">curtailment</span><span class="p">[</span><span class="n">a</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">curtailment</span><span class="p">[</span><span class="n">a</span><span class="p">]:</span>
+                <span class="n">assert_array_equal</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">curtailment</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="n">r</span><span class="p">]),</span> <span class="nb">set</span><span class="p">(</span><span class="n">expected</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="n">r</span><span class="p">]))</span></div>
+
+<div class="viewcode-block" id="TestCalculateCurtailmentTimeSeriesGrouped.test_curtailment_time_series_by_areas_and_resource"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_curtailment.TestCalculateCurtailmentTimeSeriesGrouped.test_curtailment_time_series_by_areas_and_resource">[docs]</a>    <span class="k">def</span> <span class="nf">test_curtailment_time_series_by_areas_and_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">areas</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="s2">&quot;Washington&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;loadzone&quot;</span><span class="p">:</span> <span class="s2">&quot;Bay Area&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;Washington&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="n">mock_curtailment_data</span><span class="p">[[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">]],</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;Bay Area&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">mock_curtailment_data</span><span class="o">.</span><span class="n">index</span><span class="p">),</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+        <span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series_by_areas_and_resources</span><span class="p">(</span>
+            <span class="n">scenario</span><span class="p">,</span> <span class="n">areas</span><span class="o">=</span><span class="n">areas</span><span class="p">,</span> <span class="n">resources</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;solar&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">curtailment</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">areas</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="nb">set</span><span class="p">(</span><span class="n">expected</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">curtailment</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">curtailment</span><span class="p">[</span><span class="n">a</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">curtailment</span><span class="p">[</span><span class="n">a</span><span class="p">]:</span>
+                <span class="n">assert_array_equal</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">curtailment</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="n">r</span><span class="p">]),</span> <span class="nb">set</span><span class="p">(</span><span class="n">expected</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="n">r</span><span class="p">]))</span></div>
+
+<div class="viewcode-block" id="TestCalculateCurtailmentTimeSeriesGrouped.test_curtailment_time_series_by_resources_and_areas"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_curtailment.TestCalculateCurtailmentTimeSeriesGrouped.test_curtailment_time_series_by_resources_and_areas">[docs]</a>    <span class="k">def</span> <span class="nf">test_curtailment_time_series_by_resources_and_areas</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">areas</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="s2">&quot;Washington&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;loadzone&quot;</span><span class="p">:</span> <span class="s2">&quot;Bay Area&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;Washington&quot;</span><span class="p">:</span> <span class="n">mock_curtailment_data</span><span class="p">[[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">]],</span>
+                <span class="s2">&quot;Bay Area&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">mock_curtailment_data</span><span class="o">.</span><span class="n">index</span><span class="p">),</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;Washington&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">mock_curtailment_data</span><span class="o">.</span><span class="n">index</span><span class="p">),</span>
+                <span class="s2">&quot;Bay Area&quot;</span><span class="p">:</span> <span class="n">mock_curtailment_data</span><span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(),</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;wind_offshore&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;Washington&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">mock_curtailment_data</span><span class="o">.</span><span class="n">index</span><span class="p">),</span>
+                <span class="s2">&quot;Bay Area&quot;</span><span class="p">:</span> <span class="n">mock_curtailment_data</span><span class="p">[</span><span class="s2">&quot;D&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(),</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+
+        <span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series_by_resources_and_areas</span><span class="p">(</span>
+            <span class="n">scenario</span><span class="p">,</span> <span class="n">areas</span><span class="o">=</span><span class="n">areas</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">curtailment</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">({</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;wind_offshore&quot;</span><span class="p">},</span> <span class="nb">set</span><span class="p">(</span><span class="n">expected</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">curtailment</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">curtailment</span><span class="p">[</span><span class="n">a</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">curtailment</span><span class="p">[</span><span class="n">a</span><span class="p">]:</span>
+                <span class="n">assert_array_equal</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">curtailment</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="n">r</span><span class="p">]),</span> <span class="nb">set</span><span class="p">(</span><span class="n">expected</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="n">r</span><span class="p">]))</span></div>
+
+<div class="viewcode-block" id="TestCalculateCurtailmentTimeSeriesGrouped.test_curtailment_time_series_by_resource_and_area"><a class="viewcode-back" href="../../../../../postreise.analyze.generation.tests.html#postreise.analyze.generation.tests.test_curtailment.TestCalculateCurtailmentTimeSeriesGrouped.test_curtailment_time_series_by_resource_and_area">[docs]</a>    <span class="k">def</span> <span class="nf">test_curtailment_time_series_by_resource_and_area</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Bay Area&quot;</span><span class="p">:</span> <span class="n">mock_curtailment_data</span><span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_frame</span><span class="p">()}}</span>
+
+        <span class="n">curtailment</span> <span class="o">=</span> <span class="n">calculate_curtailment_time_series_by_resources_and_areas</span><span class="p">(</span>
+            <span class="n">scenario</span><span class="p">,</span> <span class="n">areas</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;loadzone&quot;</span><span class="p">:</span> <span class="s2">&quot;Bay Area&quot;</span><span class="p">},</span> <span class="n">resources</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;wind&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">curtailment</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">({</span><span class="s2">&quot;wind&quot;</span><span class="p">},</span> <span class="nb">set</span><span class="p">(</span><span class="n">expected</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">curtailment</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">curtailment</span><span class="p">[</span><span class="n">a</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">curtailment</span><span class="p">[</span><span class="n">a</span><span class="p">]:</span>
+                <span class="n">assert_array_equal</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">curtailment</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="n">r</span><span class="p">]),</span> <span class="nb">set</span><span class="p">(</span><span class="n">expected</span><span class="p">[</span><span class="n">a</span><span class="p">][</span><span class="n">r</span><span class="p">]))</span></div></div>
 </pre></div>
 
           </div>

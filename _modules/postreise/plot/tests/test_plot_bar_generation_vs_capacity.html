@@ -34,12 +34,157 @@
           <div class="body" role="main">
             
   <h1>Source code for postreise.plot.tests.test_plot_bar_generation_vs_capacity</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span></span><span class="kn">from</span> <span class="nn">unittest.mock</span> <span class="kn">import</span> <span class="n">patch</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">pytest</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_scenario</span> <span class="kn">import</span> <span class="n">MockScenario</span>
 
 <span class="kn">from</span> <span class="nn">postreise.plot.plot_bar_generation_vs_capacity</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">_get_bar_display_val</span><span class="p">,</span>
     <span class="n">make_gen_cap_custom_data</span><span class="p">,</span>
+    <span class="n">plot_bar_generation_vs_capacity</span><span class="p">,</span>
 <span class="p">)</span>
+
+<span class="n">mock_plant</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="s2">&quot;G&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">301</span><span class="p">,</span> <span class="mi">302</span><span class="p">,</span> <span class="mi">303</span><span class="p">,</span> <span class="mi">304</span><span class="p">,</span> <span class="mi">305</span><span class="p">,</span> <span class="mi">306</span><span class="p">,</span> <span class="mi">307</span><span class="p">,</span> <span class="mi">308</span><span class="p">],</span>
+    <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">75</span><span class="p">,</span> <span class="mi">150</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">80</span><span class="p">],</span>
+    <span class="s2">&quot;Pmin&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;zone_name&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;Far West&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;North&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;West&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;South&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;North Central&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;South Central&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Coast&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;East&quot;</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">}</span>
+
+<span class="n">mock_solar</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">95</span><span class="p">,</span> <span class="mi">95</span><span class="p">,</span> <span class="mi">96</span><span class="p">,</span> <span class="mi">94</span><span class="p">],</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">140</span><span class="p">,</span> <span class="mi">135</span><span class="p">,</span> <span class="mi">136</span><span class="p">,</span> <span class="mi">144</span><span class="p">],</span>
+        <span class="s2">&quot;F&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">299</span><span class="p">,</span> <span class="mi">298</span><span class="p">,</span> <span class="mi">299</span><span class="p">,</span> <span class="mi">298</span><span class="p">],</span>
+        <span class="s2">&quot;G&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">195</span><span class="p">,</span> <span class="mi">195</span><span class="p">,</span> <span class="mi">193</span><span class="p">,</span> <span class="mi">199</span><span class="p">],</span>
+    <span class="p">},</span>
+    <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="n">mock_wind</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">70</span><span class="p">,</span> <span class="mi">71</span><span class="p">,</span> <span class="mi">70</span><span class="p">,</span> <span class="mi">72</span><span class="p">],</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">29</span><span class="p">,</span> <span class="mi">29</span><span class="p">,</span> <span class="mi">29</span><span class="p">,</span> <span class="mi">29</span><span class="p">],</span>
+        <span class="s2">&quot;E&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">40</span><span class="p">,</span> <span class="mi">39</span><span class="p">,</span> <span class="mi">38</span><span class="p">,</span> <span class="mi">41</span><span class="p">],</span>
+        <span class="s2">&quot;H&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">71</span><span class="p">,</span> <span class="mi">74</span><span class="p">,</span> <span class="mi">68</span><span class="p">,</span> <span class="mi">69</span><span class="p">],</span>
+    <span class="p">},</span>
+    <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="n">mock_pg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">80</span><span class="p">,</span> <span class="mi">75</span><span class="p">,</span> <span class="mi">72</span><span class="p">,</span> <span class="mi">81</span><span class="p">],</span>
+        <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">22</span><span class="p">,</span> <span class="mi">22</span><span class="p">,</span> <span class="mi">25</span><span class="p">,</span> <span class="mi">20</span><span class="p">],</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">130</span><span class="p">,</span> <span class="mi">130</span><span class="p">,</span> <span class="mi">130</span><span class="p">,</span> <span class="mi">130</span><span class="p">],</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">25</span><span class="p">,</span> <span class="mi">26</span><span class="p">,</span> <span class="mi">27</span><span class="p">,</span> <span class="mi">28</span><span class="p">],</span>
+        <span class="s2">&quot;E&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">12</span><span class="p">],</span>
+        <span class="s2">&quot;F&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">290</span><span class="p">,</span> <span class="mi">295</span><span class="p">,</span> <span class="mi">295</span><span class="p">,</span> <span class="mi">294</span><span class="p">],</span>
+        <span class="s2">&quot;G&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">190</span><span class="p">,</span> <span class="mi">190</span><span class="p">,</span> <span class="mi">191</span><span class="p">,</span> <span class="mi">190</span><span class="p">],</span>
+        <span class="s2">&quot;H&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">61</span><span class="p">,</span> <span class="mi">63</span><span class="p">,</span> <span class="mi">65</span><span class="p">,</span> <span class="mi">67</span><span class="p">],</span>
+    <span class="p">},</span>
+    <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="n">mock_demand</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="mi">301</span><span class="p">:</span> <span class="p">[</span><span class="mi">1100</span><span class="p">,</span> <span class="mi">1102</span><span class="p">,</span> <span class="mi">1103</span><span class="p">,</span> <span class="mi">1104</span><span class="p">],</span>
+        <span class="mi">302</span><span class="p">:</span> <span class="p">[</span><span class="mi">2344</span><span class="p">,</span> <span class="mi">2343</span><span class="p">,</span> <span class="mi">2342</span><span class="p">,</span> <span class="mi">2341</span><span class="p">],</span>
+        <span class="mi">303</span><span class="p">:</span> <span class="p">[</span><span class="mi">3875</span><span class="p">,</span> <span class="mi">3876</span><span class="p">,</span> <span class="mi">3877</span><span class="p">,</span> <span class="mi">3878</span><span class="p">],</span>
+        <span class="mi">304</span><span class="p">:</span> <span class="p">[</span><span class="mi">4924</span><span class="p">,</span> <span class="mi">4923</span><span class="p">,</span> <span class="mi">4922</span><span class="p">,</span> <span class="mi">4921</span><span class="p">],</span>
+        <span class="mi">305</span><span class="p">:</span> <span class="p">[</span><span class="mi">400</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">100</span><span class="p">],</span>
+        <span class="mi">306</span><span class="p">:</span> <span class="p">[</span><span class="mi">5004</span><span class="p">,</span> <span class="mi">5003</span><span class="p">,</span> <span class="mi">5002</span><span class="p">,</span> <span class="mi">5001</span><span class="p">],</span>
+        <span class="mi">307</span><span class="p">:</span> <span class="p">[</span><span class="mi">2504</span><span class="p">,</span> <span class="mi">2503</span><span class="p">,</span> <span class="mi">2502</span><span class="p">,</span> <span class="mi">2501</span><span class="p">],</span>
+        <span class="mi">308</span><span class="p">:</span> <span class="p">[</span><span class="mi">3604</span><span class="p">,</span> <span class="mi">3603</span><span class="p">,</span> <span class="mi">3602</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+    <span class="p">},</span>
+    <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="n">grid_attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">}</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">MockScenario</span><span class="p">(</span>
+    <span class="n">grid_attrs</span><span class="p">,</span> <span class="n">pg</span><span class="o">=</span><span class="n">mock_pg</span><span class="p">,</span> <span class="n">solar</span><span class="o">=</span><span class="n">mock_solar</span><span class="p">,</span> <span class="n">wind</span><span class="o">=</span><span class="n">mock_wind</span><span class="p">,</span> <span class="n">demand</span><span class="o">=</span><span class="n">mock_demand</span>
+<span class="p">)</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Best Scenario&quot;</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Texas&quot;</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;start_date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;end_date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Texas&quot;</span><span class="p">]</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">],</span> <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">])</span>
+<span class="p">}</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+
+<div class="viewcode-block" id="test_plot_bar_generation_stack"><a class="viewcode-back" href="../../../../postreise.plot.tests.html#postreise.plot.tests.test_plot_bar_generation_vs_capacity.test_plot_bar_generation_stack">[docs]</a><span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;postreise.plot.plot_bar_generation_vs_capacity.Scenario&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="n">scenario</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">test_plot_bar_generation_stack</span><span class="p">(</span><span class="n">monkeypatch</span><span class="p">):</span>
+    <span class="n">plot_bar_generation_vs_capacity</span><span class="p">(</span>
+        <span class="n">areas</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Coast&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">],</span>
+        <span class="n">area_types</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;loadzone&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">],</span>
+        <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">22</span><span class="p">,</span> <span class="mi">44</span><span class="p">],</span>
+        <span class="n">time_zone</span><span class="o">=</span><span class="s2">&quot;US/Central&quot;</span><span class="p">,</span>
+        <span class="n">plot_show</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">plot_bar_generation_vs_capacity</span><span class="p">(</span>
+        <span class="n">areas</span><span class="o">=</span><span class="s2">&quot;Far West&quot;</span><span class="p">,</span>
+        <span class="n">area_types</span><span class="o">=</span><span class="s2">&quot;loadzone&quot;</span><span class="p">,</span>
+        <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">22</span><span class="p">,</span> <span class="mi">44</span><span class="p">],</span>
+        <span class="n">horizontal</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">plot_show</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_plot_bar_generation_stack_argument_type"><a class="viewcode-back" href="../../../../postreise.plot.tests.html#postreise.plot.tests.test_plot_bar_generation_vs_capacity.test_plot_bar_generation_stack_argument_type">[docs]</a><span class="k">def</span> <span class="nf">test_plot_bar_generation_stack_argument_type</span><span class="p">():</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">)</span> <span class="k">as</span> <span class="n">excinfo</span><span class="p">:</span>
+        <span class="n">plot_bar_generation_vs_capacity</span><span class="p">(</span>
+            <span class="n">areas</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;South&quot;</span><span class="p">,</span> <span class="s2">&quot;Far West&quot;</span><span class="p">],</span>
+            <span class="n">area_types</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;loadzone&quot;</span><span class="p">,</span> <span class="s2">&quot;loadzone&quot;</span><span class="p">],</span>
+            <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">22</span><span class="p">,</span> <span class="mi">44</span><span class="p">],</span>
+            <span class="n">resource_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">],</span>
+            <span class="n">plot_show</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">assert</span> <span class="s2">&quot;resource_labels must be a dict&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">excinfo</span><span class="o">.</span><span class="n">value</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_plot_bar_generation_stack_argument_value"><a class="viewcode-back" href="../../../../postreise.plot.tests.html#postreise.plot.tests.test_plot_bar_generation_vs_capacity.test_plot_bar_generation_stack_argument_value">[docs]</a><span class="k">def</span> <span class="nf">test_plot_bar_generation_stack_argument_value</span><span class="p">():</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">excinfo</span><span class="p">:</span>
+        <span class="n">plot_bar_generation_vs_capacity</span><span class="p">(</span>
+            <span class="n">areas</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;South&quot;</span><span class="p">,</span> <span class="s2">&quot;East&quot;</span><span class="p">],</span>
+            <span class="n">area_types</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;loadzone&quot;</span><span class="p">],</span>
+            <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">22</span><span class="p">,</span> <span class="mi">44</span><span class="p">],</span>
+            <span class="n">plot_show</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">assert</span> <span class="s2">&quot;area_types must have same size as areas&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">excinfo</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">excinfo</span><span class="p">:</span>
+        <span class="n">plot_bar_generation_vs_capacity</span><span class="p">(</span>
+            <span class="n">areas</span><span class="o">=</span><span class="s2">&quot;South Central&quot;</span><span class="p">,</span>
+            <span class="n">area_types</span><span class="o">=</span><span class="s2">&quot;loadzone&quot;</span><span class="p">,</span>
+            <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">],</span>
+            <span class="n">scenario_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;CaseA&quot;</span><span class="p">,</span> <span class="s2">&quot;CaseB&quot;</span><span class="p">,</span> <span class="s2">&quot;CaseC&quot;</span><span class="p">],</span>
+            <span class="n">plot_show</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">assert</span> <span class="s2">&quot;scenario_names must have same size as scenario_ids&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">excinfo</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">excinfo</span><span class="p">:</span>
+        <span class="n">plot_bar_generation_vs_capacity</span><span class="p">(</span>
+            <span class="n">areas</span><span class="o">=</span><span class="s2">&quot;South Central&quot;</span><span class="p">,</span>
+            <span class="n">area_types</span><span class="o">=</span><span class="s2">&quot;loadzone&quot;</span><span class="p">,</span>
+            <span class="n">scenario_ids</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+            <span class="n">plot_show</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">assert</span> <span class="s2">&quot;two scenario and/or custom data must be provided&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">excinfo</span><span class="o">.</span><span class="n">value</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="test_get_bar_display_val_greater_than_ten"><a class="viewcode-back" href="../../../../postreise.plot.tests.html#postreise.plot.tests.test_plot_bar_generation_vs_capacity.test_get_bar_display_val_greater_than_ten">[docs]</a><span class="k">def</span> <span class="nf">test_get_bar_display_val_greater_than_ten</span><span class="p">():</span>

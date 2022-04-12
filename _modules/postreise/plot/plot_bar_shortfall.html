@@ -34,7 +34,8 @@
           <div class="body" role="main">
             
   <h1>Source code for postreise.plot.plot_bar_shortfall</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span></span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">from</span> <span class="nn">powersimdata.design.generation.clean_capacity_scaling</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">add_demand_to_targets</span><span class="p">,</span>
     <span class="n">add_resource_data_to_targets</span><span class="p">,</span>
@@ -52,6 +53,7 @@
     <span class="n">scenario_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">baseline_scenario</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">baseline_scenario_name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">plot_show</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Plot a stacked bar chart of generation shortfall based on given targets for</span>
 <span class="sd">        any number of scenarios.</span>
@@ -72,6 +74,8 @@
 <span class="sd">    :param str baseline_scenario_name: specify the label of the baseline scenario</span>
 <span class="sd">        shown in the bar chart, default to None, in which case the name of the</span>
 <span class="sd">        scenario will be used.</span>
+<span class="sd">    :param bool plot_show: display the generated figure or not, defaults to True.</span>
+<span class="sd">    :return: (*matplotlib.axes.Axes*) -- axes object of the plot.</span>
 <span class="sd">    :raises ValueError:</span>
 <span class="sd">        if length of scenario_names and scenario_ids is different.</span>
 <span class="sd">    :raises TypeError:</span>
@@ -85,23 +89,21 @@
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scenario_ids</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
         <span class="n">scenario_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">scenario_ids</span><span class="p">]</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target_df</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;ERROR: target_df must be a pandas.DataFrame&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;target_df must be a pandas.DataFrame&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">strategy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">strategy</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;ERROR: strategy must be a dictionary&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;strategy must be a dict&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scenario_names</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
         <span class="n">scenario_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">scenario_names</span><span class="p">]</span>
     <span class="k">if</span> <span class="n">scenario_names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">scenario_names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">scenario_ids</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;ERROR: if scenario names are provided, number of scenario names must match number of scenario ids&quot;</span>
-        <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;scenario_names must have same size as scenario_ids&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">baseline_scenario</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">baseline_scenario</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">)):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;ERROR: baseline_scenario must be a string or integer&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;baseline_scenario must be a str or int&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">baseline_scenario_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
         <span class="n">baseline_scenario_name</span><span class="p">,</span> <span class="nb">str</span>
     <span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;ERROR: baseline_scenario_name must be a string&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;baseline_scenario_name must be a str&quot;</span><span class="p">)</span>
 
     <span class="n">scenarios</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
     <span class="n">targets</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
@@ -185,7 +187,7 @@
             <span class="n">target_pct</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">target_generation</span> <span class="o">/</span> <span class="n">target_demand</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">baseline_scenario</span><span class="p">:</span>
-            <span class="n">_construct_shortfall_visuals</span><span class="p">(</span>
+            <span class="n">axes</span> <span class="o">=</span> <span class="n">_construct_shortfall_visuals</span><span class="p">(</span>
                 <span class="n">area</span><span class="p">,</span>
                 <span class="n">ax_data</span><span class="p">,</span>
                 <span class="n">target_pct</span><span class="p">,</span>
@@ -193,11 +195,15 @@
                 <span class="n">baseline_scenario_name</span><span class="o">=</span><span class="n">baseline_scenario_name</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">_construct_shortfall_visuals</span><span class="p">(</span>
+            <span class="n">axes</span> <span class="o">=</span> <span class="n">_construct_shortfall_visuals</span><span class="p">(</span>
                 <span class="n">area</span><span class="p">,</span>
                 <span class="n">ax_data</span><span class="p">,</span>
                 <span class="n">target_pct</span><span class="p">,</span>
-            <span class="p">)</span></div>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">plot_show</span><span class="p">:</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">axes</span></div>
 
 
 <span class="k">def</span> <span class="nf">_construct_shortfall_visuals</span><span class="p">(</span>

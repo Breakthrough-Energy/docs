@@ -36,7 +36,12 @@
   <h1>Source code for postreise.plot.plot_bar_renewable_max_profile_actual</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.check</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_check_resources_are_in_grid_and_format</span><span class="p">,</span>
+    <span class="n">_check_resources_are_renewable_and_format</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.check</span> <span class="kn">import</span> <span class="n">_check_scenario_is_in_analyze_state</span>
 
 <span class="kn">from</span> <span class="nn">postreise.analyze.generation.summarize</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">sum_generation_by_state</span><span class="p">,</span>
@@ -67,17 +72,44 @@
 <span class="sd">    :param int/float fontsize: font size of the texts shown on the plot.</span>
 <span class="sd">    :param plot_show: show the plot or not, defaults to True.</span>
 <span class="sd">    :return: (*matplotlib.axes.Axes*) -- axes object of the plot.</span>
-<span class="sd">    :raises ValueError: if gen_type is not one of renewable resources.</span>
+<span class="sd">    :raises TypeError:</span>
+<span class="sd">        if ``interconnect`` and ``gen_type`` are not str</span>
+<span class="sd">        if ``fontsize`` is not a int or a float</span>
+<span class="sd">    :raises ValueError: if ``interconnect is not valid</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">mi</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">])</span>
-    <span class="k">if</span> <span class="n">gen_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mi</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;renewable_resources&quot;</span><span class="p">]:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;gen_type must be one of renewable resources&quot;</span><span class="p">)</span>
-    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;interconnect must be a str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">gen_type</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;gen_type must be a str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fontsize</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;fontsize must be either a int or a float&quot;</span><span class="p">)</span>
+
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">_check_resources_are_in_grid_and_format</span><span class="p">(</span><span class="n">gen_type</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
+    <span class="n">_check_resources_are_renewable_and_format</span><span class="p">(</span>
+        <span class="n">gen_type</span><span class="p">,</span> <span class="n">grid_model</span><span class="o">=</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+
     <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">gen_type</span><span class="p">]</span>
+    <span class="n">mi</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">interconnect</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;interconnect must be one of </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s1">&#39;interconnect&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="nb">len</span><span class="p">(</span>
+            <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect2abv&quot;</span><span class="p">][</span><span class="n">interconnect</span><span class="p">]</span>
+            <span class="o">-</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect2abv&quot;</span><span class="p">][</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]]</span>
+        <span class="p">)</span>
+        <span class="o">!=</span> <span class="mi">0</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;interconnect is incompatible with scenario&#39;s interconnect&quot;</span><span class="p">)</span>
+
     <span class="k">if</span> <span class="s2">&quot;wind&quot;</span> <span class="ow">in</span> <span class="n">gen_type</span><span class="p">:</span>
-        <span class="n">profile</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_wind</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">profile</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_wind</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">profile</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">get_solar</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">profile</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_solar</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
     <span class="n">hour_num</span> <span class="o">=</span> <span class="p">(</span>
         <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;end_date&quot;</span><span class="p">])</span>
         <span class="o">-</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;start_date&quot;</span><span class="p">])</span>

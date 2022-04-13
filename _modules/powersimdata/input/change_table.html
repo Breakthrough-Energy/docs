@@ -41,12 +41,17 @@
     <span class="n">scale_congested_mesh_branches</span><span class="p">,</span>
     <span class="n">scale_renewable_stubs</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">powersimdata.input.changes.bus</span> <span class="kn">import</span> <span class="n">add_bus</span><span class="p">,</span> <span class="n">remove_bus</span>
-<span class="kn">from</span> <span class="nn">powersimdata.input.changes.electrification</span> <span class="kn">import</span> <span class="n">add_electrification</span>
-<span class="kn">from</span> <span class="nn">powersimdata.input.changes.helpers</span> <span class="kn">import</span> <span class="n">ordinal</span>
-<span class="kn">from</span> <span class="nn">powersimdata.input.changes.plant</span> <span class="kn">import</span> <span class="n">add_plant</span><span class="p">,</span> <span class="n">remove_plant</span><span class="p">,</span> <span class="n">scale_plant_pmin</span>
-<span class="kn">from</span> <span class="nn">powersimdata.input.changes.storage</span> <span class="kn">import</span> <span class="n">add_storage_capacity</span>
-<span class="kn">from</span> <span class="nn">powersimdata.input.input_data</span> <span class="kn">import</span> <span class="n">InputData</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.changes</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">add_bus</span><span class="p">,</span>
+    <span class="n">add_demand_flexibility</span><span class="p">,</span>
+    <span class="n">add_electrification</span><span class="p">,</span>
+    <span class="n">add_plant</span><span class="p">,</span>
+    <span class="n">add_storage_capacity</span><span class="p">,</span>
+    <span class="n">ordinal</span><span class="p">,</span>
+    <span class="n">remove_bus</span><span class="p">,</span>
+    <span class="n">remove_plant</span><span class="p">,</span>
+    <span class="n">scale_plant_pmin</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
 
 <span class="n">_resources</span> <span class="o">=</span> <span class="p">(</span>
@@ -507,56 +512,9 @@
 <div class="viewcode-block" id="ChangeTable.add_demand_flexibility"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.add_demand_flexibility">[docs]</a>    <span class="k">def</span> <span class="nf">add_demand_flexibility</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Adds demand flexibility to the system.</span>
 
-<span class="sd">        :param dict info: Each key refers to a different component required to</span>
-<span class="sd">            parameterize the demand flexibility model. Each value associated with the</span>
-<span class="sd">            keys corresponds to the profile version of the profile in question.</span>
-<span class="sd">            Required keys: &quot;demand_flexibility_up&quot;, &quot;demand_flexibility_dn&quot;.</span>
-<span class="sd">            Optional keys: &quot;demand_flexibility_duration&quot;, &quot;demand_flexibility_cost_up&quot;,</span>
-<span class="sd">                &quot;demand_flexibility_cost_dn&quot;.</span>
-<span class="sd">        :raises TypeError:</span>
-<span class="sd">        :raises ValueError:</span>
+<span class="sd">        See :func:`powersimdata.input.changes.demand_flex.add_demand_flexibility`</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="c1"># Check inputs</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="s2">&quot;Argument enclosing new demand flexibility info must be a dictionary.&quot;</span>
-            <span class="p">)</span>
-        <span class="n">info</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
-        <span class="n">required</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;demand_flexibility_up&quot;</span><span class="p">,</span> <span class="s2">&quot;demand_flexibility_dn&quot;</span><span class="p">}</span>
-        <span class="n">optional</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;demand_flexibility_duration&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;demand_flexibility_cost_up&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;demand_flexibility_cost_dn&quot;</span><span class="p">,</span>
-        <span class="p">}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_entry_keys</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;demand_flexibility&quot;</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">optional</span><span class="p">)</span>
-
-        <span class="c1"># Add a key for demand flexibility in the change table, if necessary</span>
-        <span class="k">if</span> <span class="s2">&quot;demand_flexibility&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand_flexibility&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-
-        <span class="c1"># Access the specified demand flexibility profiles that are required</span>
-        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">required</span> <span class="o">|</span> <span class="p">(</span><span class="n">optional</span> <span class="o">&amp;</span> <span class="n">info</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
-            <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;demand_flexibility_duration&quot;</span><span class="p">:</span>
-                <span class="c1"># Check that demand flexibility duration is an integer and positive</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="nb">int</span><span class="p">):</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The value of </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> is not integer-valued.&quot;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">info</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The value of </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> is not positive.&quot;</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand_flexibility&quot;</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># Determine the available profile versions</span>
-                <span class="n">possible</span> <span class="o">=</span> <span class="n">InputData</span><span class="p">()</span><span class="o">.</span><span class="n">get_profile_version</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
-
-                <span class="c1"># Add the profile to the change table</span>
-                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">possible</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand_flexibility&quot;</span><span class="p">]</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> profile available.&quot;</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">info</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand_flexibility&quot;</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand_flexibility&quot;</span><span class="p">]</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Available </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> profiles: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+        <span class="n">add_demand_flexibility</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="ChangeTable.add_electrification"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable.add_electrification">[docs]</a>    <span class="k">def</span> <span class="nf">add_electrification</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">info</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Add profiles and scaling factors for electrified demand.</span>

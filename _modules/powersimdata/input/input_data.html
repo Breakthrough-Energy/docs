@@ -39,139 +39,47 @@
 
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
-<span class="kn">from</span> <span class="nn">powersimdata.data_access.context</span> <span class="kn">import</span> <span class="n">Context</span>
-<span class="kn">from</span> <span class="nn">powersimdata.data_access.profile_helper</span> <span class="kn">import</span> <span class="n">ProfileHelper</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.input_base</span> <span class="kn">import</span> <span class="n">InputBase</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
-<span class="kn">from</span> <span class="nn">powersimdata.utility.helpers</span> <span class="kn">import</span> <span class="n">MemoryCache</span><span class="p">,</span> <span class="n">cache_key</span>
-
-<span class="n">_cache</span> <span class="o">=</span> <span class="n">MemoryCache</span><span class="p">()</span>
-
-<span class="n">profile_kind</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;demand&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;hydro&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;solar&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;wind&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;demand_flexibility_up&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;demand_flexibility_dn&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;demand_flexibility_cost_up&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;demand_flexibility_cost_dn&quot;</span><span class="p">,</span>
-<span class="p">}</span>
 
 
-<span class="n">_file_extension</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="o">**</span><span class="p">{</span><span class="s2">&quot;ct&quot;</span><span class="p">:</span> <span class="s2">&quot;pkl&quot;</span><span class="p">,</span> <span class="s2">&quot;grid&quot;</span><span class="p">:</span> <span class="s2">&quot;mat&quot;</span><span class="p">},</span>
-    <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="s2">&quot;csv&quot;</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">profile_kind</span><span class="p">},</span>
-<span class="p">}</span>
-
-
-<div class="viewcode-block" id="InputHelper"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.input_data.InputHelper">[docs]</a><span class="k">class</span> <span class="nc">InputHelper</span><span class="p">:</span>
-<div class="viewcode-block" id="InputHelper.get_file_components"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.input_data.InputHelper.get_file_components">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">get_file_components</span><span class="p">(</span><span class="n">scenario_info</span><span class="p">,</span> <span class="n">field_name</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get the file name and relative path for either ct or grid.</span>
-
-<span class="sd">        :param dict scenario_info: metadata for a scenario.</span>
-<span class="sd">        :param str field_name: the input file type.</span>
-<span class="sd">        :return: (*tuple*) -- file name and list of path components.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">ext</span> <span class="o">=</span> <span class="n">_file_extension</span><span class="p">[</span><span class="n">field_name</span><span class="p">]</span>
-        <span class="n">file_name</span> <span class="o">=</span> <span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">field_name</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">ext</span>
-        <span class="k">return</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">INPUT_DIR</span></div></div>
-
-
-<span class="k">def</span> <span class="nf">_check_field</span><span class="p">(</span><span class="n">field_name</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Checks field name.</span>
-
-<span class="sd">    :param str field_name: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*,</span>
-<span class="sd">        *&#39;demand_flexibility_up&#39;*, *&#39;demand_flexibility_dn&#39;*,</span>
-<span class="sd">        *&#39;demand_flexibility_cost_up&#39;*, *&#39;demand_flexibility_cost_dn&#39;*, *&#39;ct&#39;*, or</span>
-<span class="sd">        *&#39;grid&#39;*.</span>
-<span class="sd">    :raises ValueError: if not *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*,</span>
-<span class="sd">        *&#39;demand_flexibility_up&#39;*, *&#39;demand_flexibility_dn&#39;*,</span>
-<span class="sd">        *&#39;demand_flexibility_cost_up&#39;*, *&#39;demand_flexibility_cost_dn&#39;*, *&#39;ct&#39;*, or</span>
-<span class="sd">        *&#39;grid&#39;*.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">possible</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">_file_extension</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-    <span class="k">if</span> <span class="n">field_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only </span><span class="si">%s</span><span class="s2"> data can be loaded&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">))</span>
-
-
-<span class="k">def</span> <span class="nf">_read</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">filepath</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Read data from file object</span>
-
-<span class="sd">    :param io.IOBase f: a file handle</span>
-<span class="sd">    :param str filepath: the filepath corresponding to f</span>
-<span class="sd">    :raises ValueError: if extension is unknown.</span>
-<span class="sd">    :return: object -- the result</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">ext</span> <span class="o">==</span> <span class="s2">&quot;pkl&quot;</span><span class="p">:</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_pickle</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">ext</span> <span class="o">==</span> <span class="s2">&quot;csv&quot;</span><span class="p">:</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">parse_dates</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="k">if</span> <span class="s2">&quot;demand_flexibility&quot;</span> <span class="ow">in</span> <span class="n">filepath</span><span class="p">:</span>
-            <span class="n">data</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">data</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">ext</span> <span class="o">==</span> <span class="s2">&quot;mat&quot;</span><span class="p">:</span>
-        <span class="c1"># get fully qualified local path to matfile</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown extension! </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">ext</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">data</span>
-
-
-<div class="viewcode-block" id="InputData"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.input_data.InputData">[docs]</a><span class="k">class</span> <span class="nc">InputData</span><span class="p">:</span>
+<div class="viewcode-block" id="InputData"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.input_data.InputData">[docs]</a><span class="k">class</span> <span class="nc">InputData</span><span class="p">(</span><span class="n">InputBase</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Load input data.&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span> <span class="o">=</span> <span class="n">Context</span><span class="o">.</span><span class="n">get_data_access</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_file_extension</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;ct&quot;</span><span class="p">:</span> <span class="s2">&quot;pkl&quot;</span><span class="p">,</span> <span class="s2">&quot;grid&quot;</span><span class="p">:</span> <span class="s2">&quot;mat&quot;</span><span class="p">}</span>
 
-<div class="viewcode-block" id="InputData.get_data"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.input_data.InputData.get_data">[docs]</a>    <span class="k">def</span> <span class="nf">get_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_info</span><span class="p">,</span> <span class="n">field_name</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns data either from server or local directory.</span>
+    <span class="k">def</span> <span class="nf">_get_file_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_info</span><span class="p">,</span> <span class="n">field_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the path to either grid or ct for the scenario</span>
 
-<span class="sd">        :param dict scenario_info: scenario information.</span>
-<span class="sd">        :param str field_name: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*,</span>
-<span class="sd">            *&#39;demand_flexibility_up&#39;*, *&#39;demand_flexibility_dn&#39;*,</span>
-<span class="sd">            *&#39;demand_flexibility_cost_up&#39;*, *&#39;demand_flexibility_cost_dn&#39;*, *&#39;ct&#39;*, or</span>
-<span class="sd">            *&#39;grid&#39;*.</span>
-<span class="sd">        :return: (*pandas.DataFrame*, *dict*, or *str*) -- demand, hydro, solar, wind,</span>
-<span class="sd">            demand_flexibility_up, demand_flexibility_dn, demand_flexibility_cost_up,</span>
-<span class="sd">            or demand_flexibility_cost_dn as a data frame; change table as a dictionary;</span>
-<span class="sd">            or the path to a matfile enclosing the grid data.</span>
-<span class="sd">        :raises FileNotFoundError: if file not found on local machine.</span>
+<span class="sd">        :param dict scenario_info: metadata for a scenario.</span>
+<span class="sd">        :param str field_name: either &#39;grid&#39; or &#39;ct&#39;</span>
+<span class="sd">        :return: (*str*) -- the pyfilesystem path to the file</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">_check_field</span><span class="p">(</span><span class="n">field_name</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Loading </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">field_name</span><span class="p">)</span>
+        <span class="n">ext</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_file_extension</span><span class="p">[</span><span class="n">field_name</span><span class="p">]</span>
+        <span class="n">file_name</span> <span class="o">=</span> <span class="n">scenario_info</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">field_name</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">ext</span>
+        <span class="k">return</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="o">*</span><span class="n">server_setup</span><span class="o">.</span><span class="n">INPUT_DIR</span><span class="p">,</span> <span class="n">file_name</span><span class="p">])</span>
 
-        <span class="k">if</span> <span class="n">field_name</span> <span class="ow">in</span> <span class="n">profile_kind</span><span class="p">:</span>
-            <span class="n">helper</span> <span class="o">=</span> <span class="n">ProfileHelper</span>
+    <span class="k">def</span> <span class="nf">_read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Read data from file object</span>
+
+<span class="sd">        :param io.IOBase f: an open file object</span>
+<span class="sd">        :param str path: the path corresponding to f</span>
+<span class="sd">        :raises ValueError: if extension is unknown.</span>
+<span class="sd">        :return: (*dict* or *powersimdata.input.grid.Grid*) -- either a change table</span>
+<span class="sd">            dict or grid object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">ext</span> <span class="o">==</span> <span class="s2">&quot;pkl&quot;</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_pickle</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">ext</span> <span class="o">==</span> <span class="s2">&quot;mat&quot;</span><span class="p">:</span>
+            <span class="c1"># get fully qualified local path to matfile</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">helper</span> <span class="o">=</span> <span class="n">InputHelper</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown extension! </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">ext</span><span class="p">)</span>
 
-        <span class="n">file_name</span><span class="p">,</span> <span class="n">from_dir</span> <span class="o">=</span> <span class="n">helper</span><span class="o">.</span><span class="n">get_file_components</span><span class="p">(</span><span class="n">scenario_info</span><span class="p">,</span> <span class="n">field_name</span><span class="p">)</span>
-
-        <span class="n">filepath</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="o">*</span><span class="n">from_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">])</span>
-        <span class="n">key</span> <span class="o">=</span> <span class="n">cache_key</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
-        <span class="n">cached</span> <span class="o">=</span> <span class="n">_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">cached</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span> <span class="k">as</span> <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">_read</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
-        <span class="n">_cache</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">data</span></div>
-
-<div class="viewcode-block" id="InputData.get_profile_version"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.input_data.InputData.get_profile_version">[docs]</a>    <span class="k">def</span> <span class="nf">get_profile_version</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns available raw profile from blob storage or local disk.</span>
-
-<span class="sd">        :param str grid_model: grid model.</span>
-<span class="sd">        :param str kind: *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*,</span>
-<span class="sd">            *&#39;demand_flexibility_up&#39;*, *&#39;demand_flexibility_dn&#39;*,</span>
-<span class="sd">            *&#39;demand_flexibility_cost_up&#39;*, or *&#39;demand_flexibility_cost_dn&#39;*.</span>
-<span class="sd">        :return: (*list*) -- available profile version.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">get_profile_version</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">data</span>
 
 <div class="viewcode-block" id="InputData.save_change_table"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.input_data.InputData.save_change_table">[docs]</a>    <span class="k">def</span> <span class="nf">save_change_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ct</span><span class="p">,</span> <span class="n">scenario_id</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Saves change table to the data store.</span>

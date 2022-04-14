@@ -45,42 +45,12 @@
 <span class="kn">from</span> <span class="nn">fs.path</span> <span class="kn">import</span> <span class="n">basename</span><span class="p">,</span> <span class="n">dirname</span>
 <span class="kn">from</span> <span class="nn">fs.tempfs</span> <span class="kn">import</span> <span class="n">TempFS</span>
 
-<span class="kn">from</span> <span class="nn">powersimdata.data_access.profile_helper</span> <span class="kn">import</span> <span class="n">get_profile_version</span>
-<span class="kn">from</span> <span class="nn">powersimdata.data_access.ssh_fs</span> <span class="kn">import</span> <span class="n">WrapSSHFS</span>
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.fs_helper</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">get_blob_fs</span><span class="p">,</span>
+    <span class="n">get_multi_fs</span><span class="p">,</span>
+    <span class="n">get_profile_version</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
-
-
-<div class="viewcode-block" id="get_blob_fs"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.get_blob_fs">[docs]</a><span class="k">def</span> <span class="nf">get_blob_fs</span><span class="p">(</span><span class="n">container</span><span class="p">):</span>
-    <span class="n">account</span> <span class="o">=</span> <span class="s2">&quot;besciences&quot;</span>
-    <span class="k">return</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;azblob://</span><span class="si">{</span><span class="n">account</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="n">container</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="get_ssh_fs"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.get_ssh_fs">[docs]</a><span class="k">def</span> <span class="nf">get_ssh_fs</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
-    <span class="n">host</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">SERVER_ADDRESS</span>
-    <span class="n">port</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">SERVER_SSH_PORT</span>
-    <span class="n">username</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">get_server_user</span><span class="p">()</span>
-    <span class="n">base_fs</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ssh://</span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="n">host</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">WrapSSHFS</span><span class="p">(</span><span class="n">base_fs</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="get_multi_fs"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.get_multi_fs">[docs]</a><span class="k">def</span> <span class="nf">get_multi_fs</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Create filesystem combining the server (if connected) with profile and scenario</span>
-<span class="sd">    containers in blob storage. The priority is in descending order, so the server will</span>
-<span class="sd">    be used first if possible</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">scenario_data</span> <span class="o">=</span> <span class="n">get_blob_fs</span><span class="p">(</span><span class="s2">&quot;scenariodata&quot;</span><span class="p">)</span>
-    <span class="n">profiles</span> <span class="o">=</span> <span class="n">get_blob_fs</span><span class="p">(</span><span class="s2">&quot;profiles&quot;</span><span class="p">)</span>
-    <span class="n">mfs</span> <span class="o">=</span> <span class="n">MultiFS</span><span class="p">()</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="n">ssh_fs</span> <span class="o">=</span> <span class="n">get_ssh_fs</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
-        <span class="n">mfs</span><span class="o">.</span><span class="n">add_fs</span><span class="p">(</span><span class="s2">&quot;ssh_fs&quot;</span><span class="p">,</span> <span class="n">ssh_fs</span><span class="p">,</span> <span class="n">write</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-    <span class="k">except</span><span class="p">:</span>  <span class="c1"># noqa</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Could not connect to ssh server&quot;</span><span class="p">)</span>
-    <span class="n">mfs</span><span class="o">.</span><span class="n">add_fs</span><span class="p">(</span><span class="s2">&quot;profile_fs&quot;</span><span class="p">,</span> <span class="n">profiles</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-    <span class="n">mfs</span><span class="o">.</span><span class="n">add_fs</span><span class="p">(</span><span class="s2">&quot;scenario_fs&quot;</span><span class="p">,</span> <span class="n">scenario_data</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">remotes</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">mfs</span><span class="o">.</span><span class="n">iterate_fs</span><span class="p">()])</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Initialized remote filesystem with </span><span class="si">{</span><span class="n">remotes</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">mfs</span></div>
 
 
 <div class="viewcode-block" id="DataAccess"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess">[docs]</a><span class="k">class</span> <span class="nc">DataAccess</span><span class="p">:</span>

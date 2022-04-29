@@ -38,7 +38,6 @@
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.design.mimic_grid</span> <span class="kn">import</span> <span class="n">mimic_generation_capacity</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">area_to_loadzone</span>
 <span class="kn">from</span> <span class="nn">powersimdata.scenario.scenario</span> <span class="kn">import</span> <span class="n">Scenario</span>
 
 
@@ -80,8 +79,8 @@
 
 
 <div class="viewcode-block" id="load_targets_from_csv"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.clean_capacity_scaling.load_targets_from_csv">[docs]</a><span class="k">def</span> <span class="nf">load_targets_from_csv</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">drop_ignored</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Interprets a CSV file as a set of targets, ensuring that required columns are present,</span>
-<span class="sd">    and filling in default values for optional columns.</span>
+    <span class="sd">&quot;&quot;&quot;Interprets a CSV file as a set of targets, ensuring that required columns are</span>
+<span class="sd">    present, and filling in default values for optional columns.</span>
 
 <span class="sd">    :param str filename: filepath to targets csv.</span>
 <span class="sd">    :param bool drop_ignored: if True, drop all ignored columns from output.</span>
@@ -136,12 +135,11 @@
 <span class="sd">    :raises ValueError: if a zone is not present in any target areas, or</span>
 <span class="sd">        if a zone is present in more than one target area.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">grid_model</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">grid_model</span>
     <span class="n">target_zones</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="n">target_name</span><span class="p">:</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">target_name</span><span class="p">)</span>
+        <span class="n">target_name</span><span class="p">:</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">target_name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isnull</span><span class="p">(</span><span class="n">targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">target_name</span><span class="p">,</span> <span class="s2">&quot;area_type&quot;</span><span class="p">])</span>
-        <span class="k">else</span> <span class="n">area_to_loadzone</span><span class="p">(</span>
-            <span class="n">grid_model</span><span class="p">,</span> <span class="n">target_name</span><span class="p">,</span> <span class="n">targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">target_name</span><span class="p">,</span> <span class="s2">&quot;area_type&quot;</span><span class="p">]</span>
+        <span class="k">else</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">area_to_loadzone</span><span class="p">(</span>
+            <span class="n">target_name</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="n">targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">target_name</span><span class="p">,</span> <span class="s2">&quot;area_type&quot;</span><span class="p">]</span>
         <span class="p">)</span>
         <span class="k">for</span> <span class="n">target_name</span> <span class="ow">in</span> <span class="n">targets</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
     <span class="p">}</span>
@@ -415,8 +413,8 @@
 <span class="sd">    :param int scenario_length: number of hours in new scenario.</span>
 <span class="sd">    :param float/None solar_fraction: how much new capacity should be solar.</span>
 <span class="sd">        If given None, maintain previous ratio.</span>
-<span class="sd">    :param dict/None addl_curtailment: how much new curtailment is expected, by resource.</span>
-<span class="sd">        If given None, assume zero.</span>
+<span class="sd">    :param dict/None addl_curtailment: how much new curtailment is expected, by</span>
+<span class="sd">        resource. If given None, assume zero.</span>
 <span class="sd">    :return: (*pandas.DataFrame*) -- targets dataframe with next capacities added.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">targets</span> <span class="o">=</span> <span class="n">input_targets</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -499,7 +497,7 @@
         <span class="n">prev_wind</span> <span class="o">=</span> <span class="n">input_targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region</span><span class="p">,</span> <span class="s2">&quot;wind.prev_capacity&quot;</span><span class="p">]</span>
         <span class="n">next_solar</span> <span class="o">=</span> <span class="n">input_targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region</span><span class="p">,</span> <span class="s2">&quot;solar.next_capacity&quot;</span><span class="p">]</span>
         <span class="n">next_wind</span> <span class="o">=</span> <span class="n">input_targets</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">region</span><span class="p">,</span> <span class="s2">&quot;wind.next_capacity&quot;</span><span class="p">]</span>
-        <span class="n">zone_names</span> <span class="o">=</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">ref_scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">],</span> <span class="n">region</span><span class="p">)</span>
+        <span class="n">zone_names</span> <span class="o">=</span> <span class="n">base_grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">region</span><span class="p">)</span>
         <span class="n">zone_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">base_grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">zone_names</span> <span class="k">if</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">grid_zones</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">prev_solar</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">scale</span> <span class="o">=</span> <span class="n">next_solar</span> <span class="o">/</span> <span class="n">prev_solar</span>

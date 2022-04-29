@@ -34,10 +34,11 @@
           <div class="body" role="main">
             
   <h1>Source code for postreise.plot.plot_sim_vs_hist</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">warnings</span>
-
-<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span></span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.summarize</span> <span class="kn">import</span> <span class="n">sum_generation_by_state</span>
 
 
 <div class="viewcode-block" id="PlotSettings"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_sim_vs_hist.PlotSettings">[docs]</a><span class="k">class</span> <span class="nc">PlotSettings</span><span class="p">:</span>
@@ -46,41 +47,67 @@
     <span class="n">size_inches</span> <span class="o">=</span> <span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="plot_generation_sim_vs_hist"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_sim_vs_hist.plot_generation_sim_vs_hist">[docs]</a><span class="k">def</span> <span class="nf">plot_generation_sim_vs_hist</span><span class="p">(</span><span class="n">sim_gen</span><span class="p">,</span> <span class="n">hist_gen</span><span class="p">,</span> <span class="n">s_info</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">showmax</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Plot simulated vs historical generation of each resource in the scenario</span>
+<div class="viewcode-block" id="plot_generation_sim_vs_hist"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_sim_vs_hist.plot_generation_sim_vs_hist">[docs]</a><span class="k">def</span> <span class="nf">plot_generation_sim_vs_hist</span><span class="p">(</span>
+    <span class="n">scenario</span><span class="p">,</span>
+    <span class="n">hist_gen</span><span class="p">,</span>
+    <span class="n">state</span><span class="p">,</span>
+    <span class="n">show_max</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">plot_show</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Plot simulated vs historical generation of each resource in the scenario</span>
 <span class="sd">    for the given state. Optionally include max generation.</span>
 
-<span class="sd">    :param pandas.DataFrame sim_gen: simulated generation dataframe</span>
-<span class="sd">    :param pandas.DataFrame hist_gen: historical generation dataframe</span>
-<span class="sd">    :param powersimdata.design.ScenarioInfo s_info: scenario info instance.</span>
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param pandas.DataFrame hist_gen: historical generation data frame. Columns are</span>
+<span class="sd">        resources and indices are state names.</span>
 <span class="sd">    :param str state: the US state</span>
-<span class="sd">    :param bool showmax: determine whether to additionally plot max generation of each resource</span>
+<span class="sd">    :param bool show_max: determine whether to additionally plot max generation of each</span>
+<span class="sd">        resource.</span>
+<span class="sd">    :param plot_show: show the plot or not, defaults to True.</span>
+<span class="sd">    :return: (*matplotlib.axes.Axes*) -- axes object of the plot.</span>
+<span class="sd">    :raises TypeError:</span>
+<span class="sd">        if ``hist_gen`` is not a data frame.</span>
+<span class="sd">        if ``state`` is not a str.</span>
+<span class="sd">    :raises ValueError: if ``state`` is not in ``hist_gen`` or ``scenario``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">labels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sim_gen</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
-    <span class="n">all_resources</span> <span class="o">=</span> <span class="n">s_info</span><span class="o">.</span><span class="n">get_available_resource</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">hist_gen</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;hist_gen must be a pandas.DataFrame&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;state must be a str&quot;</span><span class="p">)</span>
+
+    <span class="n">sim_gen</span> <span class="o">=</span> <span class="n">sum_generation_by_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sim_gen</span><span class="o">.</span><span class="n">index</span> <span class="ow">or</span> <span class="n">state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">hist_gen</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid state&quot;</span><span class="p">)</span>
+
+    <span class="n">all_resources</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sim_gen</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
 
     <span class="n">sim</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">sim_gen</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">state</span><span class="p">,</span> <span class="n">res</span><span class="p">]))</span> <span class="k">for</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">all_resources</span><span class="p">]</span>
     <span class="n">hist</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">hist_gen</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">state</span><span class="p">,</span> <span class="n">res</span><span class="p">]))</span> <span class="k">for</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">all_resources</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">calc_max</span><span class="p">(</span><span class="n">gen_type</span><span class="p">):</span>
-        <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
-            <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>
-            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span>
-                <span class="n">s_info</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">(</span><span class="n">gen_type</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">s_info</span><span class="o">.</span><span class="n">pg</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="o">/</span> <span class="mi">1000</span>
-            <span class="p">)</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">pg</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_pg</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">calc_max</span><span class="p">(</span><span class="n">fuel</span><span class="p">):</span>
+        <span class="n">loadzone</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span><span class="p">))</span>  <span class="c1"># noqa</span>
+        <span class="n">capacity</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;type == @fuel &amp; zone_name == @loadzone&quot;</span><span class="p">)[</span>
+            <span class="s2">&quot;Pmax&quot;</span>
+        <span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">capacity</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No </span><span class="si">{</span><span class="n">fuel</span><span class="si">}</span><span class="s2"> generator in </span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">capacity</span> <span class="o">*</span> <span class="n">pg</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span>
 
     <span class="n">max_gen</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">if</span> <span class="n">showmax</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">show_max</span><span class="p">:</span>
         <span class="n">max_gen</span> <span class="o">=</span> <span class="p">[</span><span class="n">calc_max</span><span class="p">(</span><span class="n">res</span><span class="p">)</span> <span class="k">for</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">all_resources</span><span class="p">]</span>
 
-    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">))</span>  <span class="c1"># the label locations</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">all_resources</span><span class="p">))</span>  <span class="c1"># the label locations</span>
     <span class="n">width</span> <span class="o">=</span> <span class="n">PlotSettings</span><span class="o">.</span><span class="n">width</span>
     <span class="n">fontsize</span> <span class="o">=</span> <span class="n">PlotSettings</span><span class="o">.</span><span class="n">fontsize</span>
     <span class="n">size_inches_x</span><span class="p">,</span> <span class="n">size_inches_y</span> <span class="o">=</span> <span class="n">PlotSettings</span><span class="o">.</span><span class="n">size_inches</span>
 
     <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">showmax</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">show_max</span><span class="p">:</span>
         <span class="n">rects1</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">width</span><span class="p">,</span> <span class="n">hist</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Historical&quot;</span><span class="p">)</span>
         <span class="n">rects2</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Simulated&quot;</span><span class="p">)</span>
         <span class="n">rects3</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">width</span><span class="p">,</span> <span class="n">max_gen</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Max Generation&quot;</span><span class="p">)</span>
@@ -92,7 +119,7 @@
     <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;GWh&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">fontsize</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">fontsize</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">fontsize</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">all_resources</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="n">fontsize</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="n">fontsize</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">autolabel</span><span class="p">(</span><span class="n">rects</span><span class="p">):</span>
@@ -110,11 +137,13 @@
 
     <span class="n">autolabel</span><span class="p">(</span><span class="n">rects1</span><span class="p">)</span>
     <span class="n">autolabel</span><span class="p">(</span><span class="n">rects2</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">showmax</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">show_max</span><span class="p">:</span>
         <span class="n">autolabel</span><span class="p">(</span><span class="n">rects3</span><span class="p">)</span>
     <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
     <span class="n">fig</span><span class="o">.</span><span class="n">set_size_inches</span><span class="p">(</span><span class="n">size_inches_x</span><span class="p">,</span> <span class="n">size_inches_y</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+    <span class="k">if</span> <span class="n">plot_show</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">ax</span></div>
 </pre></div>
 
           </div>

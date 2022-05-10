@@ -80,21 +80,27 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span> <span class="o">=</span> <span class="n">data_access</span>
 
 <div class="viewcode-block" id="CsvStore.get_table"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.csv_store.CsvStore.get_table">[docs]</a>    <span class="k">def</span> <span class="nf">get_table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Read the given file from the server, falling back to local copy if</span>
-<span class="sd">        unable to connect.</span>
+        <span class="sd">&quot;&quot;&quot;Attempt to download the file from server and blob storage, falling back to</span>
+<span class="sd">        local copy if one exists, and return the combined result.</span>
 
 <span class="sd">        :return: (*pandas.DataFrame*) -- the specified table as a data frame.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">filename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_FILE_NAME</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_table</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-        <span class="k">except</span><span class="p">:</span>  <span class="c1"># noqa</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_table</span><span class="p">(</span><span class="n">filename</span> <span class="o">+</span> <span class="s2">&quot;.2&quot;</span><span class="p">)</span></div>
+        <span class="n">orig</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_table</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="n">blob</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_table</span><span class="p">(</span><span class="n">filename</span> <span class="o">+</span> <span class="s2">&quot;.2&quot;</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">orig</span><span class="p">,</span> <span class="n">blob</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">df</span><span class="p">[</span><span class="o">~</span><span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">duplicated</span><span class="p">()]</span></div>
 
     <span class="k">def</span> <span class="nf">_get_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">copy_from</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">_</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">_parse_csv</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">copy_from</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>  <span class="c1"># noqa</span>
+            <span class="k">pass</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">_</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">_parse_csv</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>  <span class="c1"># noqa</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
 
 <div class="viewcode-block" id="CsvStore.commit"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.csv_store.CsvStore.commit">[docs]</a>    <span class="k">def</span> <span class="nf">commit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="n">checksum</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Save to local directory and upload if needed</span>

@@ -161,6 +161,16 @@ manually resolving conflicts.
 For more information, see
 `the git pull documentation <https://git-scm.com/docs/git-pull>`_.
 
+Git can be configured to set either of these behaviors as the default behavior when
+``git pull`` is called. To configure ``git pull`` to use fast-forward-only by default:
+run ``git config pull.ff only``. To instead configure ``git pull`` to use a rebase to
+resolve the commit history by default: ``git config pull.rebase true``. By default
+``git config`` changes configurations on a per-repository basis, but it can
+alternatively configure behavior across all repositories via a ``--global`` flag, e.g.
+``git config --global pull.ff only`` or ``git config --global pull.rebase true``.
+
+For more information, see
+`the git config documentation <https://git-scm.com/docs/git-config>`_.
 
 Clean up personal commit history
 ++++++++++++++++++++++++++++++++

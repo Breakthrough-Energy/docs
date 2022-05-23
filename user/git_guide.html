@@ -88,6 +88,12 @@ to your account. Note that to do so, you need to have a GitHub account.</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">git remote add upstream https://github.com/Breakthrough-Energy/REPO_NAME.git</span>
 </pre></div>
 </div>
+<p>Your local Git client can keep track of many different ‘remote’ versions of the same
+repository. By default, when you clone a repository from Github, the first remote is
+named <code class="docutils literal notranslate"><span class="pre">origin</span></code>. The command above adds another remote and names it <code class="docutils literal notranslate"><span class="pre">upstream</span></code>. This
+will be useful when the upstream version of the repository has code changes, and you
+want your local branch to include those changes, so that the only difference between
+your branch and the original repository is the code changes for your feature.</p>
 </section>
 <section id="branching">
 <h3><span class="section-number">4.3.3. </span>Branching<a class="headerlink" href="#branching" title="Permalink to this headline">¶</a></h3>
@@ -102,8 +108,8 @@ to your account. Note that to do so, you need to have a GitHub account.</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">git pull --rebase upstream develop</span>
 </pre></div>
 </div>
-<p>Note that the more you wait to rebase the more you risk to deal with merge conflicts.
-We recommend that you rebase onto <code class="docutils literal notranslate"><span class="pre">develop</span></code> frequently.</p>
+<p>Note that the more you wait to rebase the more you risk having to deal with merge
+conflicts. We recommend that you rebase onto <code class="docutils literal notranslate"><span class="pre">develop</span></code> frequently.</p>
 </li>
 </ul>
 </section>
@@ -133,18 +139,65 @@ We recommend that you rebase onto <code class="docutils literal notranslate"><sp
 that you must follow this semantic if you want to merge your branch into our code base.
 We like to keep our commit history clean.</p>
 </section>
+<section id="don-t-git-pull">
+<h3><span class="section-number">4.3.5. </span>Don’t <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">pull</span></code>…<a class="headerlink" href="#don-t-git-pull" title="Permalink to this headline">¶</a></h3>
+<p>…unless you understand how this command behaves and you’re sure that’s what you want.</p>
+<p>By default, <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">pull</span></code> will perform two distinct actions:</p>
+<ul class="simple">
+<li><p>Making your local Git client aware of the latest commits in the default remote
+(running <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">fetch</span></code>).</p></li>
+<li><p>If there are any differences between the commit history of the currently checked-out
+branch in your local Git client and the latest commits of the corresponding branch in
+the default remote, they will be merged (running <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">merge</span></code>).</p></li>
+</ul>
+<p>If the commit histories of the two branches have diverged (i.e. each branch has at least
+one commit that’s not present in the other), then Git will automatically create a merge
+commit. This is contrary to the branching model we typically follow (see the Branching
+section above), and will make integrating your code back into our codebase more
+difficult. If there are no commits in your local branch that aren’t present in the
+remote, then the <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">merge</span></code> command will result in a ‘fast-forward’ merge, where the
+commit history of your local branch is identical to the remote (this is good).</p>
+<p>Since you probably don’t want a new merge commit, if you do want to run <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">pull</span></code>, we
+encourage it to be run in a non-default mode with different behavior:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">pull</span> <span class="pre">--ff-only</span></code>: this will run <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">fetch</span></code> as normal but only execute the
+<code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">merge</span></code> step if it can be completed with a fast-forward merge (i.e. without
+creating a merge commit). This will only work if there are no new commits in your
+local branch.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">pull</span> <span class="pre">--rebase</span></code>: this will run <code class="docutils literal notranslate"><span class="pre">get</span> <span class="pre">fetch</span></code> as normal and then attempt to
+rebase any new commits in your local branch (any commits since the history deviated
+from the remote) after the new commits of the remote branch. This will only work if
+the distinct commits in the two versions of the branch don’t have any instances of
+editing the same part of the same file.</p></li>
+</ul>
+<p>If neither of these steps can be completed automatically, then your local branch’s
+commit history will need to be reconciled in a more manual way, e.g. rebasing and
+manually resolving conflicts.</p>
+<p>For more information, see
+<a class="reference external" href="https://git-scm.com/docs/git-pull">the git pull documentation</a>.</p>
+<p>Git can be configured to set either of these behaviors as the default behavior when
+<code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">pull</span></code> is called. To configure <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">pull</span></code> to use fast-forward-only by default:
+run <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">config</span> <span class="pre">pull.ff</span> <span class="pre">only</span></code>. To instead configure <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">pull</span></code> to use a rebase to
+resolve the commit history by default: <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">config</span> <span class="pre">pull.rebase</span> <span class="pre">true</span></code>. By default
+<code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">config</span></code> changes configurations on a per-repository basis, but it can
+alternatively configure behavior across all repositories via a <code class="docutils literal notranslate"><span class="pre">--global</span></code> flag, e.g.
+<code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">config</span> <span class="pre">--global</span> <span class="pre">pull.ff</span> <span class="pre">only</span></code> or <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">config</span> <span class="pre">--global</span> <span class="pre">pull.rebase</span> <span class="pre">true</span></code>.</p>
+<p>For more information, see
+<a class="reference external" href="https://git-scm.com/docs/git-config">the git config documentation</a>.</p>
+</section>
 <section id="clean-up-personal-commit-history">
-<h3><span class="section-number">4.3.5. </span>Clean up personal commit history<a class="headerlink" href="#clean-up-personal-commit-history" title="Permalink to this headline">¶</a></h3>
+<h3><span class="section-number">4.3.6. </span>Clean up personal commit history<a class="headerlink" href="#clean-up-personal-commit-history" title="Permalink to this headline">¶</a></h3>
 <p>If you did not follow our commit message convention or your commit history is messy,
 use the interactive rebase tool (see this <a class="reference external" href="https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History">website</a> for more details) to
-revise your commit history. You will be able to reword, drop and meld commits. In short:</p>
+revise your commit history. You will be able to reorder, reword, drop and meld commits.
+In short:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">git rebase -i upstream/BRANCH</span>
 </pre></div>
 </div>
 <p>where <code class="docutils literal notranslate"><span class="pre">BRANCH</span></code> is the name of the branch you branched off, e.g., <code class="docutils literal notranslate"><span class="pre">develop</span></code>.</p>
 </section>
 <section id="pull-request">
-<h3><span class="section-number">4.3.6. </span>Pull request<a class="headerlink" href="#pull-request" title="Permalink to this headline">¶</a></h3>
+<h3><span class="section-number">4.3.7. </span>Pull request<a class="headerlink" href="#pull-request" title="Permalink to this headline">¶</a></h3>
 <p>PRs are critical to good software development by:</p>
 <ul class="simple">
 <li><p>Reducing code defects</p></li>
@@ -214,8 +267,9 @@ familiar with your project for reviewer(s)</p></li>
 <li class="toctree-l3"><a class="reference internal" href="#sync-your-copy">4.3.2. Sync your Copy</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#branching">4.3.3. Branching</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#commit-message">4.3.4. Commit message</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#clean-up-personal-commit-history">4.3.5. Clean up personal commit history</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#pull-request">4.3.6. Pull request</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#don-t-git-pull">4.3.5. Don’t <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">pull</span></code>…</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#clean-up-personal-commit-history">4.3.6. Clean up personal commit history</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pull-request">4.3.7. Pull request</a></li>
 </ul>
 </li>
 </ul>

@@ -64,6 +64,12 @@ Configure Git to sync your fork with the original repository:
 
     git remote add upstream https://github.com/Breakthrough-Energy/REPO_NAME.git
 
+Your local Git client can keep track of many different 'remote' versions of the same
+repository. By default, when you clone a repository from Github, the first remote is
+named ``origin``. The command above adds another remote and names it ``upstream``. This
+will be useful when the upstream version of the repository has code changes, and you
+want your local branch to include those changes, so that the only difference between
+your branch and the original repository is the code changes for your feature.
 
 Branching
 +++++++++
@@ -82,8 +88,8 @@ We recommend that you follow this `branching model
 
       git pull --rebase upstream develop
 
-  Note that the more you wait to rebase the more you risk to deal with merge conflicts.
-  We recommend that you rebase onto ``develop`` frequently.
+  Note that the more you wait to rebase the more you risk having to deal with merge
+  conflicts. We recommend that you rebase onto ``develop`` frequently.
 
 
 Commit message
@@ -115,12 +121,64 @@ that you must follow this semantic if you want to merge your branch into our cod
 We like to keep our commit history clean.
 
 
+Don't ``git pull``...
++++++++++++++++++++
+...unless you understand how this command behaves and you're sure that's what you want.
+
+By default, ``git pull`` will perform two distinct actions:
+
++ Making your local Git client aware of the latest commits in the default remote
+  (running ``git fetch``).
++ If there are any differences between the commit history of the currently checked-out
+  branch in your local Git client and the latest commits of the corresponding branch in
+  the default remote, they will be merged (running ``git merge``).
+
+If the commit histories of the two branches have diverged (i.e. each branch has at least
+one commit that's not present in the other), then Git will automatically create a merge
+commit. This is contrary to the branching model we typically follow (see the Branching
+section above), and will make integrating your code back into our codebase more
+difficult. If there are no commits in your local branch that aren't present in the
+remote, then the ``git merge`` command will result in a 'fast-forward' merge, where the
+commit history of your local branch is identical to the remote (this is good).
+
+Since you probably don't want a new merge commit, if you do want to run ``git pull``, we
+encourage it to be run in a non-default mode with different behavior:
+
++ ``git pull --ff-only``: this will run ``git fetch`` as normal but only execute the
+  ``git merge`` step if it can be completed with a fast-forward merge (i.e. without
+  creating a merge commit). This will only work if there are no new commits in your
+  local branch.
++ ``git pull --rebase``: this will run ``get fetch`` as normal and then attempt to
+  rebase any new commits in your local branch (any commits since the history deviated
+  from the remote) after the new commits of the remote branch. This will only work if
+  the distinct commits in the two versions of the branch don't have any instances of
+  editing the same part of the same file.
+
+If neither of these steps can be completed automatically, then your local branch's
+commit history will need to be reconciled in a more manual way, e.g. rebasing and
+manually resolving conflicts.
+
+For more information, see
+`the git pull documentation <https://git-scm.com/docs/git-pull>`_.
+
+Git can be configured to set either of these behaviors as the default behavior when
+``git pull`` is called. To configure ``git pull`` to use fast-forward-only by default:
+run ``git config pull.ff only``. To instead configure ``git pull`` to use a rebase to
+resolve the commit history by default: ``git config pull.rebase true``. By default
+``git config`` changes configurations on a per-repository basis, but it can
+alternatively configure behavior across all repositories via a ``--global`` flag, e.g.
+``git config --global pull.ff only`` or ``git config --global pull.rebase true``.
+
+For more information, see
+`the git config documentation <https://git-scm.com/docs/git-config>`_.
+
 Clean up personal commit history
 ++++++++++++++++++++++++++++++++
 If you did not follow our commit message convention or your commit history is messy,
 use the interactive rebase tool (see this `website
 <https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History>`_ for more details) to
-revise your commit history. You will be able to reword, drop and meld commits. In short:
+revise your commit history. You will be able to reorder, reword, drop and meld commits.
+In short:
 
 .. code-block:: console
 

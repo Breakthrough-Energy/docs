@@ -1,0 +1,361 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.network.constants.region.usa &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.network.constants.region.usa</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">ast</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">chain</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.network.constants.model</span> <span class="kn">import</span> <span class="n">model2interconnect</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.helpers</span> <span class="kn">import</span> <span class="n">get_zone_info</span><span class="p">,</span> <span class="n">interconnect_to_name</span><span class="p">,</span> <span class="n">powerset</span>
+
+<span class="n">abv2state</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;AK&quot;</span><span class="p">:</span> <span class="s2">&quot;Alaska&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;AL&quot;</span><span class="p">:</span> <span class="s2">&quot;Alabama&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;AR&quot;</span><span class="p">:</span> <span class="s2">&quot;Arkansas&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;AZ&quot;</span><span class="p">:</span> <span class="s2">&quot;Arizona&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;CA&quot;</span><span class="p">:</span> <span class="s2">&quot;California&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;CO&quot;</span><span class="p">:</span> <span class="s2">&quot;Colorado&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;CT&quot;</span><span class="p">:</span> <span class="s2">&quot;Connecticut&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;DE&quot;</span><span class="p">:</span> <span class="s2">&quot;Delaware&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;FL&quot;</span><span class="p">:</span> <span class="s2">&quot;Florida&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GA&quot;</span><span class="p">:</span> <span class="s2">&quot;Georgia&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;HI&quot;</span><span class="p">:</span> <span class="s2">&quot;Hawaii&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;IA&quot;</span><span class="p">:</span> <span class="s2">&quot;Iowa&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ID&quot;</span><span class="p">:</span> <span class="s2">&quot;Idaho&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;IL&quot;</span><span class="p">:</span> <span class="s2">&quot;Illinois&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;IN&quot;</span><span class="p">:</span> <span class="s2">&quot;Indiana&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;KS&quot;</span><span class="p">:</span> <span class="s2">&quot;Kansas&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;KY&quot;</span><span class="p">:</span> <span class="s2">&quot;Kentucky&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;LA&quot;</span><span class="p">:</span> <span class="s2">&quot;Louisiana&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MA&quot;</span><span class="p">:</span> <span class="s2">&quot;Massachusetts&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MD&quot;</span><span class="p">:</span> <span class="s2">&quot;Maryland&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ME&quot;</span><span class="p">:</span> <span class="s2">&quot;Maine&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MI&quot;</span><span class="p">:</span> <span class="s2">&quot;Michigan&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MN&quot;</span><span class="p">:</span> <span class="s2">&quot;Minnesota&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MO&quot;</span><span class="p">:</span> <span class="s2">&quot;Missouri&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MS&quot;</span><span class="p">:</span> <span class="s2">&quot;Mississippi&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MT&quot;</span><span class="p">:</span> <span class="s2">&quot;Montana&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;NC&quot;</span><span class="p">:</span> <span class="s2">&quot;North Carolina&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ND&quot;</span><span class="p">:</span> <span class="s2">&quot;North Dakota&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;NE&quot;</span><span class="p">:</span> <span class="s2">&quot;Nebraska&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;NH&quot;</span><span class="p">:</span> <span class="s2">&quot;New Hampshire&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;NJ&quot;</span><span class="p">:</span> <span class="s2">&quot;New Jersey&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;NM&quot;</span><span class="p">:</span> <span class="s2">&quot;New Mexico&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;NV&quot;</span><span class="p">:</span> <span class="s2">&quot;Nevada&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;NY&quot;</span><span class="p">:</span> <span class="s2">&quot;New York&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;OH&quot;</span><span class="p">:</span> <span class="s2">&quot;Ohio&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;OK&quot;</span><span class="p">:</span> <span class="s2">&quot;Oklahoma&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;OR&quot;</span><span class="p">:</span> <span class="s2">&quot;Oregon&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;PA&quot;</span><span class="p">:</span> <span class="s2">&quot;Pennsylvania&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;RI&quot;</span><span class="p">:</span> <span class="s2">&quot;Rhode Island&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;SC&quot;</span><span class="p">:</span> <span class="s2">&quot;South Carolina&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;SD&quot;</span><span class="p">:</span> <span class="s2">&quot;South Dakota&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;TN&quot;</span><span class="p">:</span> <span class="s2">&quot;Tennessee&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;TX&quot;</span><span class="p">:</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;UT&quot;</span><span class="p">:</span> <span class="s2">&quot;Utah&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;VA&quot;</span><span class="p">:</span> <span class="s2">&quot;Virginia&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;VT&quot;</span><span class="p">:</span> <span class="s2">&quot;Vermont&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;WA&quot;</span><span class="p">:</span> <span class="s2">&quot;Washington&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;WI&quot;</span><span class="p">:</span> <span class="s2">&quot;Wisconsin&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;WV&quot;</span><span class="p">:</span> <span class="s2">&quot;West Virginia&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;WY&quot;</span><span class="p">:</span> <span class="s2">&quot;Wyoming&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">interconnect2abv</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;Eastern&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;ME&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;NH&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;VT&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MA&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;RI&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;CT&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;NY&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;NJ&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;PA&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;DE&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MD&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;VA&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;NC&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SC&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;GA&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;FL&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;AL&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MS&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;TN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;KY&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;WV&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;OH&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MI&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;IN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;IL&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;WI&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MN&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;IA&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MO&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;AR&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;LA&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;OK&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;KS&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;NE&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SD&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;ND&quot;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;ERCOT&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;TX&quot;</span><span class="p">},</span>
+    <span class="s2">&quot;Western&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;WA&quot;</span><span class="p">,</span> <span class="s2">&quot;OR&quot;</span><span class="p">,</span> <span class="s2">&quot;CA&quot;</span><span class="p">,</span> <span class="s2">&quot;NV&quot;</span><span class="p">,</span> <span class="s2">&quot;AZ&quot;</span><span class="p">,</span> <span class="s2">&quot;UT&quot;</span><span class="p">,</span> <span class="s2">&quot;NM&quot;</span><span class="p">,</span> <span class="s2">&quot;CO&quot;</span><span class="p">,</span> <span class="s2">&quot;WY&quot;</span><span class="p">,</span> <span class="s2">&quot;ID&quot;</span><span class="p">,</span> <span class="s2">&quot;MT&quot;</span><span class="p">},</span>
+<span class="p">}</span>
+<span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">powerset</span><span class="p">(</span><span class="n">model2interconnect</span><span class="p">[</span><span class="s2">&quot;hifld&quot;</span><span class="p">],</span> <span class="mi">2</span><span class="p">):</span>
+    <span class="n">interconnect2abv</span><span class="p">[</span><span class="n">interconnect_to_name</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;hifld&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+        <span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">interconnect2abv</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">c</span><span class="p">])</span>
+    <span class="p">)</span>
+
+<span class="n">name2interconnect</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">interconnect_to_name</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;hifld&quot;</span><span class="p">):</span> <span class="nb">set</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">powerset</span><span class="p">(</span><span class="n">model2interconnect</span><span class="p">[</span><span class="s2">&quot;hifld&quot;</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="n">name2component</span> <span class="o">=</span> <span class="n">name2interconnect</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">name2component</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;USA&quot;</span><span class="p">:</span> <span class="nb">set</span><span class="p">(</span><span class="n">name2interconnect</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;USA&quot;</span><span class="p">}})</span>
+
+<span class="n">interconnect2timezone</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">interconnect_to_name</span><span class="p">(</span><span class="s2">&quot;USA&quot;</span><span class="p">):</span> <span class="s2">&quot;ETC/GMT+6&quot;</span><span class="p">,</span>
+    <span class="n">interconnect_to_name</span><span class="p">(</span><span class="s2">&quot;Eastern&quot;</span><span class="p">):</span> <span class="s2">&quot;ETC/GMT+5&quot;</span><span class="p">,</span>
+    <span class="n">interconnect_to_name</span><span class="p">(</span><span class="s2">&quot;ERCOT&quot;</span><span class="p">):</span> <span class="s2">&quot;ETC/GMT+6&quot;</span><span class="p">,</span>
+    <span class="n">interconnect_to_name</span><span class="p">(</span><span class="s2">&quot;Western&quot;</span><span class="p">):</span> <span class="s2">&quot;ETC/GMT+8&quot;</span><span class="p">,</span>
+    <span class="n">interconnect_to_name</span><span class="p">([</span><span class="s2">&quot;ERCOT&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">]):</span> <span class="s2">&quot;ETC/GMT+7&quot;</span><span class="p">,</span>
+    <span class="n">interconnect_to_name</span><span class="p">([</span><span class="s2">&quot;ERCOT&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">]):</span> <span class="s2">&quot;ETC/GMT+5&quot;</span><span class="p">,</span>
+    <span class="n">interconnect_to_name</span><span class="p">([</span><span class="s2">&quot;Eastern&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">]):</span> <span class="s2">&quot;ETC/GMT+6&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="get_interconnect_mapping"><a class="viewcode-back" href="../../../../../powersimdata.network.constants.region.html#powersimdata.network.constants.region.usa.get_interconnect_mapping">[docs]</a><span class="k">def</span> <span class="nf">get_interconnect_mapping</span><span class="p">(</span><span class="n">zone</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return interconnect mapping.</span>
+
+<span class="sd">    :param pandas.DataFrame zone: information on zones of a grid model.</span>
+<span class="sd">    :param str model: the grid model.</span>
+<span class="sd">    :return: (*dict*) -- mappings of interconnect to other areas.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_substitute</span><span class="p">(</span><span class="n">entry</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">i</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">literal_eval</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;ERCOT&quot;</span><span class="p">,</span> <span class="n">sub</span><span class="p">))[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
+        <span class="p">}</span>
+
+    <span class="n">mapping</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="n">sub</span> <span class="o">=</span> <span class="s2">&quot;Texas&quot;</span> <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;usa_tamu&quot;</span> <span class="k">else</span> <span class="s2">&quot;ERCOT&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="n">interconnect_to_name</span><span class="p">(</span><span class="n">zone</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">(),</span> <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">)</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">literal_eval</span><span class="p">(</span>
+        <span class="nb">repr</span><span class="p">(</span><span class="n">name2component</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;ERCOT&quot;</span><span class="p">,</span> <span class="n">sub</span><span class="p">)</span>
+    <span class="p">)[</span><span class="n">name</span><span class="p">]</span> <span class="o">|</span> <span class="p">{</span><span class="n">name</span><span class="p">}</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;name2interconnect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_substitute</span><span class="p">(</span><span class="n">name2interconnect</span><span class="p">)</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;name2component&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_substitute</span><span class="p">(</span><span class="n">name2component</span><span class="p">)</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;interconnect2timezone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_substitute</span><span class="p">(</span><span class="n">interconnect2timezone</span><span class="p">)</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;interconnect2abv&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_substitute</span><span class="p">(</span><span class="n">interconnect2abv</span><span class="p">)</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;interconnect2loadzone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">i</span><span class="p">:</span> <span class="nb">set</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">zone</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;zone_name&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;interconnect&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;interconnect2id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">i</span><span class="p">:</span> <span class="nb">set</span><span class="p">(</span><span class="nb">id</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="nb">id</span> <span class="ow">in</span> <span class="n">zone</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;interconnect&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">mapping</span></div>
+
+
+<div class="viewcode-block" id="get_state_mapping"><a class="viewcode-back" href="../../../../../powersimdata.network.constants.region.html#powersimdata.network.constants.region.usa.get_state_mapping">[docs]</a><span class="k">def</span> <span class="nf">get_state_mapping</span><span class="p">(</span><span class="n">zone</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return state mapping.</span>
+
+<span class="sd">    :param pandas.DataFrame zone: information on zones of a grid model.</span>
+<span class="sd">    :return: (*dict*) -- mappings of states to other areas.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mapping</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">zone</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">])</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;abv&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">zone</span><span class="p">[</span><span class="s2">&quot;abv&quot;</span><span class="p">])</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;state_abbr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">zone</span><span class="p">[</span><span class="s2">&quot;abv&quot;</span><span class="p">])</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;state2loadzone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">k</span><span class="p">:</span> <span class="nb">set</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">zone</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">)[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;abv2loadzone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">k</span><span class="p">:</span> <span class="nb">set</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">zone</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;abv&quot;</span><span class="p">)[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;abv2id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">set</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">zone</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;abv&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;id2abv&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">zone</span><span class="p">[</span><span class="s2">&quot;abv&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;state2abv&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">zone</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">],</span> <span class="n">zone</span><span class="p">[</span><span class="s2">&quot;abv&quot;</span><span class="p">]))</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;abv2state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">zone</span><span class="p">[</span><span class="s2">&quot;abv&quot;</span><span class="p">],</span> <span class="n">zone</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]))</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;abv2interconnect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">zone</span><span class="p">[</span><span class="s2">&quot;abv&quot;</span><span class="p">],</span> <span class="n">zone</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]))</span>
+
+    <span class="k">return</span> <span class="n">mapping</span></div>
+
+
+<div class="viewcode-block" id="get_loadzone_mapping"><a class="viewcode-back" href="../../../../../powersimdata.network.constants.region.html#powersimdata.network.constants.region.usa.get_loadzone_mapping">[docs]</a><span class="k">def</span> <span class="nf">get_loadzone_mapping</span><span class="p">(</span><span class="n">zone</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return loadzone mapping</span>
+
+<span class="sd">    :param pandas.DataFrame zone: information on zones of a grid model.</span>
+<span class="sd">    :return: (*dict*) -- mappings of loadzones to other areas</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mapping</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;loadzone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">zone</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">])</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;id2timezone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">zone</span><span class="p">[</span><span class="s2">&quot;time_zone&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;id2loadzone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">zone</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;timezone2id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">t</span><span class="p">:</span> <span class="nb">set</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">zone</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;time_zone&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;loadzone2id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">l</span><span class="p">:</span> <span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">zone</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;zone_name&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+    <span class="p">}</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;loadzone2state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">zone</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">],</span> <span class="n">zone</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]))</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;loadzone2abv&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">zone</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">],</span> <span class="n">zone</span><span class="p">[</span><span class="s2">&quot;abv&quot;</span><span class="p">]))</span>
+    <span class="n">mapping</span><span class="p">[</span><span class="s2">&quot;loadzone2interconnect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+        <span class="nb">zip</span><span class="p">(</span><span class="n">zone</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">],</span> <span class="n">zone</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">])</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">mapping</span></div>
+
+
+<div class="viewcode-block" id="get_zones"><a class="viewcode-back" href="../../../../../powersimdata.network.constants.region.html#powersimdata.network.constants.region.usa.get_zones">[docs]</a><span class="k">def</span> <span class="nf">get_zones</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Return zone constants.</span>
+
+<span class="sd">    :para list interconnect: interconnect(s).</span>
+<span class="sd">    :param str model: the grid model.</span>
+<span class="sd">    :return: (*dict*) -- zones information.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">interconnect</span> <span class="o">=</span> <span class="p">(</span>  <span class="c1"># noqa</span>
+        <span class="n">model2interconnect</span><span class="p">[</span><span class="n">model</span><span class="p">]</span> <span class="k">if</span> <span class="s2">&quot;USA&quot;</span> <span class="ow">in</span> <span class="n">interconnect</span> <span class="k">else</span> <span class="n">interconnect</span>
+    <span class="p">)</span>
+    <span class="n">zone_info</span> <span class="o">=</span> <span class="n">get_zone_info</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;interconnect == @interconnect&quot;</span><span class="p">)</span>
+    <span class="n">zone_info</span><span class="p">[</span><span class="s2">&quot;abv&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">zone_info</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">({</span><span class="n">s</span><span class="p">:</span> <span class="n">a</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">abv2state</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+
+    <span class="n">zones</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="n">zones</span><span class="p">[</span><span class="s2">&quot;mappings&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;loadzone&quot;</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span><span class="p">,</span> <span class="s2">&quot;state_abbr&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">}</span>
+    <span class="n">zones</span><span class="p">[</span><span class="s2">&quot;division&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;state&quot;</span>
+
+    <span class="n">zones</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">get_loadzone_mapping</span><span class="p">(</span><span class="n">zone_info</span><span class="p">))</span>
+    <span class="n">zones</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">get_state_mapping</span><span class="p">(</span><span class="n">zone_info</span><span class="p">))</span>
+    <span class="n">zones</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">get_interconnect_mapping</span><span class="p">(</span><span class="n">zone_info</span><span class="p">,</span> <span class="n">model</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">zones</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

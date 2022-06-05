@@ -37,11 +37,9 @@
   <h1>Source code for powersimdata.input.grid</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">os</span>
 
-<span class="kn">from</span> <span class="nn">powersimdata.data_access.context</span> <span class="kn">import</span> <span class="n">Context</span>
-<span class="kn">from</span> <span class="nn">powersimdata.data_access.scenario_list</span> <span class="kn">import</span> <span class="n">ScenarioListManager</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.scenario_grid</span> <span class="kn">import</span> <span class="n">FromREISE</span><span class="p">,</span> <span class="n">FromREISEjl</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.constants</span> <span class="kn">import</span> <span class="n">storage</span> <span class="k">as</span> <span class="n">tamu_storage</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.constants.storage</span> <span class="kn">import</span> <span class="n">storage</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.hifld.model</span> <span class="kn">import</span> <span class="n">HIFLD</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.model</span> <span class="kn">import</span> <span class="n">TAMU</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.helpers</span> <span class="kn">import</span> <span class="n">MemoryCache</span><span class="p">,</span> <span class="n">cache_key</span>
 
@@ -55,12 +53,12 @@
 
     <span class="sd">&quot;&quot;&quot;Grid</span>
 
-<span class="sd">    :param str/iterable interconnect: geographical region covered. Either *&#39;USA&#39;*, one of</span>
-<span class="sd">        the three interconnections, i.e., *&#39;Eastern&#39;*, *&#39;Western&#39;* or *&#39;Texas&#39;* or a</span>
-<span class="sd">        combination of two interconnections.</span>
-<span class="sd">    :param str source: model used to build the network. Can be one of the</span>
-<span class="sd">        supported models (&quot;usa_tamu&quot;), or a .mat file that represents a</span>
-<span class="sd">        grid.</span>
+<span class="sd">    :param str/iterable interconnect: geographical region covered. Either the region</span>
+<span class="sd">        (e.g. USA), one of the interconnects in the region or a combination of the</span>
+<span class="sd">        interconnects in the region. The full list of interconnects of the grid models</span>
+<span class="sd">        is defined in :mod:`powersimdata.network.constants.model.model2interconnect`.</span>
+<span class="sd">    :param str source: model used to build the network. Can be one of the supported</span>
+<span class="sd">        models, or a .mat file that represents a grid.</span>
 <span class="sd">    :param str engine: engine used to run scenario, if using ScenarioGrid.</span>
 <span class="sd">    :raises TypeError: if source and engine are not both strings.</span>
 <span class="sd">    :raises ValueError: if source or engine does not exist.</span>
@@ -83,42 +81,37 @@
         <span class="n">key</span> <span class="o">=</span> <span class="n">cache_key</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>
         <span class="n">cached</span> <span class="o">=</span> <span class="n">_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">cached</span>
+            <span class="n">network</span> <span class="o">=</span> <span class="n">cached</span>
         <span class="k">elif</span> <span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;usa_tamu&quot;</span><span class="p">:</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">TAMU</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
+            <span class="n">network</span> <span class="o">=</span> <span class="n">TAMU</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;hifld&quot;</span><span class="p">:</span>
+            <span class="n">network</span> <span class="o">=</span> <span class="n">HIFLD</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">source</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;.mat&quot;</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">engine</span> <span class="o">==</span> <span class="s2">&quot;REISE&quot;</span><span class="p">:</span>
-                <span class="n">data</span> <span class="o">=</span> <span class="n">FromREISE</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+                <span class="n">network</span> <span class="o">=</span> <span class="n">FromREISE</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
             <span class="k">elif</span> <span class="n">engine</span> <span class="o">==</span> <span class="s2">&quot;REISE.jl&quot;</span><span class="p">:</span>
-                <span class="n">data</span> <span class="o">=</span> <span class="n">FromREISEjl</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+                <span class="n">network</span> <span class="o">=</span> <span class="n">FromREISEjl</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown source: </span><span class="si">{</span><span class="n">source</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">data_loc</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">interconnect</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">zone2id</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">id2zone</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sub</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">sub</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">plant</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">gencost</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">gencost</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">dcline</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bus2sub</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">bus2sub</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bus</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">bus</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">branch</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">storage</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">storage</span>
+        <span class="n">network</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
 
-        <span class="n">_cache</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">data_loc</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">interconnect</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">zone2id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">id2zone</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sub</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">sub</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">plant</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gencost</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">gencost</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">dcline</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus2sub</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">bus2sub</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">bus</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">branch</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">storage</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">storage</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">grid_model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_immutables</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">model_immutables</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_grid_model</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">model_immutables</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_get_grid_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get the grid model.</span>
-
-<span class="sd">        :return: (*str*).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">_get_grid_model_from_scenario_list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">):</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">)[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">_cache</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">network</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Used when &#39;self == other&#39; is evaluated.</span>
@@ -164,7 +157,7 @@
         <span class="c1"># compare storage</span>
         <span class="n">_univ_eq</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]),</span> <span class="s2">&quot;storage&quot;</span><span class="p">)</span>
         <span class="n">_univ_eq</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">other</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="s2">&quot;storage&quot;</span><span class="p">)</span>
-        <span class="n">ignored_subkeys</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;gencost&quot;</span><span class="p">}</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">tamu_storage</span><span class="o">.</span><span class="n">defaults</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">ignored_subkeys</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;gencost&quot;</span><span class="p">}</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">storage</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
         <span class="k">for</span> <span class="n">subkey</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">-</span> <span class="n">ignored_subkeys</span><span class="p">:</span>
             <span class="c1"># REISE will modify some gen columns</span>
             <span class="n">self_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="n">subkey</span><span class="p">]</span>
@@ -199,17 +192,6 @@
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;non-matching entries: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">nonmatching_entries</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">False</span>
         <span class="k">return</span> <span class="kc">True</span></div>
-
-
-<span class="k">def</span> <span class="nf">_get_grid_model_from_scenario_list</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Get grid model for a scenario listed in the scenario list.</span>
-
-<span class="sd">    :param str source: path to MAT-file enclosing the grid data.</span>
-<span class="sd">    :return: (*str*) -- the grid model.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">scenario_number</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">source</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
-    <span class="n">slm</span> <span class="o">=</span> <span class="n">ScenarioListManager</span><span class="p">(</span><span class="n">Context</span><span class="o">.</span><span class="n">get_data_access</span><span class="p">())</span>
-    <span class="k">return</span> <span class="n">slm</span><span class="o">.</span><span class="n">get_scenario</span><span class="p">(</span><span class="n">scenario_number</span><span class="p">)[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
 </pre></div>
 
           </div>

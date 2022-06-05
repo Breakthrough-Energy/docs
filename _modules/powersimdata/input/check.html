@@ -248,7 +248,7 @@
     <span class="n">num_connected_components</span> <span class="o">=</span> <span class="nb">len</span><span class="p">([</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">nx</span><span class="o">.</span><span class="n">connected_components</span><span class="p">(</span><span class="n">g</span><span class="p">)])</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="c1"># Check for e.g. [&#39;USA&#39;] interconnect, which is really three interconnects</span>
-        <span class="n">interconnect_aliases</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect_combinations&quot;</span><span class="p">]</span>
+        <span class="n">interconnect_aliases</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;name2interconnect&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="n">interconnect_aliases</span><span class="p">:</span>
             <span class="n">num_interconnects</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">interconnect_aliases</span><span class="p">[</span><span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
         <span class="k">else</span><span class="p">:</span>
@@ -336,19 +336,18 @@
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;grid must be a </span><span class="si">{</span><span class="n">_grid</span><span class="o">.</span><span class="n">Grid</span><span class="si">}</span><span class="s2"> object&quot;</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_check_areas_and_format</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="n">grid_model</span><span class="o">=</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_check_areas_and_format</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="n">mi</span><span class="o">=</span><span class="n">ModelImmutables</span><span class="p">(</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">)):</span>
     <span class="sd">&quot;&quot;&quot;Ensure that areas are valid. Duplicates are removed and state abbreviations are</span>
 <span class="sd">    converted to their actual name.</span>
 
 <span class="sd">    :param str/list/tuple/set areas: areas(s) to check. Could be load zone name(s),</span>
 <span class="sd">        state name(s)/abbreviation(s) or interconnect(s).</span>
-<span class="sd">    :param str grid_model: grid model.</span>
-<span class="sd">    :raises TypeError: if areas is not a list/tuple/set of str.</span>
-<span class="sd">    :raises ValueError: if areas is empty or not valid.</span>
-<span class="sd">    :return: (*set*) -- areas as a set. State abbreviations are converted to state</span>
-<span class="sd">        names.</span>
+<span class="sd">    :param powersimdata.network.model.ModelImmutables mi: immutables of a grid model.</span>
+<span class="sd">    :raises TypeError: if ``areas`` is not a list/tuple/set of str.</span>
+<span class="sd">    :raises ValueError: if ``areas`` is empty or not valid.</span>
+<span class="sd">    :return: (*set*) -- areas as a set. State/Country abbreviations are converted to</span>
+<span class="sd">        state/country names.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">mi</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">grid_model</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
         <span class="n">areas</span> <span class="o">=</span> <span class="p">{</span><span class="n">areas</span><span class="p">}</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">areas</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">set</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
@@ -359,12 +358,7 @@
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;areas must be a str or a list/tuple/set of str&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">areas</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;areas must be non-empty&quot;</span><span class="p">)</span>
-    <span class="n">all_areas</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;loadzone&quot;</span><span class="p">]</span>
-        <span class="o">|</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;abv&quot;</span><span class="p">]</span>
-        <span class="o">|</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span>
-        <span class="o">|</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
-    <span class="p">)</span>
+    <span class="n">all_areas</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="n">z</span><span class="p">]</span> <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;mappings&quot;</span><span class="p">]))</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">areas</span> <span class="o">&lt;=</span> <span class="n">all_areas</span><span class="p">:</span>
         <span class="n">diff</span> <span class="o">=</span> <span class="n">areas</span> <span class="o">-</span> <span class="n">all_areas</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;invalid area(s): </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">diff</span><span class="p">))</span>
@@ -372,21 +366,20 @@
     <span class="n">abv_in_areas</span> <span class="o">=</span> <span class="p">[</span><span class="n">z</span> <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">areas</span> <span class="k">if</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;abv&quot;</span><span class="p">]]</span>
     <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">abv_in_areas</span><span class="p">:</span>
         <span class="n">areas</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-        <span class="n">areas</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;abv2state&quot;</span><span class="p">][</span><span class="n">a</span><span class="p">])</span>
+        <span class="n">areas</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;abv2</span><span class="si">{</span><span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s1">&#39;division&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">][</span><span class="n">a</span><span class="p">])</span>
 
     <span class="k">return</span> <span class="n">areas</span>
 
 
-<span class="k">def</span> <span class="nf">_check_resources_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">grid_model</span><span class="o">=</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_check_resources_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">mi</span><span class="o">=</span><span class="n">ModelImmutables</span><span class="p">(</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">)):</span>
     <span class="sd">&quot;&quot;&quot;Ensure that resources are valid and convert variable to a set.</span>
 
 <span class="sd">    :param str/list/tuple/set resources: resource(s) to check.</span>
-<span class="sd">    :param str grid_model: grid model.</span>
+<span class="sd">    :param powersimdata.network.model.ModelImmutables mi: immutables of a grid model.</span>
 <span class="sd">    :raises TypeError: if resources is not a list/tuple/set of str.</span>
 <span class="sd">    :raises ValueError: if resources is empty or not valid.</span>
 <span class="sd">    :return: (*set*) -- resources as a set.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">mi</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">grid_model</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
         <span class="n">resources</span> <span class="o">=</span> <span class="p">{</span><span class="n">resources</span><span class="p">}</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">set</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
@@ -403,17 +396,17 @@
     <span class="k">return</span> <span class="n">resources</span>
 
 
-<span class="k">def</span> <span class="nf">_check_resources_are_renewable_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">grid_model</span><span class="o">=</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_check_resources_are_renewable_and_format</span><span class="p">(</span>
+    <span class="n">resources</span><span class="p">,</span> <span class="n">mi</span><span class="o">=</span><span class="n">ModelImmutables</span><span class="p">(</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">)</span>
+<span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Ensure that resources are valid renewable resources and convert variable to</span>
 <span class="sd">    a set.</span>
-
+<span class="sd">    :param powersimdata.network.model.ModelImmutables mi: immutables of a grid model.</span>
 <span class="sd">    :param str/list/tuple/set resources: resource(s) to analyze.</span>
-<span class="sd">    :param str grid_model: grid model.</span>
 <span class="sd">    :raises ValueError: if resources are not renewables.</span>
 <span class="sd">    return: (*set*) -- resources as a set</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">mi</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">grid_model</span><span class="p">)</span>
-    <span class="n">resources</span> <span class="o">=</span> <span class="n">_check_resources_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">grid_model</span><span class="o">=</span><span class="n">grid_model</span><span class="p">)</span>
+    <span class="n">resources</span> <span class="o">=</span> <span class="n">_check_resources_and_format</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="n">mi</span><span class="o">=</span><span class="n">mi</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">resources</span> <span class="o">&lt;=</span> <span class="n">mi</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;renewable_resources&quot;</span><span class="p">]:</span>
         <span class="n">diff</span> <span class="o">=</span> <span class="n">resources</span> <span class="o">-</span> <span class="n">mi</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;all_resources&quot;</span><span class="p">]</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;invalid renewable resource(s): </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">diff</span><span class="p">))</span>

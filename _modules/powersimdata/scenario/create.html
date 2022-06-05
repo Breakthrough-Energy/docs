@@ -36,7 +36,6 @@
             
   <h1>Source code for powersimdata.scenario.create</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">copy</span>
-<span class="kn">import</span> <span class="nn">warnings</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
@@ -50,7 +49,7 @@
 <span class="kn">from</span> <span class="nn">powersimdata.input.profile_input</span> <span class="kn">import</span> <span class="n">ProfileInput</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_profile</span> <span class="kn">import</span> <span class="n">TransformProfile</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.helpers</span> <span class="kn">import</span> <span class="n">check_model</span><span class="p">,</span> <span class="n">interconnect_to_name</span>
 <span class="kn">from</span> <span class="nn">powersimdata.scenario.execute</span> <span class="kn">import</span> <span class="n">Execute</span>
 <span class="kn">from</span> <span class="nn">powersimdata.scenario.state</span> <span class="kn">import</span> <span class="n">State</span>
 
@@ -66,7 +65,6 @@
     <span class="n">default_exported_methods</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;create_scenario&quot;</span><span class="p">,</span>
         <span class="s2">&quot;get_bus_demand&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;set_builder&quot;</span><span class="p">,</span>
         <span class="s2">&quot;set_grid&quot;</span><span class="p">,</span>
     <span class="p">}</span> <span class="o">|</span> <span class="n">State</span><span class="o">.</span><span class="n">exported_methods</span>
 
@@ -167,37 +165,23 @@
             <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="n">Execute</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Create.set_builder"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create.set_builder">[docs]</a>    <span class="k">def</span> <span class="nf">set_builder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Alias to :func:`~powersimdata.scenario.create.Create.set_grid`&quot;&quot;&quot;</span>
-        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-            <span class="s2">&quot;set_builder is deprecated, use set_grid instead&quot;</span><span class="p">,</span> <span class="ne">DeprecationWarning</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">set_grid</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
-
-<div class="viewcode-block" id="Create.set_grid"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create.set_grid">[docs]</a>    <span class="k">def</span> <span class="nf">set_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_model</span><span class="o">=</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">,</span> <span class="n">interconnect</span><span class="o">=</span><span class="s2">&quot;USA&quot;</span><span class="p">):</span>
+<div class="viewcode-block" id="Create.set_grid"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.Create.set_grid">[docs]</a>    <span class="k">def</span> <span class="nf">set_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_model</span><span class="o">=</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">,</span> <span class="n">interconnect</span><span class="o">=</span><span class="s2">&quot;USA&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Sets grid builder.</span>
 
 <span class="sd">        :param str grid_model: name of grid model. Default is *&#39;usa_tamu&#39;*.</span>
 <span class="sd">        :param str/list interconnect: name of interconnect(s). Default is *&#39;USA&#39;*.</span>
+<span class="sd">        :param \\*\\*kwargs: optional parameters used to instantiate a Grid object.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">builder</span> <span class="o">=</span> <span class="n">_Builder</span><span class="p">(</span>
-            <span class="n">grid_model</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_list_manager</span><span class="o">.</span><span class="n">get_scenario_table</span><span class="p">()</span>
+        <span class="n">scenario_table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_list_manager</span><span class="o">.</span><span class="n">get_scenario_table</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">builder</span> <span class="o">=</span> <span class="n">get_builder</span><span class="p">(</span>
+            <span class="n">grid_model</span><span class="p">,</span>
+            <span class="n">interconnect</span><span class="p">,</span>
+            <span class="n">scenario_table</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">exported_methods</span> <span class="o">|=</span> <span class="n">_Builder</span><span class="o">.</span><span class="n">exported_methods</span>
 
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Summary&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;# Existing study&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">existing</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Nothing yet&quot;</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">plan</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">existing</span><span class="o">.</span><span class="n">plan</span><span class="o">.</span><span class="n">unique</span><span class="p">()]</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">plan</span><span class="p">))</span>
-
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;# Available profiles&quot;</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">]:</span>
-            <span class="n">possible</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">get_base_profile</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">possible</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exported_methods</span> <span class="o">|=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">exported_methods</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">grid_model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">interconnect</span></div>
@@ -226,7 +210,6 @@
     <span class="n">wind</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
     <span class="n">engine</span> <span class="o">=</span> <span class="s2">&quot;REISE.jl&quot;</span>
     <span class="n">exported_methods</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;set_base_profile&quot;</span><span class="p">,</span>
         <span class="s2">&quot;set_engine&quot;</span><span class="p">,</span>
         <span class="s2">&quot;set_name&quot;</span><span class="p">,</span>
         <span class="s2">&quot;set_time&quot;</span><span class="p">,</span>
@@ -242,15 +225,33 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">table</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
-        <span class="n">mi</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">grid_model</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span> <span class="o">=</span> <span class="n">mi</span><span class="o">.</span><span class="n">model</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="n">mi</span><span class="o">.</span><span class="n">interconnect_to_name</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">grid_model</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">change_table</span> <span class="o">=</span> <span class="n">ChangeTable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_grid</span><span class="p">)</span>
-
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span> <span class="o">=</span> <span class="n">grid_model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="n">interconnect_to_name</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">existing</span> <span class="o">=</span> <span class="n">table</span><span class="p">[</span><span class="n">table</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">print_existing_study</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Print existing study&quot;&quot;&quot;</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Begin: Existing Study&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">existing</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Nothing yet&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">existing</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">unique</span><span class="p">()))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&lt;-- End: Existing Study&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">set_base_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set base grid</span>
+
+<span class="sd">        :raises NotImplementedError: always - implemented in child classes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Implemented in the child classes&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">set_change_table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set change table</span>
+
+<span class="sd">        :raises NotImplementedError: always - implemented in child classes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Implemented in the child classes&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">get_ct</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns change table.</span>
@@ -353,36 +354,6 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">end_date</span> <span class="o">=</span> <span class="n">end_date</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">interval</span> <span class="o">=</span> <span class="n">interval</span>
 
-    <span class="k">def</span> <span class="nf">get_base_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns available base profiles.</span>
-
-<span class="sd">        :param str kind: one of *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*.</span>
-<span class="sd">        :return: (*list*) -- available version for selected profile kind.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">ProfileInput</span><span class="p">()</span><span class="o">.</span><span class="n">get_profile_version</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">set_base_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">version</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Sets demand profile.</span>
-
-<span class="sd">        :param str kind: one of *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*.</span>
-<span class="sd">        :param str version: demand profile version.</span>
-<span class="sd">        :raises ValueError: if no profiles are available or version is not available.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">possible</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_base_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">possible</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No </span><span class="si">%s</span><span class="s2"> profile available&quot;</span> <span class="o">%</span> <span class="n">kind</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">version</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;demand&quot;</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">demand</span> <span class="o">=</span> <span class="n">version</span>
-            <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;hydro&quot;</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">hydro</span> <span class="o">=</span> <span class="n">version</span>
-            <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;solar&quot;</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">solar</span> <span class="o">=</span> <span class="n">version</span>
-            <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;wind&quot;</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">wind</span> <span class="o">=</span> <span class="n">version</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Available </span><span class="si">%s</span><span class="s2"> profiles: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">)))</span>
-
     <span class="k">def</span> <span class="nf">set_engine</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">engine</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Sets simulation engine to be used for scenarion.</span>
 
@@ -411,6 +382,120 @@
 
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+
+
+<div class="viewcode-block" id="FromCSV"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.FromCSV">[docs]</a><span class="k">class</span> <span class="nc">FromCSV</span><span class="p">(</span><span class="n">_Builder</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Build scenario using grid model and associated profiles enclosed in CSV files</span>
+
+<span class="sd">    :param str grid model: the grid model</span>
+<span class="sd">    :param list interconnect: list of interconnect(s) to build.</span>
+<span class="sd">    :param pandas.DataFrame table: scenario list table.</span>
+<span class="sd">    :param \\*\\*kwargs: optional parameters used to instantiate a Grid object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">table</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">exported_methods</span> <span class="o">|=</span> <span class="p">{</span><span class="s2">&quot;set_base_profile&quot;</span><span class="p">,</span> <span class="s2">&quot;get_base_profile&quot;</span><span class="p">}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">print_existing_study</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">print_available_profile</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_base_grid</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_change_table</span><span class="p">()</span>
+
+<div class="viewcode-block" id="FromCSV.print_available_profile"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.FromCSV.print_available_profile">[docs]</a>    <span class="k">def</span> <span class="nf">print_available_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Print available profiles for the grid model&quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Begin: Available profiles&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">]:</span>
+            <span class="n">possible</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_base_profile</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">possible</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">)))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&lt;-- End: Available profiles&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FromCSV.set_base_grid"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.FromCSV.set_base_grid">[docs]</a>    <span class="k">def</span> <span class="nf">set_base_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set base grid&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FromCSV.set_change_table"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.FromCSV.set_change_table">[docs]</a>    <span class="k">def</span> <span class="nf">set_change_table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set change table&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">change_table</span> <span class="o">=</span> <span class="n">ChangeTable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_grid</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FromCSV.get_base_profile"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.FromCSV.get_base_profile">[docs]</a>    <span class="k">def</span> <span class="nf">get_base_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return available base profiles.</span>
+
+<span class="sd">        :param str kind: one of *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*.</span>
+<span class="sd">        :return: (*list*) -- available version for selected profile kind.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ProfileInput</span><span class="p">()</span><span class="o">.</span><span class="n">get_profile_version</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="FromCSV.set_base_profile"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.FromCSV.set_base_profile">[docs]</a>    <span class="k">def</span> <span class="nf">set_base_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">version</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set base profile.</span>
+
+<span class="sd">        :param str kind: one of *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*.</span>
+<span class="sd">        :param str version: base profile version.</span>
+<span class="sd">        :raises ValueError: if no profiles are available or version is not available.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">possible</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_base_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">possible</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No </span><span class="si">%s</span><span class="s2"> profile available&quot;</span> <span class="o">%</span> <span class="n">kind</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">version</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;demand&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">demand</span> <span class="o">=</span> <span class="n">version</span>
+            <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;hydro&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">hydro</span> <span class="o">=</span> <span class="n">version</span>
+            <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;solar&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">solar</span> <span class="o">=</span> <span class="n">version</span>
+            <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;wind&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">wind</span> <span class="o">=</span> <span class="n">version</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Available </span><span class="si">%s</span><span class="s2"> profiles: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">)))</span></div></div>
+
+
+<div class="viewcode-block" id="FromPyPSA"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.FromPyPSA">[docs]</a><span class="k">class</span> <span class="nc">FromPyPSA</span><span class="p">(</span><span class="n">_Builder</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Build scenario from a PyPSA Network object</span>
+
+<span class="sd">    :param str grid model: the grid model</span>
+<span class="sd">    :param list interconnect: list of interconnect(s) to build.</span>
+<span class="sd">    :param pandas.DataFrame table: scenario list table.</span>
+<span class="sd">    :param \\*\\*kwargs: optional parameters used to instantiate a Grid object:</span>
+<span class="sd">        *&#39;reduction&#39;*: number of nodes in the network. If None, the full resolution</span>
+<span class="sd">        PyPSA Network object will be used. Available reductions are specified in the</span>
+<span class="sd">        :mod:`powersimdata.network.europe_tub.model` module.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">table</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="s2">&quot;reduction&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;reduction&quot;</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">print_existing_study</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_base_grid</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_change_table</span><span class="p">()</span>
+
+<div class="viewcode-block" id="FromPyPSA.set_base_grid"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.FromPyPSA.set_base_grid">[docs]</a>    <span class="k">def</span> <span class="nf">set_base_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set base grid&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="FromPyPSA.set_change_table"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.FromPyPSA.set_change_table">[docs]</a>    <span class="k">def</span> <span class="nf">set_change_table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set change table&quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="get_builder"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.get_builder">[docs]</a><span class="k">def</span> <span class="nf">get_builder</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns a Builder instance</span>
+
+<span class="sd">    :param str grid model: the grid model</span>
+<span class="sd">    :param list interconnect: list of interconnect(s) to build.</span>
+<span class="sd">    :param pandas.DataFrame table: scenario list table</span>
+<span class="sd">    :param \\*\\*kwargs: optional parameters used to instantiate a Grid object.</span>
+<span class="sd">    :return: (*object*) -- builder instance associated with the grid model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">check_model</span><span class="p">(</span><span class="n">grid_model</span><span class="p">)</span>
+    <span class="n">model2builder</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">:</span> <span class="n">FromCSV</span><span class="p">,</span> <span class="s2">&quot;hifld&quot;</span><span class="p">:</span> <span class="n">FromCSV</span><span class="p">,</span> <span class="s2">&quot;europe_tub&quot;</span><span class="p">:</span> <span class="n">FromPyPSA</span><span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">model2builder</span><span class="p">[</span><span class="n">grid_model</span><span class="p">](</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

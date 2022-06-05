@@ -41,6 +41,8 @@
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">from</span> <span class="nn">scipy.io</span> <span class="kn">import</span> <span class="n">loadmat</span>
 
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.context</span> <span class="kn">import</span> <span class="n">Context</span>
+<span class="kn">from</span> <span class="nn">powersimdata.data_access.scenario_list</span> <span class="kn">import</span> <span class="n">ScenarioListManager</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input</span> <span class="kn">import</span> <span class="n">const</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.abstract_grid</span> <span class="kn">import</span> <span class="n">AbstractGrid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.helpers</span> <span class="kn">import</span> <span class="p">(</span>
@@ -48,6 +50,7 @@
     <span class="n">add_interconnect_to_grid_data_frames</span><span class="p">,</span>
     <span class="n">add_zone_to_grid_data_frames</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
 
 
 <div class="viewcode-block" id="ScenarioGrid"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.ScenarioGrid">[docs]</a><span class="k">class</span> <span class="nc">ScenarioGrid</span><span class="p">(</span><span class="n">AbstractGrid</span><span class="p">):</span>
@@ -60,8 +63,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_data_loc</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_build_network</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span> <span class="o">=</span> <span class="n">_get_grid_model_from_scenario_list</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_set_data_loc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Sets data location.</span>
@@ -74,7 +76,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="n">filename</span>
 
-    <span class="k">def</span> <span class="nf">_read_network</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">loadmat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">,</span> <span class="n">squeeze_me</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">struct_as_record</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">mpc</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;mdi&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mpc</span>
         <span class="k">try</span><span class="p">:</span>
@@ -157,28 +159,39 @@
         <span class="c1"># interconnect</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub</span><span class="o">.</span><span class="n">interconnect</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_build_network</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Defines how to interpret the MAT file data to build a network.</span>
-<span class="sd">        Not implemented for ScenarioGrid, but must be defined for subclasses.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span></div>
+        <span class="c1"># model immutables</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">,</span> <span class="s2">&quot;hifld&quot;</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_immutables</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">interconnect</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span>
+            <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_get_grid_model_from_scenario_list</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get grid model for a scenario listed in the scenario list.</span>
+
+<span class="sd">    :param str source: path to MAT-file enclosing the grid data.</span>
+<span class="sd">    :return: (*str*) -- the grid model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">scenario_number</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">source</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">slm</span> <span class="o">=</span> <span class="n">ScenarioListManager</span><span class="p">(</span><span class="n">Context</span><span class="o">.</span><span class="n">get_data_access</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">slm</span><span class="o">.</span><span class="n">get_scenario</span><span class="p">(</span><span class="n">scenario_number</span><span class="p">)[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
 
 
 <div class="viewcode-block" id="FromREISE"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.FromREISE">[docs]</a><span class="k">class</span> <span class="nc">FromREISE</span><span class="p">(</span><span class="n">ScenarioGrid</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;MATLAB file reader, for MAT files created by REISE/MATPOWER&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">_build_network</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_read_network</span><span class="p">()</span>
+<div class="viewcode-block" id="FromREISE.build"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.FromREISE.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_read</span><span class="p">()</span>
         <span class="n">reindex_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="n">add_information_to_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+        <span class="n">add_information_to_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="FromREISEjl"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.FromREISEjl">[docs]</a><span class="k">class</span> <span class="nc">FromREISEjl</span><span class="p">(</span><span class="n">ScenarioGrid</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;MATLAB file reader, for MAT files created (&amp; converted) by REISE.jl&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">_build_network</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_read_network</span><span class="p">()</span>
-        <span class="n">add_information_to_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+<div class="viewcode-block" id="FromREISEjl.build"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.FromREISEjl.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_read</span><span class="p">()</span>
+        <span class="n">add_information_to_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="frame"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.scenario_grid.frame">[docs]</a><span class="k">def</span> <span class="nf">frame</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">n_storage</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>

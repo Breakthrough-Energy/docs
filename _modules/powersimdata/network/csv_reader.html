@@ -35,22 +35,40 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.network.csv_reader</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">powersimdata.input.helpers</span> <span class="kn">import</span> <span class="n">csv_to_data_frame</span>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
 
 <div class="viewcode-block" id="CSVReader"><a class="viewcode-back" href="../../../powersimdata.network.html#powersimdata.network.csv_reader.CSVReader">[docs]</a><span class="k">class</span> <span class="nc">CSVReader</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;MPC files reader.</span>
+    <span class="sd">&quot;&quot;&quot;Read CSV files enclosing a grid model.</span>
 
 <span class="sd">    :param str data_loc: path to data.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_loc</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bus</span> <span class="o">=</span> <span class="n">csv_to_data_frame</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;bus.csv&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">csv_to_data_frame</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;plant.csv&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">gencost</span> <span class="o">=</span> <span class="n">csv_to_data_frame</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;gencost.csv&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">csv_to_data_frame</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;branch.csv&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">csv_to_data_frame</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;dcline.csv&quot;</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;bus.csv&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;plant.csv&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gencost</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;gencost.csv&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;branch.csv&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;dcline.csv&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sub</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;sub.csv&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus2sub</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;bus2sub.csv&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zone</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;zone.csv&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="read"><a class="viewcode-back" href="../../../powersimdata.network.html#powersimdata.network.csv_reader.read">[docs]</a><span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Reads CSV.</span>
+
+<span class="sd">    :return: (*pandas.DataFrame*) -- created data frame.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_loc</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Reading </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">filename</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">float_precision</span><span class="o">=</span><span class="s2">&quot;high&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> cannot be found&quot;</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

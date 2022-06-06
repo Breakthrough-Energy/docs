@@ -43,7 +43,6 @@
 <span class="kn">from</span> <span class="nn">powersimdata.input.helpers</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">add_coord_to_grid_data_frames</span><span class="p">,</span>
     <span class="n">add_zone_to_grid_data_frames</span><span class="p">,</span>
-    <span class="n">csv_to_data_frame</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.constants.model</span> <span class="kn">import</span> <span class="n">model2region</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.csv_reader</span> <span class="kn">import</span> <span class="n">CSVReader</span>
@@ -97,18 +96,17 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">branch</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">dcline</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;after&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">gencost</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sub</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">sub</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus2sub</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">bus2sub</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">zone</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_add_information_to_model</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add_information</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">model2region</span><span class="p">[</span><span class="n">grid_model</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">interconnect</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_drop_interconnect</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_add_information_to_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sub</span> <span class="o">=</span> <span class="n">csv_to_data_frame</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;sub.csv&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bus2sub</span> <span class="o">=</span> <span class="n">csv_to_data_frame</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;bus2sub.csv&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="n">csv_to_data_frame</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;zone.csv&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">zone_name</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-
+    <span class="k">def</span> <span class="nf">_add_information</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">add_zone_to_grid_data_frames</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">add_coord_to_grid_data_frames</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 

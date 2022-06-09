@@ -35,17 +35,9 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.input.abstract_grid</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">os</span>
-
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.input</span> <span class="kn">import</span> <span class="n">const</span>
-<span class="kn">from</span> <span class="nn">powersimdata.input.helpers</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">add_coord_to_grid_data_frames</span><span class="p">,</span>
-    <span class="n">add_zone_to_grid_data_frames</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.constants.model</span> <span class="kn">import</span> <span class="n">model2region</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.csv_reader</span> <span class="kn">import</span> <span class="n">CSVReader</span>
 
 
 <div class="viewcode-block" id="AbstractGrid"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.abstract_grid.AbstractGrid">[docs]</a><span class="k">class</span> <span class="nc">AbstractGrid</span><span class="p">:</span>
@@ -67,68 +59,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">storage</span> <span class="o">=</span> <span class="n">storage_template</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model_immutables</span> <span class="o">=</span> <span class="kc">None</span></div>
-
-
-<div class="viewcode-block" id="AbstractGridCSV"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.abstract_grid.AbstractGridCSV">[docs]</a><span class="k">class</span> <span class="nc">AbstractGridCSV</span><span class="p">(</span><span class="n">AbstractGrid</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Grid Builder.&quot;&quot;&quot;</span>
-
-    <span class="k">def</span> <span class="nf">_set_data_loc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">top_dirname</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Sets data location.</span>
-
-<span class="sd">        :param str top_dirname: name of directory enclosing data.</span>
-<span class="sd">        :raises IOError: if directory does not exist.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">data_loc</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">top_dirname</span><span class="p">,</span> <span class="s2">&quot;data&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">data_loc</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> directory not found&quot;</span> <span class="o">%</span> <span class="n">data_loc</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="n">data_loc</span>
-
-    <span class="k">def</span> <span class="nf">_build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Build network.</span>
-
-<span class="sd">        :param list interconnect: interconnect name(s).</span>
-<span class="sd">        :param str model: the grid model.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">reader</span> <span class="o">=</span> <span class="n">CSVReader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bus</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">bus</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">plant</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">branch</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">dcline</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;after&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">gencost</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sub</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">sub</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">bus2sub</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">bus2sub</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">zone</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_add_information</span><span class="p">()</span>
-
-        <span class="k">if</span> <span class="n">model2region</span><span class="p">[</span><span class="n">grid_model</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">interconnect</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_drop_interconnect</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_add_information</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">add_zone_to_grid_data_frames</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="n">add_coord_to_grid_data_frames</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_drop_interconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Trim data frames to only keep information pertaining to the user</span>
-<span class="sd">        defined interconnect(s).</span>
-
-<span class="sd">        :param list interconnect: interconnect name(s).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;sub&quot;</span><span class="p">,</span> <span class="s2">&quot;bus2sub&quot;</span><span class="p">,</span> <span class="s2">&quot;bus&quot;</span><span class="p">,</span> <span class="s2">&quot;plant&quot;</span><span class="p">,</span> <span class="s2">&quot;branch&quot;</span><span class="p">]:</span>
-                <span class="n">value</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;interconnect == @interconnect&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;gencost&quot;</span><span class="p">:</span>
-                <span class="n">value</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;interconnect == @interconnect&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;dcline&quot;</span><span class="p">:</span>
-                <span class="n">value</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
-                    <span class="s2">&quot;from_interconnect == @interconnect &amp;&quot;</span>
-                    <span class="s2">&quot;to_interconnect == @interconnect&quot;</span><span class="p">,</span>
-                    <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">zone_id</span><span class="o">.</span><span class="n">unique</span><span class="p">()}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="n">value</span><span class="p">:</span> <span class="n">key</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span></div>
 
 
 <div class="viewcode-block" id="storage_template"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.abstract_grid.storage_template">[docs]</a><span class="k">def</span> <span class="nf">storage_template</span><span class="p">():</span>

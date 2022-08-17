@@ -41,7 +41,6 @@
     <span class="n">_check_resources_are_in_grid_and_format</span><span class="p">,</span>
     <span class="n">_check_resources_are_renewable_and_format</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
 <span class="kn">from</span> <span class="nn">powersimdata.scenario.check</span> <span class="kn">import</span> <span class="n">_check_scenario_is_in_analyze_state</span>
 
 <span class="kn">from</span> <span class="nn">postreise.analyze.generation.summarize</span> <span class="kn">import</span> <span class="p">(</span>
@@ -87,13 +86,11 @@
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;fontsize must be either a int or a float&quot;</span><span class="p">)</span>
 
     <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">mi</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span>
     <span class="n">_check_resources_are_in_grid_and_format</span><span class="p">(</span><span class="n">gen_type</span><span class="p">,</span> <span class="n">grid</span><span class="p">)</span>
-    <span class="n">_check_resources_are_renewable_and_format</span><span class="p">(</span>
-        <span class="n">gen_type</span><span class="p">,</span> <span class="n">grid_model</span><span class="o">=</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span>
-    <span class="p">)</span>
+    <span class="n">_check_resources_are_renewable_and_format</span><span class="p">(</span><span class="n">gen_type</span><span class="p">,</span> <span class="n">mi</span><span class="o">=</span><span class="n">mi</span><span class="p">)</span>
 
     <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">gen_type</span><span class="p">]</span>
-    <span class="n">mi</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">])</span>
     <span class="k">if</span> <span class="n">interconnect</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;interconnect must be one of </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s1">&#39;interconnect&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span>
@@ -125,7 +122,7 @@
         <span class="n">total_capacity</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">group_criteria</span><span class="p">)[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">*</span> <span class="n">hour_num</span>
         <span class="n">actual_gen</span> <span class="o">=</span> <span class="n">sum_generation_by_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)[</span><span class="n">gen_type</span><span class="p">]</span> <span class="o">*</span> <span class="mi">1000</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">zone_list</span> <span class="o">=</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect2loadzone&quot;</span><span class="p">][</span><span class="n">interconnect</span><span class="p">]</span>
+        <span class="n">zone_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect2loadzone&quot;</span><span class="p">][</span><span class="n">interconnect</span><span class="p">])</span>
         <span class="n">profile_gen</span> <span class="o">=</span> <span class="n">profile</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">plant</span><span class="o">.</span><span class="n">zone_name</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="s2">&quot;profile&quot;</span><span class="p">)</span>
         <span class="n">total_capacity</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;zone_name&quot;</span><span class="p">)[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">*</span> <span class="n">hour_num</span>
         <span class="n">actual_gen</span> <span class="o">=</span> <span class="p">(</span>

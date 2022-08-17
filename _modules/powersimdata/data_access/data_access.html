@@ -53,9 +53,8 @@
 <div class="viewcode-block" id="DataAccess"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.DataAccess">[docs]</a><span class="k">class</span> <span class="nc">DataAccess</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Interface to a local or remote data store.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">root</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">join</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -200,10 +199,10 @@
 <div class="viewcode-block" id="LocalDataAccess"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.LocalDataAccess">[docs]</a><span class="k">class</span> <span class="nc">LocalDataAccess</span><span class="p">(</span><span class="n">DataAccess</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Interface to shared data volume&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_fs</span><span class="p">()</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_fs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fs</span> <span class="o">=</span> <span class="n">_fs</span> <span class="k">if</span> <span class="n">_fs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_fs</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">_get_fs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">mfs</span> <span class="o">=</span> <span class="n">MultiFS</span><span class="p">()</span>
@@ -230,18 +229,19 @@
 <div class="viewcode-block" id="SSHDataAccess"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.data_access.SSHDataAccess">[docs]</a><span class="k">class</span> <span class="nc">SSHDataAccess</span><span class="p">(</span><span class="n">DataAccess</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Interface to a remote data store, accessed via SSH.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_fs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_fs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_fs</span> <span class="o">=</span> <span class="n">_fs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">local_fs</span> <span class="o">=</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">LOCAL_DIR</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">fs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Get or create the filesystem object</span>
+        <span class="sd">&quot;&quot;&quot;Get or create a filesystem object, defaulting to a MultiFS that combines the</span>
+<span class="sd">        server and blob containers.</span>
 
-<span class="sd">        :raises IOError: if connection failed or still within retry window</span>
-<span class="sd">        :return: (*fs.multifs.MultiFS*) -- filesystem instance</span>
+<span class="sd">        :return: (*fs.base.FS*) -- filesystem instance</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_fs</span> <span class="o">=</span> <span class="n">get_multi_fs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">)</span>

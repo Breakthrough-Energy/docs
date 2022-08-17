@@ -48,8 +48,9 @@
 <span class="sd">    :param str container: the container name</span>
 <span class="sd">    :return: (*fs.base.FS*) -- filesystem instance</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">account</span> <span class="o">=</span> <span class="s2">&quot;besciences&quot;</span>
-    <span class="k">return</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;azblob://</span><span class="si">{</span><span class="n">account</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="n">container</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+    <span class="n">account</span> <span class="o">=</span> <span class="s2">&quot;esmi&quot;</span>
+    <span class="n">sas_token</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">BLOB_TOKEN_RO</span>
+    <span class="k">return</span> <span class="n">fs</span><span class="o">.</span><span class="n">open_fs</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;azblobv2://</span><span class="si">{</span><span class="n">account</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">sas_token</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="n">container</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="get_ssh_fs"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.fs_helper.get_ssh_fs">[docs]</a><span class="k">def</span> <span class="nf">get_ssh_fs</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
@@ -82,6 +83,25 @@
     <span class="k">except</span><span class="p">:</span>  <span class="c1"># noqa</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Could not connect to ssh server&quot;</span><span class="p">)</span>
     <span class="n">mfs</span><span class="o">.</span><span class="n">add_fs</span><span class="p">(</span><span class="s2">&quot;profile_fs&quot;</span><span class="p">,</span> <span class="n">profiles</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">mfs</span><span class="o">.</span><span class="n">add_fs</span><span class="p">(</span><span class="s2">&quot;scenario_fs&quot;</span><span class="p">,</span> <span class="n">scenario_data</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">remotes</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">mfs</span><span class="o">.</span><span class="n">iterate_fs</span><span class="p">()])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Initialized remote filesystem with </span><span class="si">{</span><span class="n">remotes</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mfs</span></div>
+
+
+<div class="viewcode-block" id="get_scenario_fs"><a class="viewcode-back" href="../../../powersimdata.data_access.html#powersimdata.data_access.fs_helper.get_scenario_fs">[docs]</a><span class="k">def</span> <span class="nf">get_scenario_fs</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Create filesystem combining the server (if connected) with blob storage,</span>
+<span class="sd">    prioritizing the server if connected.</span>
+
+<span class="sd">    :return: (*fs.base.FS*) -- filesystem instance</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">scenario_data</span> <span class="o">=</span> <span class="n">get_blob_fs</span><span class="p">(</span><span class="s2">&quot;scenariodata&quot;</span><span class="p">)</span>
+    <span class="n">mfs</span> <span class="o">=</span> <span class="n">MultiFS</span><span class="p">()</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">ssh_fs</span> <span class="o">=</span> <span class="n">get_ssh_fs</span><span class="p">(</span><span class="n">server_setup</span><span class="o">.</span><span class="n">DATA_ROOT_DIR</span><span class="p">)</span>
+        <span class="n">mfs</span><span class="o">.</span><span class="n">add_fs</span><span class="p">(</span><span class="s2">&quot;ssh_fs&quot;</span><span class="p">,</span> <span class="n">ssh_fs</span><span class="p">,</span> <span class="n">write</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">except</span><span class="p">:</span>  <span class="c1"># noqa</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Could not connect to ssh server&quot;</span><span class="p">)</span>
     <span class="n">mfs</span><span class="o">.</span><span class="n">add_fs</span><span class="p">(</span><span class="s2">&quot;scenario_fs&quot;</span><span class="p">,</span> <span class="n">scenario_data</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">remotes</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">mfs</span><span class="o">.</span><span class="n">iterate_fs</span><span class="p">()])</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Initialized remote filesystem with </span><span class="si">{</span><span class="n">remotes</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>

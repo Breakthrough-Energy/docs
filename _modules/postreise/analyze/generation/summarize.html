@@ -55,11 +55,15 @@
     <span class="sd">&quot;&quot;&quot;Get total generation for each generator type and load zone combination.</span>
 
 <span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
-<span class="sd">    :param tuple time_range: [start_timestamp, end_timestamp] where each time stamp</span>
+<span class="sd">    :param tuple time_range: [start_timestamp, end_timestamp] where each timestamp</span>
 <span class="sd">        is pandas.Timestamp/numpy.datetime64/datetime.datetime. If None, the entire</span>
 <span class="sd">        time range is used for the given scenario.</span>
 <span class="sd">    :param str time_zone: new time zone.</span>
 <span class="sd">    :return: (*pandas.DataFrame*) -- total generation, indexed by {type, zone}.</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">        The returned data frame will not be affected if only ``time_zone`` (without</span>
+<span class="sd">        ``time_range``) is set since all entries in the PG data frame will be summed.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
 
@@ -68,10 +72,11 @@
         <span class="n">pg</span> <span class="o">=</span> <span class="n">change_time_zone</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="n">time_zone</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">time_range</span><span class="p">:</span>
         <span class="n">pg</span> <span class="o">=</span> <span class="n">slice_time_series</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="n">time_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">time_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
-    <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+    <span class="k">if</span> <span class="n">time_zone</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">time_range</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Changing time_zone only has no effect&quot;</span><span class="p">)</span>
 
-    <span class="n">summed_gen_series</span> <span class="o">=</span> <span class="n">pg</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">plant</span><span class="o">.</span><span class="n">zone_id</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">summed_gen_series</span> <span class="o">=</span> <span class="n">pg</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">zone_id</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
     <span class="n">summed_gen_dataframe</span> <span class="o">=</span> <span class="n">summed_gen_series</span><span class="o">.</span><span class="n">unstack</span><span class="p">()</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">summed_gen_dataframe</span></div>

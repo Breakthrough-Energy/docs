@@ -40,6 +40,7 @@
 <span class="kn">from</span> <span class="nn">powersimdata.input.check</span> <span class="kn">import</span> <span class="n">_check_resources_are_renewable_and_format</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.helpers</span> <span class="kn">import</span> <span class="n">get_plant_id_for_resources_in_area</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.check</span> <span class="kn">import</span> <span class="n">_check_scenario_is_in_analyze_state</span>
 
 <span class="kn">from</span> <span class="nn">postreise.analyze.generation.capacity</span> <span class="kn">import</span> <span class="n">get_capacity_by_resources</span>
 <span class="kn">from</span> <span class="nn">postreise.analyze.generation.curtailment</span> <span class="kn">import</span> <span class="n">calculate_curtailment_time_series</span>
@@ -59,22 +60,22 @@
     <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
     <span class="n">title</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">percentage</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="n">show_plot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">plot_show</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Generate for a given scenario the scatter plot of the capacity (x-axis) vs</span>
 <span class="sd">    curtailment as a fraction of available resources (y-axis) of generators</span>
 <span class="sd">    located in area and fueled by resources over a time range.</span>
 
 <span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance</span>
-<span class="sd">    :param str area: one of *loadzone*, *state*, *state abbreviation*,</span>
-<span class="sd">        *interconnect*, *&#39;all&#39;*</span>
+<span class="sd">    :param str area: name of the area to focus on. Could be a loadzone, a state, a</span>
+<span class="sd">        country, etc. This will depend on the grid model.</span>
 <span class="sd">    :param str/list resources: one or a list of resources.</span>
 <span class="sd">    :param str time_zone: new time zone, default to be *&#39;utc&#39;*.</span>
 <span class="sd">    :param tuple time_range: [start_timestamp, end_timestamp] where each time stamp</span>
 <span class="sd">        is pandas.Timestamp/numpy.datetime64/datetime.datetime. If None, the entire</span>
 <span class="sd">        time range is used for the given scenario.</span>
-<span class="sd">    :param str area_type: one of *&#39;loadzone&#39;*, *&#39;state&#39;*, *&#39;state_abbr&#39;*,</span>
-<span class="sd">        *&#39;interconnect&#39;*</span>
+<span class="sd">    :param str area_type: area supported by the grid model. For more details, see the</span>
+<span class="sd">        :func:`powersimdata.network.model.area_to_loadzone` function.</span>
 <span class="sd">    :param list between_time: specify the start hour and end hour of each day</span>
 <span class="sd">        inclusively, default to None, which includes every hour of a day. Note that if</span>
 <span class="sd">        the end hour is set before the start hour, the complementary hours of a day are</span>
@@ -86,21 +87,33 @@
 <span class="sd">    :param int/float fontsize: font size, default to 20.</span>
 <span class="sd">    :param str title: user specified figure title, default to None.</span>
 <span class="sd">    :param bool percentage: show capacity factor in percentage or not, default to False</span>
-<span class="sd">    :param bool show_plot: show the plot or not, default to True.</span>
+<span class="sd">    :param bool plot_show: show the plot or not, default to True.</span>
 <span class="sd">    :return: (*tuple*) -- the first entry is matplotlib.axes.Axes object of the plot,</span>
 <span class="sd">        the second entry is the capacity weighted average of curtailment over the</span>
 <span class="sd">        selected time range.</span>
 <span class="sd">    :raises TypeError:</span>
-<span class="sd">        if markersize is not an integer or a float and/or</span>
-<span class="sd">        if fontsize is not an integer or a float and/or</span>
-<span class="sd">        if title is provided but not in a string format.</span>
+<span class="sd">        if ``area`` is not a str.</span>
+<span class="sd">        if ``resources`` is not a str or a list of str.</span>
+<span class="sd">        if ``time_zone`` is not a str.</span>
+<span class="sd">        if ``markersize`` is not an int or a float.</span>
+<span class="sd">        if ``fontsize`` is not an int or a float.</span>
+<span class="sd">        if ``title`` is provided but not in a string format.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">area</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;area must be a str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;resources must be a list or str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resources</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">resources</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;resources must be a list of str&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">markersize</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;markersize should be either an integer or a float&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;markersize must be either an int or float&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fontsize</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;fontsize should be either an integer or a float&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;fontsize must be either an int or float&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">title</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;title should be a string&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;title must be a str&quot;</span><span class="p">)</span>
+
     <span class="n">resources</span> <span class="o">=</span> <span class="n">_check_resources_are_renewable_and_format</span><span class="p">(</span>
         <span class="n">resources</span><span class="p">,</span> <span class="n">mi</span><span class="o">=</span><span class="n">ModelImmutables</span><span class="p">(</span><span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">])</span>
     <span class="p">)</span>
@@ -157,7 +170,7 @@
         <span class="o">+</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_yticklabels</span><span class="p">()</span>
     <span class="p">):</span>
         <span class="n">item</span><span class="o">.</span><span class="n">set_fontsize</span><span class="p">(</span><span class="n">fontsize</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">show_plot</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">plot_show</span><span class="p">:</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">ax</span><span class="p">,</span> <span class="n">data_avg</span></div>
 </pre></div>

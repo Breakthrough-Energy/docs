@@ -35,69 +35,129 @@
           <div class="body" role="main">
             
   <h1>Source code for postreise.plot.tests.test_plot_pie_generation_vs_capacity</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">pytest</span>
+<span></span><span class="kn">from</span> <span class="nn">unittest.mock</span> <span class="kn">import</span> <span class="n">patch</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">pytest</span>
+<span class="kn">from</span> <span class="nn">powersimdata.tests.mock_scenario</span> <span class="kn">import</span> <span class="n">MockScenario</span>
 
 <span class="kn">from</span> <span class="nn">postreise.plot.plot_pie_generation_vs_capacity</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">plot_pie_generation_vs_capacity</span><span class="p">,</span>
 <span class="p">)</span>
 
+<span class="n">mock_plant</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;plant_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">,</span> <span class="s2">&quot;E&quot;</span><span class="p">,</span> <span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="s2">&quot;G&quot;</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;zone_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">301</span><span class="p">,</span> <span class="mi">302</span><span class="p">,</span> <span class="mi">303</span><span class="p">,</span> <span class="mi">304</span><span class="p">,</span> <span class="mi">305</span><span class="p">,</span> <span class="mi">306</span><span class="p">,</span> <span class="mi">307</span><span class="p">,</span> <span class="mi">308</span><span class="p">],</span>
+    <span class="s2">&quot;Pmax&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">750</span><span class="p">,</span> <span class="mi">1500</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">800</span><span class="p">],</span>
+    <span class="s2">&quot;Pmin&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;zone_name&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;Far West&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;North&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;West&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;South&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;North Central&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;South Central&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Coast&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;East&quot;</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">}</span>
 
-<div class="viewcode-block" id="test_plot_pie_generation_vs_capacity_throws_error_for_different_length_of_areas_and_area_types"><a class="viewcode-back" href="../../../../postreise.plot.tests.html#postreise.plot.tests.test_plot_pie_generation_vs_capacity.test_plot_pie_generation_vs_capacity_throws_error_for_different_length_of_areas_and_area_types">[docs]</a><span class="k">def</span> <span class="nf">test_plot_pie_generation_vs_capacity_throws_error_for_different_length_of_areas_and_area_types</span><span class="p">():</span>
-    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
-        <span class="n">plot_pie_generation_vs_capacity</span><span class="p">(</span>
-            <span class="n">areas</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">],</span>
-            <span class="n">area_types</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">],</span>
-            <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">823</span><span class="p">,</span> <span class="mi">824</span><span class="p">],</span>
-            <span class="n">scenario_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;USA 2016&quot;</span><span class="p">,</span> <span class="s2">&quot;USA 2020&quot;</span><span class="p">],</span>
-            <span class="n">min_percentage</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
-        <span class="p">)</span></div>
+<span class="n">mock_pg</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">800</span><span class="p">,</span> <span class="mi">750</span><span class="p">,</span> <span class="mi">720</span><span class="p">,</span> <span class="mi">810</span><span class="p">],</span>
+        <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">220</span><span class="p">,</span> <span class="mi">220</span><span class="p">,</span> <span class="mi">250</span><span class="p">,</span> <span class="mi">200</span><span class="p">],</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1300</span><span class="p">,</span> <span class="mi">1300</span><span class="p">,</span> <span class="mi">1300</span><span class="p">,</span> <span class="mi">1300</span><span class="p">],</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">250</span><span class="p">,</span> <span class="mi">260</span><span class="p">,</span> <span class="mi">270</span><span class="p">,</span> <span class="mi">280</span><span class="p">],</span>
+        <span class="s2">&quot;E&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">110</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">120</span><span class="p">],</span>
+        <span class="s2">&quot;F&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">290</span><span class="p">,</span> <span class="mi">295</span><span class="p">,</span> <span class="mi">295</span><span class="p">,</span> <span class="mi">294</span><span class="p">],</span>
+        <span class="s2">&quot;G&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">190</span><span class="p">,</span> <span class="mi">190</span><span class="p">,</span> <span class="mi">191</span><span class="p">,</span> <span class="mi">190</span><span class="p">],</span>
+        <span class="s2">&quot;H&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">610</span><span class="p">,</span> <span class="mi">630</span><span class="p">,</span> <span class="mi">650</span><span class="p">,</span> <span class="mi">670</span><span class="p">],</span>
+    <span class="p">},</span>
+    <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="n">grid_attrs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">mock_plant</span><span class="p">}</span>
+<span class="n">scenario</span> <span class="o">=</span> <span class="n">MockScenario</span><span class="p">(</span><span class="n">grid_attrs</span><span class="p">,</span> <span class="n">pg</span><span class="o">=</span><span class="n">mock_pg</span><span class="p">)</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;usa_tamu&quot;</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Best Scenario&quot;</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Texas&quot;</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;start_date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;end_date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="mi">2016</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Texas&quot;</span><span class="p">]</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;zone_id&quot;</span><span class="p">],</span> <span class="n">mock_plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">])</span>
+<span class="p">}</span>
+<span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">scenario</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
 
-<div class="viewcode-block" id="test_plot_pie_generation_vs_capacity_throws_error_for_different_length_of_scenario_ids_and_scenario_names"><a class="viewcode-back" href="../../../../postreise.plot.tests.html#postreise.plot.tests.test_plot_pie_generation_vs_capacity.test_plot_pie_generation_vs_capacity_throws_error_for_different_length_of_scenario_ids_and_scenario_names">[docs]</a><span class="k">def</span> <span class="nf">test_plot_pie_generation_vs_capacity_throws_error_for_different_length_of_scenario_ids_and_scenario_names</span><span class="p">():</span>
-    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
-        <span class="n">plot_pie_generation_vs_capacity</span><span class="p">(</span>
-            <span class="n">areas</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">],</span>
-            <span class="n">area_types</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
-            <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">823</span><span class="p">,</span> <span class="mi">824</span><span class="p">],</span>
-            <span class="n">scenario_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;USA 2016&quot;</span><span class="p">],</span>
-            <span class="n">min_percentage</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
-        <span class="p">)</span></div>
+<div class="viewcode-block" id="test_plot_pie_generation_vs_capacity"><a class="viewcode-back" href="../../../../postreise.plot.tests.html#postreise.plot.tests.test_plot_pie_generation_vs_capacity.test_plot_pie_generation_vs_capacity">[docs]</a><span class="nd">@patch</span><span class="p">(</span><span class="s2">&quot;postreise.plot.plot_pie_generation_vs_capacity.Scenario&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="n">scenario</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">test_plot_pie_generation_vs_capacity</span><span class="p">(</span><span class="n">monkeypatch</span><span class="p">):</span>
+    <span class="n">plot_pie_generation_vs_capacity</span><span class="p">(</span>
+        <span class="n">areas</span><span class="o">=</span><span class="s2">&quot;Texas&quot;</span><span class="p">,</span>
+        <span class="n">area_types</span><span class="o">=</span><span class="s2">&quot;interconnect&quot;</span><span class="p">,</span>
+        <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">],</span>
+    <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="test_plot_pie_generation_vs_capacity_throws_error_for_less_than_two_scenario_ids_and_custom_data_is_provided"><a class="viewcode-back" href="../../../../postreise.plot.tests.html#postreise.plot.tests.test_plot_pie_generation_vs_capacity.test_plot_pie_generation_vs_capacity_throws_error_for_less_than_two_scenario_ids_and_custom_data_is_provided">[docs]</a><span class="k">def</span> <span class="nf">test_plot_pie_generation_vs_capacity_throws_error_for_less_than_two_scenario_ids_and_custom_data_is_provided</span><span class="p">():</span>
-    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
-        <span class="n">plot_pie_generation_vs_capacity</span><span class="p">(</span>
-            <span class="n">areas</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">],</span>
-            <span class="n">area_types</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
-            <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">823</span><span class="p">],</span>
-            <span class="n">scenario_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;USA 2016&quot;</span><span class="p">],</span>
-            <span class="n">min_percentage</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
-        <span class="p">)</span></div>
+<span class="k">def</span> <span class="nf">_assert_error</span><span class="p">(</span><span class="n">err_type</span><span class="p">,</span> <span class="n">err_msg</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="n">err_type</span><span class="p">)</span> <span class="k">as</span> <span class="n">excinfo</span><span class="p">:</span>
+        <span class="n">plot_pie_generation_vs_capacity</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">err_msg</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">excinfo</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="test_plot_pie_generation_vs_capacity_throws_error_for_resource_labels_not_in_a_dictionary_format"><a class="viewcode-back" href="../../../../postreise.plot.tests.html#postreise.plot.tests.test_plot_pie_generation_vs_capacity.test_plot_pie_generation_vs_capacity_throws_error_for_resource_labels_not_in_a_dictionary_format">[docs]</a><span class="k">def</span> <span class="nf">test_plot_pie_generation_vs_capacity_throws_error_for_resource_labels_not_in_a_dictionary_format</span><span class="p">():</span>
-    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
-        <span class="n">plot_pie_generation_vs_capacity</span><span class="p">(</span>
-            <span class="n">areas</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">],</span>
-            <span class="n">area_types</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
-            <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">823</span><span class="p">,</span> <span class="mi">824</span><span class="p">],</span>
-            <span class="n">scenario_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;USA 2016&quot;</span><span class="p">,</span> <span class="s2">&quot;USA 2020&quot;</span><span class="p">],</span>
-            <span class="n">resource_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;My Natural Gas&quot;</span><span class="p">,</span> <span class="s2">&quot;My Coal&quot;</span><span class="p">],</span>
-            <span class="n">min_percentage</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
-        <span class="p">)</span></div>
+<div class="viewcode-block" id="test_plot_pie_generation_vs_capacity_argument_type"><a class="viewcode-back" href="../../../../postreise.plot.tests.html#postreise.plot.tests.test_plot_pie_generation_vs_capacity.test_plot_pie_generation_vs_capacity_argument_type">[docs]</a><span class="k">def</span> <span class="nf">test_plot_pie_generation_vs_capacity_argument_type</span><span class="p">():</span>
+    <span class="n">_assert_error</span><span class="p">(</span>
+        <span class="ne">TypeError</span><span class="p">,</span>
+        <span class="s2">&quot;resource_labels must be a dict&quot;</span><span class="p">,</span>
+        <span class="n">areas</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">],</span>
+        <span class="n">area_types</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+        <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">823</span><span class="p">,</span> <span class="mi">824</span><span class="p">],</span>
+        <span class="n">scenario_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;USA 2016&quot;</span><span class="p">,</span> <span class="s2">&quot;USA 2020&quot;</span><span class="p">],</span>
+        <span class="n">resource_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;My Natural Gas&quot;</span><span class="p">,</span> <span class="s2">&quot;My Coal&quot;</span><span class="p">],</span>
+        <span class="n">min_percentage</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">_assert_error</span><span class="p">(</span>
+        <span class="ne">TypeError</span><span class="p">,</span>
+        <span class="s2">&quot;resource_colors must be a dict&quot;</span><span class="p">,</span>
+        <span class="n">areas</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">],</span>
+        <span class="n">area_types</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+        <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">823</span><span class="p">,</span> <span class="mi">824</span><span class="p">],</span>
+        <span class="n">scenario_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;USA 2016&quot;</span><span class="p">,</span> <span class="s2">&quot;USA 2020&quot;</span><span class="p">],</span>
+        <span class="n">resource_labels</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ng&quot;</span><span class="p">:</span> <span class="s2">&quot;My Natural Gas&quot;</span><span class="p">,</span> <span class="s2">&quot;coal&quot;</span><span class="p">:</span> <span class="s2">&quot;My Coal&quot;</span><span class="p">},</span>
+        <span class="n">resource_colors</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="s2">&quot;blue&quot;</span><span class="p">,</span> <span class="s2">&quot;yellow&quot;</span><span class="p">],</span>
+        <span class="n">min_percentage</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
+    <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="test_plot_pie_generation_vs_capacity_throws_error_for_resource_colors_not_in_a_dictionary_format"><a class="viewcode-back" href="../../../../postreise.plot.tests.html#postreise.plot.tests.test_plot_pie_generation_vs_capacity.test_plot_pie_generation_vs_capacity_throws_error_for_resource_colors_not_in_a_dictionary_format">[docs]</a><span class="k">def</span> <span class="nf">test_plot_pie_generation_vs_capacity_throws_error_for_resource_colors_not_in_a_dictionary_format</span><span class="p">():</span>
-    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
-        <span class="n">plot_pie_generation_vs_capacity</span><span class="p">(</span>
-            <span class="n">areas</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">],</span>
-            <span class="n">area_types</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
-            <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">823</span><span class="p">,</span> <span class="mi">824</span><span class="p">],</span>
-            <span class="n">scenario_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;USA 2016&quot;</span><span class="p">,</span> <span class="s2">&quot;USA 2020&quot;</span><span class="p">],</span>
-            <span class="n">resource_labels</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ng&quot;</span><span class="p">:</span> <span class="s2">&quot;My Natural Gas&quot;</span><span class="p">,</span> <span class="s2">&quot;coal&quot;</span><span class="p">:</span> <span class="s2">&quot;My Coal&quot;</span><span class="p">},</span>
-            <span class="n">resource_colors</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="s2">&quot;blue&quot;</span><span class="p">,</span> <span class="s2">&quot;yellow&quot;</span><span class="p">],</span>
-            <span class="n">min_percentage</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
-        <span class="p">)</span></div>
+<div class="viewcode-block" id="test_plot_pie_generation_vs_capacity_argument_value"><a class="viewcode-back" href="../../../../postreise.plot.tests.html#postreise.plot.tests.test_plot_pie_generation_vs_capacity.test_plot_pie_generation_vs_capacity_argument_value">[docs]</a><span class="k">def</span> <span class="nf">test_plot_pie_generation_vs_capacity_argument_value</span><span class="p">():</span>
+    <span class="n">_assert_error</span><span class="p">(</span>
+        <span class="ne">ValueError</span><span class="p">,</span>
+        <span class="s2">&quot;area_types and areas must have same length&quot;</span><span class="p">,</span>
+        <span class="n">areas</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">],</span>
+        <span class="n">area_types</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">],</span>
+        <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">823</span><span class="p">,</span> <span class="mi">824</span><span class="p">],</span>
+        <span class="n">scenario_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;USA 2016&quot;</span><span class="p">,</span> <span class="s2">&quot;USA 2020&quot;</span><span class="p">],</span>
+        <span class="n">min_percentage</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">_assert_error</span><span class="p">(</span>
+        <span class="ne">ValueError</span><span class="p">,</span>
+        <span class="s2">&quot;scenario_names and scenario_ids must have same length&quot;</span><span class="p">,</span>
+        <span class="n">areas</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">],</span>
+        <span class="n">area_types</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+        <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">823</span><span class="p">,</span> <span class="mi">824</span><span class="p">],</span>
+        <span class="n">scenario_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;USA 2016&quot;</span><span class="p">],</span>
+        <span class="n">min_percentage</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">_assert_error</span><span class="p">(</span>
+        <span class="ne">ValueError</span><span class="p">,</span>
+        <span class="s2">&quot;scenario_ids and/or custom_data must have at least two elements&quot;</span><span class="p">,</span>
+        <span class="n">areas</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Eastern&quot;</span><span class="p">],</span>
+        <span class="n">area_types</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+        <span class="n">scenario_ids</span><span class="o">=</span><span class="p">[</span><span class="mi">823</span><span class="p">],</span>
+        <span class="n">scenario_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;USA 2016&quot;</span><span class="p">],</span>
+        <span class="n">min_percentage</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
+    <span class="p">)</span></div>
 </pre></div>
 
           </div>

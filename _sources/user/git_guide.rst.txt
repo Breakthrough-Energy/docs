@@ -122,7 +122,7 @@ We like to keep our commit history clean.
 
 
 Don't ``git pull``...
-+++++++++++++++++++
++++++++++++++++++++++
 ...unless you understand how this command behaves and you're sure that's what you want.
 
 By default, ``git pull`` will perform two distinct actions:

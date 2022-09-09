@@ -63,19 +63,17 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">scale_keys</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;wind&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;wind_offshore&quot;</span><span class="p">},</span>
-            <span class="s2">&quot;solar&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;solar&quot;</span><span class="p">},</span>
-            <span class="s2">&quot;hydro&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;hydro&quot;</span><span class="p">},</span>
-            <span class="s2">&quot;demand&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;demand&quot;</span><span class="p">},</span>
+            <span class="o">**</span><span class="p">{</span><span class="s2">&quot;demand&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;demand&quot;</span><span class="p">}},</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;group_profile_resources&quot;</span><span class="p">],</span>
         <span class="p">}</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">n_new_plant</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_new_clean_plant</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_number_of_new_plant</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">_get_number_of_new_plant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return the total number of new plant and new plant with profiles.</span>
 
 <span class="sd">        :return: (*tuple*) -- first element is the total number of new plant and second</span>
-<span class="sd">            element is the total number of new clean plant (*hydro*, *solar*,</span>
-<span class="sd">            *onshore wind* and *offshore wind*).</span>
+<span class="sd">            element is the total number of new plant with profiles.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">n_plant</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
         <span class="k">if</span> <span class="s2">&quot;new_plant&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
@@ -88,7 +86,7 @@
     <span class="k">def</span> <span class="nf">_get_renewable_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return the transformed profile.</span>
 
-<span class="sd">        :param str resource: *&#39;hydro&#39;*, *&#39;solar&#39;* or *&#39;wind&#39;*.</span>
+<span class="sd">        :param str resource: a generator type with profile.</span>
 <span class="sd">        :return: (*pandas.DataFrame*) -- power output for generators of specified type</span>
 <span class="sd">            with plant identification number as columns and UTC timestamp as indices.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -225,24 +223,21 @@
 <div class="viewcode-block" id="TransformProfile.get_profile"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.transform_profile.TransformProfile.get_profile">[docs]</a>    <span class="k">def</span> <span class="nf">get_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Return profile.</span>
 
-<span class="sd">        :param str name: either *demand*, *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*,</span>
-<span class="sd">            *&#39;demand_flexibility_up&#39;*, *&#39;demand_flexibility_dn&#39;*,</span>
-<span class="sd">            *&#39;demand_flexibility_cost_up&#39;*, or *&#39;demand_flexibility_cost_dn&#39;*.</span>
+<span class="sd">        :param str name: either *demand*, *&#39;demand_flexibility_up&#39;*,</span>
+<span class="sd">            *&#39;demand_flexibility_dn&#39;*, *&#39;demand_flexibility_cost_up&#39;*,</span>
+<span class="sd">            *&#39;demand_flexibility_cost_dn&#39;* or a generator type with profile.</span>
 <span class="sd">        :return: (*pandas.DataFrame*) -- profile.</span>
-<span class="sd">        :raises ValueError: if argument not one of *&#39;demand&#39;*, *&#39;hydro&#39;*, *&#39;solar&#39;*,</span>
-<span class="sd">            *&#39;wind&#39;*, *&#39;demand_flexibility_up&#39;*, *&#39;demand_flexibility_dn&#39;*,</span>
-<span class="sd">            *&#39;demand_flexibility_cost_up&#39;*, or *&#39;demand_flexibility_cost_dn&#39;*.</span>
+<span class="sd">        :raises ValueError: if argument not one of *&#39;demand&#39;*,</span>
+<span class="sd">            *&#39;demand_flexibility_up&#39;*, *&#39;demand_flexibility_dn&#39;*,</span>
+<span class="sd">            *&#39;demand_flexibility_cost_up&#39;*, *&#39;demand_flexibility_cost_dn&#39;* or a generator type wit profile.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">possible</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="s2">&quot;demand&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;hydro&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;solar&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;wind&quot;</span><span class="p">,</span>
+        <span class="n">possible</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;demand_flexibility_up&quot;</span><span class="p">,</span>
             <span class="s2">&quot;demand_flexibility_dn&quot;</span><span class="p">,</span>
             <span class="s2">&quot;demand_flexibility_cost_up&quot;</span><span class="p">,</span>
             <span class="s2">&quot;demand_flexibility_cost_dn&quot;</span><span class="p">,</span>
-        <span class="p">]</span>
+        <span class="p">}</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">scale_keys</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
         <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Choose from </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">))</span>
         <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">&quot;demand&quot;</span><span class="p">:</span>

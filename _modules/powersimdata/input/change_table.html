@@ -56,31 +56,16 @@
 <span class="kn">from</span> <span class="nn">powersimdata.input.profile_input</span> <span class="kn">import</span> <span class="n">ProfileInput</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
 
-<span class="n">_resources</span> <span class="o">=</span> <span class="p">(</span>
-    <span class="s2">&quot;coal&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;dfo&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;geothermal&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;ng&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;nuclear&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;hydro&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;solar&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;wind&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;wind_offshore&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;biomass&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;other&quot;</span><span class="p">,</span>
-<span class="p">)</span>
-
 
 <div class="viewcode-block" id="ChangeTable"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.change_table.ChangeTable">[docs]</a><span class="k">class</span> <span class="nc">ChangeTable</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Create change table for changes that need to be applied to the original</span>
-<span class="sd">    grid as well as to the original demand, hydro, solar and wind profiles.</span>
-<span class="sd">    A pickle file enclosing the change table in form of a dictionary can be</span>
-<span class="sd">    created and transferred on the server. Keys are *&#39;demand&#39;*, *&#39;branch&#39;*, *&#39;dcline&#39;*,</span>
-<span class="sd">    &#39;*new_branch*&#39;, *&#39;new_dcline&#39;*, *&#39;new_plant&#39;*, *&#39;storage&#39;*,</span>
-<span class="sd">    *&#39;[resource]&#39;*, *&#39;[resource]_cost&#39;*, and *&#39;[resource]_pmin&#39;*,; where &#39;resource&#39;</span>
-<span class="sd">    is one of: {*&#39;biomass&#39;*, *&#39;coal&#39;*, *&#39;dfo&#39;*, *&#39;geothermal&#39;*, *&#39;ng&#39;*, *&#39;nuclear&#39;*,</span>
-<span class="sd">    *&#39;hydro&#39;*, *&#39;solar&#39;*, *&#39;wind&#39;*, *&#39;wind_offshore&#39;*, *&#39;other&#39;*}.</span>
-<span class="sd">    If a key is missing in the dictionary, then no changes will be applied.</span>
+    <span class="sd">&quot;&quot;&quot;Create change table for changes that need to be applied to the original grid as</span>
+<span class="sd">    well as to the original demand, hydro, solar and wind profiles. A pickle file</span>
+<span class="sd">    enclosing the change table in form of a dictionary can be created and transferred</span>
+<span class="sd">    on the server. Keys are *&#39;demand&#39;*, *&#39;branch&#39;*, *&#39;dcline&#39;*, &#39;*new_branch*&#39;,</span>
+<span class="sd">    *&#39;new_dcline&#39;*, *&#39;new_plant&#39;*, *&#39;storage&#39;*, *&#39;[resource]&#39;*, *&#39;[resource]_cost&#39;*,</span>
+<span class="sd">    and *&#39;[resource]_pmin&#39;*,; where &#39;resource&#39; is defined in</span>
+<span class="sd">    :class:`powersimdata.network.constants.plants.Resource` and depends on the grid</span>
+<span class="sd">    model. If a key is missing in the dictionary, then no changes will be applied.</span>
 <span class="sd">    The data structure is given below:</span>
 
 <span class="sd">    * *&#39;demand&#39;*:</span>
@@ -188,14 +173,13 @@
         <span class="p">}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_profile_input</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_check_resource</span><span class="p">(</span><span class="n">resource</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_check_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Checks resource.</span>
 
 <span class="sd">        :param str resource: type of generator.</span>
 <span class="sd">        :raises ValueError: if resource cannot be changed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">possible</span> <span class="o">=</span> <span class="n">_resources</span>
+        <span class="n">possible</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;all_resources&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">resource</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-----------------------&quot;</span><span class="p">)</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Possible Generator type&quot;</span><span class="p">)</span>
@@ -287,7 +271,7 @@
             <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;new_plant&quot;</span><span class="p">,</span> <span class="s2">&quot;remove_plant&quot;</span><span class="p">}:</span>
                 <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
                     <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
-            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">_resources</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;all_resources&quot;</span><span class="p">]:</span>
                 <span class="k">for</span> <span class="n">suffix</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;_cost&quot;</span><span class="p">,</span> <span class="s2">&quot;_pmin&quot;</span><span class="p">}:</span>
                     <span class="n">key</span> <span class="o">=</span> <span class="n">r</span> <span class="o">+</span> <span class="n">suffix</span>
                     <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>

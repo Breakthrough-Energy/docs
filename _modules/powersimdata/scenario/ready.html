@@ -55,8 +55,7 @@
         <span class="s2">&quot;get_grid&quot;</span><span class="p">,</span>
         <span class="s2">&quot;get_solar&quot;</span><span class="p">,</span>
         <span class="s2">&quot;get_wind&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;get_wind_onshore&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;get_wind_offshore&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;get_gentype_profile&quot;</span><span class="p">,</span>
     <span class="p">}</span> <span class="o">|</span> <span class="n">State</span><span class="o">.</span><span class="n">exported_methods</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario</span><span class="p">):</span>
@@ -117,31 +116,25 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Ready.get_wind_onshore"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.ready.Ready.get_wind_onshore">[docs]</a>    <span class="k">def</span> <span class="nf">get_wind_onshore</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns wind onshore profile</span>
+<div class="viewcode-block" id="Ready.get_gentype_profile"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.ready.Ready.get_gentype_profile">[docs]</a>    <span class="k">def</span> <span class="nf">get_gentype_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gentype</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns profile for a generator type.</span>
 
-<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of wind energy output for onshore</span>
-<span class="sd">            turbines</span>
+<span class="sd">        :param str gentype: generator type with profile.</span>
+<span class="sd">        :return: (*pandas.DataFrame*) -- profile.</span>
+<span class="sd">        :raises ValueError: if ``gentype`` is invalid or not in the grid.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">wind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">)</span>
         <span class="n">grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
-        <span class="n">onshore_id</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;type&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">get_group</span><span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span>
-        <span class="k">return</span> <span class="n">wind</span><span class="p">[</span><span class="n">onshore_id</span><span class="p">]</span></div>
-
-<div class="viewcode-block" id="Ready.get_wind_offshore"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.ready.Ready.get_wind_offshore">[docs]</a>    <span class="k">def</span> <span class="nf">get_wind_offshore</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Returns wind offshore profile</span>
-
-<span class="sd">        :return: (*pandas.DataFrame*) -- data frame of wind energy output for offshore</span>
-<span class="sd">            turbines</span>
-<span class="sd">        :raises ValueError: if no offshore wind turbines in grid</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">wind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="s2">&quot;wind&quot;</span><span class="p">)</span>
-        <span class="n">grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
-        <span class="k">if</span> <span class="s2">&quot;wind_offshore&quot;</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">():</span>
-            <span class="n">offshore_id</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;type&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">get_group</span><span class="p">(</span><span class="s2">&quot;wind_offshore&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span>
-            <span class="k">return</span> <span class="n">wind</span><span class="p">[</span><span class="n">offshore_id</span><span class="p">]</span>
+        <span class="n">profile2gen</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;group_profile_resources&quot;</span><span class="p">]</span>
+        <span class="n">gen2profile</span> <span class="o">=</span> <span class="p">{</span><span class="n">g</span><span class="p">:</span> <span class="n">p</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">gs</span> <span class="ow">in</span> <span class="n">profile2gen</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">gs</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">gentype</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">gen2profile</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">gentype</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">():</span>
+                <span class="n">profile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="n">gen2profile</span><span class="p">[</span><span class="n">gentype</span><span class="p">])</span>
+                <span class="n">plant_id</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;type&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">get_group</span><span class="p">(</span><span class="n">gentype</span><span class="p">)</span><span class="o">.</span><span class="n">index</span>
+                <span class="k">return</span> <span class="n">profile</span><span class="p">[</span><span class="n">plant_id</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No </span><span class="si">{</span><span class="n">gentype</span><span class="si">}</span><span class="s2"> in grid&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No offshore wind turbines in grid&quot;</span><span class="p">)</span></div>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;gentype must be one of: </span><span class="si">{</span><span class="s1">&#39; | &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">gen2profile</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Ready.get_demand"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.ready.Ready.get_demand">[docs]</a>    <span class="k">def</span> <span class="nf">get_demand</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">original</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns demand profiles.</span>

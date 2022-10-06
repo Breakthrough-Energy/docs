@@ -36,11 +36,11 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.scenario.execute</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">from</span> <span class="nn">scipy.io</span> <span class="kn">import</span> <span class="n">savemat</span>
+<span></span><span class="kn">import</span> <span class="nn">pickle</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.data_access.context</span> <span class="kn">import</span> <span class="n">Context</span>
-<span class="kn">from</span> <span class="nn">powersimdata.input.exporter.export_to_reise</span> <span class="kn">import</span> <span class="n">export_case_mat</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.input_data</span> <span class="kn">import</span> <span class="n">InputData</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.transform_grid</span> <span class="kn">import</span> <span class="n">TransformGrid</span>
@@ -145,7 +145,7 @@
             <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;demand&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;wind&quot;</span><span class="p">]:</span>
                 <span class="n">si</span><span class="o">.</span><span class="n">prepare_profile</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">profiles_as</span><span class="p">)</span>
 
-            <span class="n">si</span><span class="o">.</span><span class="n">prepare_mpc_file</span><span class="p">()</span>
+            <span class="n">si</span><span class="o">.</span><span class="n">prepare_grid</span><span class="p">()</span>
 
             <span class="k">if</span> <span class="s2">&quot;demand_flexibility&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">:</span>
                 <span class="c1"># Prepare all specified demand flexibility profiles</span>
@@ -153,8 +153,7 @@
                     <span class="k">if</span> <span class="n">p</span> <span class="o">!=</span> <span class="s2">&quot;demand_flexibility_duration&quot;</span><span class="p">:</span>
                         <span class="n">si</span><span class="o">.</span><span class="n">prepare_profile</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">profiles_as</span><span class="p">)</span>
 
-                <span class="c1"># Create the demand_flexibility_parameters file</span>
-                <span class="n">si</span><span class="o">.</span><span class="n">prepare_demand_flexibility_parameters_file</span><span class="p">()</span>
+                <span class="n">si</span><span class="o">.</span><span class="n">prepare_demand_flexibility_parameters</span><span class="p">()</span>
 
             <span class="n">prepared</span> <span class="o">=</span> <span class="s2">&quot;prepared&quot;</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_execute_list_manager</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scenario_id</span><span class="p">,</span> <span class="n">prepared</span><span class="p">)</span>
@@ -242,20 +241,12 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">tmp_folder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scenario_id</span><span class="p">)</span>
 
-<div class="viewcode-block" id="SimulationInput.prepare_mpc_file"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput.prepare_mpc_file">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_mpc_file</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Creates MATPOWER case file.&quot;&quot;&quot;</span>
-        <span class="n">file_path</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="s2">&quot;case.mat&quot;</span><span class="p">])</span>
-        <span class="n">storage_file_path</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="s2">&quot;case_storage.mat&quot;</span><span class="p">])</span>
-
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Building MPC file&quot;</span><span class="p">)</span>
-        <span class="n">mpc</span><span class="p">,</span> <span class="n">mpc_storage</span> <span class="o">=</span> <span class="n">export_case_mat</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">)</span>
-
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">save_local</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">savemat</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">mpc</span><span class="p">,</span> <span class="n">appendmat</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">mpc_storage</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">storage_file_path</span><span class="p">,</span> <span class="n">save_local</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">savemat</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">mpc_storage</span><span class="p">,</span> <span class="n">appendmat</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+<div class="viewcode-block" id="SimulationInput.prepare_grid"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput.prepare_grid">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Prepare grid for simulation.&quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;--&gt; Preparing grid data&quot;</span><span class="p">)</span>
+        <span class="n">dest_path</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="s2">&quot;grid.pkl&quot;</span><span class="p">])</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">dest_path</span><span class="p">,</span> <span class="n">save_local</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="SimulationInput.prepare_profile"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput.prepare_profile">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">,</span> <span class="n">profile_as</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="nb">slice</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Prepares profile for simulation.</span>
@@ -271,7 +262,6 @@
         <span class="k">if</span> <span class="n">profile_as</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">tp</span> <span class="o">=</span> <span class="n">TransformProfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">,</span> <span class="nb">slice</span><span class="p">)</span>
             <span class="n">profile</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">get_profile</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Writing scaled </span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2"> profile to </span><span class="si">{</span><span class="n">dest_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">dest_path</span><span class="p">,</span> <span class="n">save_local</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="n">profile</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -279,10 +269,8 @@
             <span class="n">src</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">from_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">])</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">fs</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dest_path</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SimulationInput.prepare_demand_flexibility_parameters_file"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput.prepare_demand_flexibility_parameters_file">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_demand_flexibility_parameters_file</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Creates the demand_flexibility_parameters file.&quot;&quot;&quot;</span>
-        <span class="c1"># Construct a dictionary of the necessary parameters</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Building demand flexibility parameters file&quot;</span><span class="p">)</span>
+<div class="viewcode-block" id="SimulationInput.prepare_demand_flexibility_parameters"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.execute.SimulationInput.prepare_demand_flexibility_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_demand_flexibility_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Prepares demand_flexibility parameters file for simulation.&quot;&quot;&quot;</span>
         <span class="n">params</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">params</span><span class="p">[</span><span class="s2">&quot;enabled&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="kc">True</span><span class="p">]</span>
         <span class="n">params</span><span class="p">[</span><span class="s2">&quot;interval_balance&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="kc">True</span><span class="p">]</span>
@@ -296,13 +284,10 @@
             <span class="k">if</span> <span class="s2">&quot;demand_flexibility_duration&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;demand_flexibility&quot;</span><span class="p">]</span>
             <span class="k">else</span> <span class="mi">0</span>
         <span class="p">]</span>
-
-        <span class="c1"># Convert the dictionary to a DataFrame to more easily save as a .csv file</span>
         <span class="n">params</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
 
-        <span class="c1"># Save the parameters as a .csv file and move the file to the correct location</span>
-        <span class="n">file_path</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="s2">&quot;demand_flexibility_parameters.csv&quot;</span><span class="p">])</span>
-        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">save_local</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">dest_path</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">REL_TMP_DIR</span><span class="p">,</span> <span class="s2">&quot;demand_flexibility_parameters.csv&quot;</span><span class="p">])</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_access</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">dest_path</span><span class="p">,</span> <span class="n">save_local</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">params</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">f</span><span class="p">)</span></div></div>
 </pre></div>
 
@@ -381,7 +366,7 @@
       &copy;2021, Breakthrough Energy Foundation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.2.2</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.2.3</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

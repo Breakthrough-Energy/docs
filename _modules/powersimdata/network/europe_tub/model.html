@@ -40,11 +40,8 @@
 <span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">from</span> <span class="nn">zipfile</span> <span class="kn">import</span> <span class="n">ZipFile</span>
 
-<span class="kn">from</span> <span class="nn">powersimdata.network.constants.region.europe</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">abv2country</span><span class="p">,</span>
-    <span class="n">abv2timezone</span><span class="p">,</span>
-    <span class="n">interconnect2abv</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.constants.region.geography</span> <span class="kn">import</span> <span class="n">get_geography</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.constants.region.zones</span> <span class="kn">import</span> <span class="n">from_pypsa</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.helpers</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">check_and_format_interconnect</span><span class="p">,</span>
     <span class="n">interconnect_to_name</span><span class="p">,</span>
@@ -111,8 +108,9 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="n">id2zone</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="n">zone2id</span>
         <span class="k">else</span><span class="p">:</span>
+            <span class="n">geo</span> <span class="o">=</span> <span class="n">get_geography</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">)</span>
             <span class="nb">filter</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>  <span class="c1"># noqa: F841</span>
-                <span class="n">interconnect2abv</span><span class="p">[</span>
+                <span class="n">geo</span><span class="p">[</span><span class="s2">&quot;interconnect2abv&quot;</span><span class="p">][</span>
                     <span class="n">interconnect_to_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">)</span>
                 <span class="p">]</span>
             <span class="p">)</span>
@@ -120,61 +118,18 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="n">l</span><span class="p">:</span> <span class="n">zone2id</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">}</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="n">l</span> <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">model_immutables</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_model_immutables</span><span class="p">()</span></div>
-
-    <span class="k">def</span> <span class="nf">_generate_model_immutables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Generate the model immutables&quot;&quot;&quot;</span>
-        <span class="n">mapping</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">interconnect</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">)</span>
-
-        <span class="c1"># loadzone</span>
-        <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;loadzone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span><span class="p">)</span>
-        <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;id2loadzone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span>
-        <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;loadzone2id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span>
-        <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;loadzone2abv&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="p">[</span><span class="s2">&quot;country&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
-        <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;loadzone2country&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="p">[</span><span class="s2">&quot;country&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">abv2country</span><span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+        <span class="n">zone</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="p">[</span><span class="s2">&quot;country&quot;</span><span class="p">]</span>
+            <span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">set_axis</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Bus&quot;</span><span class="p">:</span> <span class="s2">&quot;zone_name&quot;</span><span class="p">,</span> <span class="s2">&quot;country&quot;</span><span class="p">:</span> <span class="s2">&quot;abv&quot;</span><span class="p">})</span>
+            <span class="o">.</span><span class="n">rename_axis</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="s2">&quot;zone_id&quot;</span><span class="p">)</span>
         <span class="p">)</span>
-        <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;loadzone2interconnect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">l</span><span class="p">:</span> <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;abv2interconnect&quot;</span><span class="p">][</span><span class="n">a</span><span class="p">]</span>
-            <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;loadzone2abv&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-        <span class="p">}</span>
-        <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;id2timezone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">l</span><span class="p">]:</span> <span class="n">abv2timezone</span><span class="p">[</span><span class="n">a</span><span class="p">]</span>
-            <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;loadzone2abv&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-        <span class="p">}</span>
-        <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;timezone2id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">t</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;id2timezone&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-        <span class="p">}</span>
-
-        <span class="c1"># country</span>
-        <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;country2loadzone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">abv2country</span><span class="p">[</span><span class="n">a</span><span class="p">]:</span> <span class="nb">set</span><span class="p">(</span><span class="n">l</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;country&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-        <span class="p">}</span>
-        <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;abv2loadzone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">a</span><span class="p">:</span> <span class="nb">set</span><span class="p">(</span><span class="n">l</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;country&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-        <span class="p">}</span>
-        <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;abv2id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">a</span><span class="p">:</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">l_in_country</span><span class="p">}</span>
-            <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">l_in_country</span> <span class="ow">in</span> <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;abv2loadzone&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-        <span class="p">}</span>
-        <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;id2abv&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">i</span><span class="p">:</span> <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;loadzone2abv&quot;</span><span class="p">][</span><span class="n">l</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-        <span class="p">}</span>
-
-        <span class="c1"># interconnect</span>
-        <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect2loadzone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">i</span><span class="p">:</span> <span class="nb">set</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
-                <span class="o">*</span><span class="p">(</span><span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;abv2loadzone&quot;</span><span class="p">][</span><span class="n">a</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">a_in_interconnect</span><span class="p">)</span>
-            <span class="p">)</span>
-            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a_in_interconnect</span> <span class="ow">in</span> <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect2abv&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-        <span class="p">}</span>
-        <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect2id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">i</span><span class="p">:</span> <span class="nb">set</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="o">*</span><span class="p">({</span><span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">l</span><span class="p">]}</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">l_in_interconnect</span><span class="p">))</span>
-            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">l_in_interconnect</span> <span class="ow">in</span> <span class="n">mapping</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;interconnect2loadzone&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-        <span class="p">}</span>
-
-        <span class="k">return</span> <span class="n">mapping</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_immutables</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span>
+            <span class="n">interconnect</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span>
+            <span class="n">zone</span><span class="o">=</span><span class="n">from_pypsa</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">zone</span><span class="p">),</span>
+        <span class="p">)</span></div></div>
 </pre></div>
 
           </div>

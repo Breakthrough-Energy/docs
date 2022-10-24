@@ -36,10 +36,11 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.network.model</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">powersimdata.network.constants.model</span> <span class="kn">import</span> <span class="n">model2region</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.constants.plants</span> <span class="kn">import</span> <span class="n">get_plants</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.constants.storage</span> <span class="kn">import</span> <span class="n">get_storage</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.constants.zones</span> <span class="kn">import</span> <span class="n">get_zones</span>
+<span></span><span class="kn">from</span> <span class="nn">powersimdata.network.constants.carrier.plants</span> <span class="kn">import</span> <span class="n">get_plants</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.constants.carrier.storage</span> <span class="kn">import</span> <span class="n">get_storage</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.constants.model</span> <span class="kn">import</span> <span class="n">model2region</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.constants.region.mapping</span> <span class="kn">import</span> <span class="n">get_mapping</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.constants.region.zones</span> <span class="kn">import</span> <span class="n">check_zone</span><span class="p">,</span> <span class="n">from_csv</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.helpers</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">check_and_format_interconnect</span><span class="p">,</span>
     <span class="n">check_model</span><span class="p">,</span>
@@ -52,9 +53,15 @@
 
 <span class="sd">    :param str model: grid model name.</span>
 <span class="sd">    :param str interconnect: interconnect of grid model.</span>
+<span class="sd">    :param pandas.DataFrame zone: a data frame with loadzone name (*&#39;zone_name&#39;*),</span>
+<span class="sd">        division name (e.g. *&#39;state&#39;* name for USA grid models), interconnect name</span>
+<span class="sd">        (*&#39;interconnect&#39;*), time zone of loadzone (*&#39;time_zone&#39;*) and division</span>
+<span class="sd">        abbreviation (*&#39;abv&#39;*) as columns; and loadzone id (*&#39;zone_id&#39;*) as indices. If</span>
+<span class="sd">        None, it will be assumed that the data frame can be built from a CSV file</span>
+<span class="sd">        stored on disk.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">interconnect</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">interconnect</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">zone</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
         <span class="n">check_model</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
@@ -63,10 +70,14 @@
             <span class="k">if</span> <span class="n">interconnect</span> <span class="ow">is</span> <span class="kc">None</span>
             <span class="k">else</span> <span class="n">check_and_format_interconnect</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">)</span>
         <span class="p">)</span>
+        <span class="k">if</span> <span class="n">zone</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">zone</span> <span class="o">=</span> <span class="n">from_csv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">check_zone</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">zone</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">plants</span> <span class="o">=</span> <span class="n">get_plants</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">storage</span> <span class="o">=</span> <span class="n">get_storage</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">zones</span> <span class="o">=</span> <span class="n">get_zones</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zones</span> <span class="o">=</span> <span class="n">get_mapping</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">zone</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">check_and_format_interconnect</span> <span class="o">=</span> <span class="n">check_and_format_interconnect</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interconnect_to_name</span> <span class="o">=</span> <span class="n">interconnect_to_name</span>
@@ -76,7 +87,7 @@
         <span class="k">return</span> <span class="n">area_to_loadzone</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div></div>
 
 
-<div class="viewcode-block" id="area_to_loadzone"><a class="viewcode-back" href="../../../powersimdata.network.html#powersimdata.network.model.area_to_loadzone">[docs]</a><span class="k">def</span> <span class="nf">area_to_loadzone</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="area_to_loadzone"><a class="viewcode-back" href="../../../powersimdata.network.html#powersimdata.network.model.area_to_loadzone">[docs]</a><span class="k">def</span> <span class="nf">area_to_loadzone</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">zone</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Map the query area to a list of loadzones.</span>
 
 <span class="sd">    :param str model: grid model to use to look up constants for mapping.</span>
@@ -86,6 +97,12 @@
 <span class="sd">        *&#39;state_abbr&#39;*/&#39;*country_abbr*&#39;, *&#39;interconnect&#39;*. If None, ``area`` will be</span>
 <span class="sd">        searched successively into *&#39;state&#39;*/*&#39;country&#39;*, *&#39;loadzone&#39;*,</span>
 <span class="sd">        *&#39;state abbreviation&#39;*/*&#39;country abbreviation&#39;*, *&#39;interconnect&#39;* and *&#39;all&#39;*.</span>
+<span class="sd">    :param pandas.DataFrame zone: a data frame with loadzone name (*&#39;zone_name&#39;*),</span>
+<span class="sd">        division name (e.g. *&#39;state&#39;* name for USA grid models), interconnect name</span>
+<span class="sd">        (*&#39;interconnect&#39;*), time zone of loadzone (*&#39;time_zone&#39;*) and division</span>
+<span class="sd">        abbreviation (*&#39;abv&#39;*) as columns; and loadzone id (*&#39;zone_id&#39;*) as indices. If</span>
+<span class="sd">        None, it will be assumed that the data frame can be built from a CSV file</span>
+<span class="sd">        stored on disk.</span>
 <span class="sd">    :return: (*set*) -- set of loadzone names located in the query area.</span>
 <span class="sd">    :raises TypeError:</span>
 <span class="sd">        if ``area`` is not a str.</span>
@@ -94,7 +111,7 @@
 <span class="sd">        if ``area`` is invalid</span>
 <span class="sd">        if combination of ``area`` and ``area_type`` is invalid.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">zones</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">zones</span>
+    <span class="n">zones</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">zone</span><span class="o">=</span><span class="n">zone</span><span class="p">)</span><span class="o">.</span><span class="n">zones</span>
     <span class="n">mappings</span> <span class="o">=</span> <span class="n">zones</span><span class="p">[</span><span class="s2">&quot;mappings&quot;</span><span class="p">]</span>
     <span class="n">division</span> <span class="o">=</span> <span class="n">zones</span><span class="p">[</span><span class="s2">&quot;division&quot;</span><span class="p">]</span>
 

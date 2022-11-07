@@ -32,13 +32,13 @@ Our model is open source (`MIT <https://en.wikipedia.org/wiki/MIT_License>`_)
 and available for download on `GitHub <https://github.com/Breakthrough-Energy>`_.
 Our data is also open source (`CC‑BY‑4.0
 <https://en.wikipedia.org/wiki/Creative_Commons_license>`_) and downloadable from
-Zenodo. We try here to encourage you to contribute to our project. Since we started this
-effort, we mainly focused on developing the model and running meaningful scenarios. As
-a result, our software is not easily installable and deployable. The team has grown and
-we are now creating a better user experience. While we make this happen, we created
-this webpage to help you install the software and show you how you can contribute to
-this effort with the Breakthrough Energy Sciences team. Here is what you will find on
-GitHub:
+`Zenodo <https://zenodo.org/record/4538590#.Y2mOWVLMKDV>`_. We try here to encourage
+you to contribute to our project. Since we started this effort, we mainly focused on
+developing the model and running meaningful scenarios. As a result, our software is not
+easily installable and deployable. The team has grown and we are now creating a better
+user experience. While we make this happen, we created this webpage to help you install
+the software and show you how you can contribute to this effort with the Breakthrough
+Energy Sciences team. Here is what you will find on GitHub:
 
 - The `PowerSimData <https://github.com/Breakthrough-Energy/PowerSimData>`_ package -
   we start with this one since it includes the model, i.e., the synthetic U.S. electric

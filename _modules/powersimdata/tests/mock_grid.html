@@ -38,86 +38,27 @@
   <h1>Source code for powersimdata.tests.mock_grid</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
-<span class="kn">from</span> <span class="nn">powersimdata.input</span> <span class="kn">import</span> <span class="n">const</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.abstract_grid</span> <span class="kn">import</span> <span class="n">AbstractGrid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.const</span> <span class="kn">import</span> <span class="n">grid_const</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
 
-<span class="c1"># The index name of each data frame attribute</span>
-<span class="n">indices</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;sub&quot;</span><span class="p">:</span> <span class="s2">&quot;sub_id&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;bus2sub&quot;</span><span class="p">:</span> <span class="s2">&quot;bus_id&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="s2">&quot;branch_id&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="s2">&quot;bus_id&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;dcline&quot;</span><span class="p">:</span> <span class="s2">&quot;dcline_id&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="s2">&quot;plant_id&quot;</span><span class="p">,</span>
-<span class="p">}</span>
 
-<span class="n">gencost_names</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;gencost_before&quot;</span><span class="p">:</span> <span class="s2">&quot;before&quot;</span><span class="p">,</span> <span class="s2">&quot;gencost_after&quot;</span><span class="p">:</span> <span class="s2">&quot;after&quot;</span><span class="p">}</span>
-<span class="n">storage_names</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;storage_gen&quot;</span><span class="p">:</span> <span class="s2">&quot;gen&quot;</span><span class="p">,</span> <span class="s2">&quot;storage_StorageData&quot;</span><span class="p">:</span> <span class="s2">&quot;StorageData&quot;</span><span class="p">}</span>
-<span class="n">acceptable_keys</span> <span class="o">=</span> <span class="p">(</span>
-    <span class="nb">set</span><span class="p">(</span><span class="n">indices</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">gencost_names</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">|</span> <span class="nb">set</span><span class="p">(</span><span class="n">storage_names</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-<span class="p">)</span>
-
-<span class="c1"># The column names of each data frame attribute</span>
-<span class="n">sub_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect_sub_id&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
-
-<span class="n">bus2sub_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sub_id&quot;</span><span class="p">,</span> <span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
-
-<span class="n">branch_augment_columns</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="s2">&quot;branch_device_type&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;from_zone_id&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;to_zone_id&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;from_zone_name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;to_zone_name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;from_lat&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;from_lon&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;to_lat&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;to_lon&quot;</span><span class="p">,</span>
-<span class="p">]</span>
-<span class="n">branch_columns</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">col_name_branch</span> <span class="o">+</span> <span class="n">branch_augment_columns</span>
-
-<span class="n">bus_augment_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]</span>
-<span class="n">bus_columns</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">col_name_bus</span> <span class="o">+</span> <span class="n">bus_augment_columns</span>
-
-<span class="n">dcline_augment_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;from_interconnect&quot;</span><span class="p">,</span> <span class="s2">&quot;to_interconnect&quot;</span><span class="p">]</span>
-<span class="n">dcline_columns</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">col_name_dcline</span> <span class="o">+</span> <span class="n">dcline_augment_columns</span>
-
-<span class="n">gencost_augment_columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
-<span class="n">gencost_columns</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">col_name_gencost</span> <span class="o">+</span> <span class="n">gencost_augment_columns</span>
-
-<span class="n">plant_augment_columns</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="s2">&quot;type&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;interconnect&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;GenFuelCost&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;GenIOB&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;GenIOC&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;GenIOD&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;zone_id&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;zone_name&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;lat&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;lon&quot;</span><span class="p">,</span>
-<span class="p">]</span>
-<span class="n">plant_columns</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">col_name_plant</span> <span class="o">+</span> <span class="n">plant_augment_columns</span>
-
-<span class="n">storage_columns</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="c1"># The first 21 columns of plant are all that&#39;s necessary</span>
-    <span class="s2">&quot;gen&quot;</span><span class="p">:</span> <span class="n">plant_columns</span><span class="p">[:</span><span class="mi">21</span><span class="p">],</span>
-    <span class="s2">&quot;StorageData&quot;</span><span class="p">:</span> <span class="n">const</span><span class="o">.</span><span class="n">col_name_storage_storagedata</span><span class="p">,</span>
-<span class="p">}</span>
-
-
-<div class="viewcode-block" id="MockGrid"><a class="viewcode-back" href="../../../powersimdata.tests.html#powersimdata.tests.mock_grid.MockGrid">[docs]</a><span class="k">class</span> <span class="nc">MockGrid</span><span class="p">:</span>
+<div class="viewcode-block" id="MockGrid"><a class="viewcode-back" href="../../../powersimdata.tests.html#powersimdata.tests.mock_grid.MockGrid">[docs]</a><span class="k">class</span> <span class="nc">MockGrid</span><span class="p">(</span><span class="n">AbstractGrid</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_attrs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.</span>
 
-<span class="sd">        :param dict grid_attrs: dictionary of {*field_name*, *data_dict*} pairs</span>
-<span class="sd">            where *field_name* is the name of the data frame (sub, bus2sub,</span>
-<span class="sd">            branch, bus, dcline, gencost or plant) and *data_dict* a dictionary</span>
-<span class="sd">            in which the keys are the column name of the data frame associated</span>
-<span class="sd">            to *field_name* and the values are a list of values.</span>
+<span class="sd">        :param dict grid_attrs: dictionary of {*field_name*, *data_dict*} pairs where</span>
+<span class="sd">            *field_name* can be: sub, bus2sub, branch, bus, dcline, plant,</span>
+<span class="sd">            gencost_before, gencost_after, storage_gen, storage_StorageData and</span>
+<span class="sd">            *data_dict* is a dictionary in which the keys are the column name of the</span>
+<span class="sd">            data frame associated to *field_name* and the values are a list of values.</span>
 <span class="sd">        :param str model: grid model. Use to access geographical information such</span>
 <span class="sd">            as loadzones, interconnections, etc.</span>
+<span class="sd">        :raises TypeError:</span>
+<span class="sd">            if ``grid_attrs`` is not a dict.</span>
+<span class="sd">            if keys of ``grid_attrs`` are not str.</span>
+<span class="sd">        :raises ValueError: if a key of ``grid_attrs`` is incorrect.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">grid_attrs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">grid_attrs</span> <span class="o">=</span> <span class="p">{}</span>
@@ -129,59 +70,35 @@
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;grid_attrs keys must all be str&quot;</span><span class="p">)</span>
 
-        <span class="n">extra_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid_attrs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">-</span> <span class="n">acceptable_keys</span>
+        <span class="n">extra_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid_attrs</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">grid_const</span><span class="o">.</span><span class="n">indices</span><span class="p">)</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+            <span class="p">{</span><span class="s2">&quot;gencost_before&quot;</span><span class="p">,</span> <span class="s2">&quot;gencost_after&quot;</span><span class="p">,</span> <span class="s2">&quot;storage_gen&quot;</span><span class="p">,</span> <span class="s2">&quot;storage_StorageData&quot;</span><span class="p">}</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">extra_keys</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Got unknown key(s):&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">extra_keys</span><span class="p">))</span>
 
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span> <span class="o">=</span> <span class="n">model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model_immutables</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
 
-        <span class="n">cols</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;sub&quot;</span><span class="p">:</span> <span class="n">sub_columns</span><span class="p">,</span>
-            <span class="s2">&quot;bus2sub&quot;</span><span class="p">:</span> <span class="n">bus2sub_columns</span><span class="p">,</span>
-            <span class="s2">&quot;branch&quot;</span><span class="p">:</span> <span class="n">branch_columns</span><span class="p">,</span>
-            <span class="s2">&quot;bus&quot;</span><span class="p">:</span> <span class="n">bus_columns</span><span class="p">,</span>
-            <span class="s2">&quot;dcline&quot;</span><span class="p">:</span> <span class="n">dcline_columns</span><span class="p">,</span>
-            <span class="s2">&quot;plant&quot;</span><span class="p">:</span> <span class="n">plant_columns</span><span class="p">,</span>
-        <span class="p">}</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="p">{}</span>
-
-        <span class="c1"># Loop through names for grid data frames, add (maybe empty) data</span>
-        <span class="c1"># frames.</span>
-        <span class="k">for</span> <span class="n">df_name</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">df_name</span> <span class="ow">in</span> <span class="n">grid_attrs</span><span class="p">:</span>
-                <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">grid_attrs</span><span class="p">[</span><span class="n">df_name</span><span class="p">])</span>
+        <span class="n">other</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">grid_attrs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">grid_const</span><span class="o">.</span><span class="n">indices</span><span class="p">:</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="n">grid_const</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">k</span><span class="p">]))</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">([</span><span class="n">indices</span><span class="p">[</span><span class="n">df_name</span><span class="p">]]</span> <span class="o">+</span> <span class="n">cols</span><span class="p">[</span><span class="n">df_name</span><span class="p">]))</span>
-            <span class="n">df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="n">df_name</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df_name</span><span class="p">,</span> <span class="n">df</span><span class="p">)</span>
-
-        <span class="c1"># Gencost is special because there are two dataframes in a dict</span>
-        <span class="n">gencost</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">gridattr_name</span><span class="p">,</span> <span class="n">gc_name</span> <span class="ow">in</span> <span class="n">gencost_names</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">gridattr_name</span> <span class="ow">in</span> <span class="n">grid_attrs</span><span class="p">:</span>
-                <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">grid_attrs</span><span class="p">[</span><span class="n">gridattr_name</span><span class="p">])</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">([</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">gencost_columns</span><span class="p">))</span>
-            <span class="n">df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;plant_id&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">gencost</span><span class="p">[</span><span class="n">gc_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">gencost</span> <span class="o">=</span> <span class="n">gencost</span>
-
-        <span class="c1"># Storage is special because there are multiple dataframes in a dict</span>
-        <span class="n">storage</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">storage_attr_name</span><span class="p">,</span> <span class="n">storage_name</span> <span class="ow">in</span> <span class="n">storage_names</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">storage_attr_name</span> <span class="ow">in</span> <span class="n">grid_attrs</span><span class="p">:</span>
-                <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">grid_attrs</span><span class="p">[</span><span class="n">storage_attr_name</span><span class="p">])</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
-                    <span class="n">columns</span><span class="o">=</span><span class="p">([</span><span class="s2">&quot;plant_id&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">storage_columns</span><span class="p">[</span><span class="n">storage_name</span><span class="p">])</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span>
+                <span class="n">df</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;plant_id&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;gencost&quot;</span>
+                    <span class="k">else</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
                 <span class="p">)</span>
-            <span class="n">storage</span><span class="p">[</span><span class="n">storage_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">storage</span> <span class="o">=</span> <span class="n">storage</span>
+
+                <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">other</span><span class="p">:</span>
+                    <span class="n">other</span><span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span><span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="n">df</span><span class="p">}</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">other</span><span class="p">[</span><span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">df</span>
+
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">other</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">__class__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

@@ -41,86 +41,9 @@
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
+<span class="kn">from</span> <span class="nn">powersimdata.input.configure</span> <span class="kn">import</span> <span class="n">linearize_gencost</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.helpers</span> <span class="kn">import</span> <span class="n">_check_import</span>
-
-
-<div class="viewcode-block" id="linearize_gencost"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.cost_curves.linearize_gencost">[docs]</a><span class="k">def</span> <span class="nf">linearize_gencost</span><span class="p">(</span><span class="n">input_grid</span><span class="p">,</span> <span class="n">num_segments</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Updates the generator cost information to include piecewise linear cost curve</span>
-<span class="sd">    information. Allows the user to specify the number of piecewise segments into which</span>
-<span class="sd">    the cost curve should be split.</span>
-
-<span class="sd">    :param powersimdata.inout.grid.Grid input_grid: Grid object.</span>
-<span class="sd">    :param int num_segments: The number of segments into which the piecewise linear</span>
-<span class="sd">        cost curve will be split.</span>
-<span class="sd">    :return: (*pandas.DataFrame*) -- An updated DataFrame containing the piecewise</span>
-<span class="sd">        linear cost curve parameters.</span>
-<span class="sd">    :raises ValueError: if the generator cost curve is not of an acceptable form.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="c1"># Access the generator cost and plant information components</span>
-    <span class="n">grid</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">input_grid</span><span class="p">)</span>
-    <span class="n">gencost_before</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span>
-    <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
-
-    <span class="c1"># Raise errors if the provided cost curves are not in a form that can be handled</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gencost_before</span><span class="p">[</span><span class="n">gencost_before</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">]):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;gencost currently limited to polynomial&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gencost_before</span><span class="p">[</span><span class="n">gencost_before</span><span class="o">.</span><span class="n">n</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">]):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;gencost currently limited to quadratic&quot;</span><span class="p">)</span>
-
-    <span class="c1"># Access the quadratic cost curve information</span>
-    <span class="n">quad_term</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">c2</span>
-    <span class="n">lin_term</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">c1</span>
-    <span class="n">const_term</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">c0</span>
-
-    <span class="c1"># Convert dispatchable generators to piecewise segments</span>
-    <span class="n">dispatchable_gens</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span> <span class="o">!=</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span>
-    <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">dispatchable_gens</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">gencost_after</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
-            <span class="n">index</span><span class="o">=</span><span class="n">gencost_before</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
-            <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;startup&quot;</span><span class="p">,</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c0&quot;</span><span class="p">],</span>
-        <span class="p">)</span>
-        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="n">gencost_after</span><span class="p">[[</span><span class="s2">&quot;startup&quot;</span><span class="p">,</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c0&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="p">[</span>
-            <span class="p">[</span><span class="s2">&quot;startup&quot;</span><span class="p">,</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c0&quot;</span><span class="p">]</span>
-        <span class="p">]</span>
-        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_segments</span> <span class="o">+</span> <span class="mi">1</span>
-        <span class="n">power_step</span> <span class="o">=</span> <span class="p">(</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">-</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span><span class="p">)</span> <span class="o">/</span> <span class="n">num_segments</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_segments</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="n">capacity_label</span> <span class="o">=</span> <span class="s2">&quot;p&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="n">price_label</span> <span class="o">=</span> <span class="s2">&quot;f&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="n">capacity_data</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span> <span class="o">+</span> <span class="n">power_step</span> <span class="o">*</span> <span class="n">i</span>
-            <span class="n">price_data</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">quad_term</span> <span class="o">*</span> <span class="n">capacity_data</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">lin_term</span> <span class="o">*</span> <span class="n">capacity_data</span> <span class="o">+</span> <span class="n">const_term</span>
-            <span class="p">)</span>
-            <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dispatchable_gens</span><span class="p">,</span> <span class="n">capacity_label</span><span class="p">]</span> <span class="o">=</span> <span class="n">capacity_data</span><span class="p">[</span>
-                <span class="n">dispatchable_gens</span>
-            <span class="p">]</span>
-            <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dispatchable_gens</span><span class="p">,</span> <span class="n">price_label</span><span class="p">]</span> <span class="o">=</span> <span class="n">price_data</span><span class="p">[</span>
-                <span class="n">dispatchable_gens</span>
-            <span class="p">]</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;after&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-
-    <span class="c1"># Convert non-dispatchable gens to fixed values</span>
-    <span class="n">nondispatchable_gens</span> <span class="o">=</span> <span class="o">~</span><span class="n">dispatchable_gens</span>
-    <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">nondispatchable_gens</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
-            <span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span>
-        <span class="p">]</span>
-        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
-            <span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span>
-        <span class="p">]</span>
-        <span class="n">power</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span>
-        <span class="n">price_data</span> <span class="o">=</span> <span class="n">quad_term</span> <span class="o">*</span> <span class="n">power</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">lin_term</span> <span class="o">*</span> <span class="n">power</span> <span class="o">+</span> <span class="n">const_term</span>
-        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;c0&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">price_data</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">]</span>
-
-    <span class="n">gencost_after</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
-
-    <span class="c1"># Return the updated generator cost information</span>
-    <span class="k">return</span> <span class="n">gencost_after</span></div>
 
 
 <div class="viewcode-block" id="get_supply_data"><a class="viewcode-back" href="../../../../powersimdata.design.generation.html#powersimdata.design.generation.cost_curves.get_supply_data">[docs]</a><span class="k">def</span> <span class="nf">get_supply_data</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">num_segments</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -146,7 +69,7 @@
     <span class="n">grid</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
 
     <span class="c1"># Access the generator cost and plant information data</span>
-    <span class="n">gencost_df</span> <span class="o">=</span> <span class="n">linearize_gencost</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">num_segments</span><span class="p">)</span>
+    <span class="n">gencost_df</span> <span class="o">=</span> <span class="n">linearize_gencost</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">],</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">,</span> <span class="n">num_segments</span><span class="p">)</span>
     <span class="n">plant_df</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
 
     <span class="c1"># Create a new DataFrame with the desired columns</span>

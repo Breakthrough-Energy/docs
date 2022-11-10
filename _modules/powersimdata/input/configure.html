@@ -1,0 +1,249 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.input.configure &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.input.configure</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+
+<div class="viewcode-block" id="adjust_pmin"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.configure.adjust_pmin">[docs]</a><span class="k">def</span> <span class="nf">adjust_pmin</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Adjust plant Pmin values inplace</span>
+
+<span class="sd">    :param powersimdata.input.grid.Grid grid: a grid object</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mi</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span>
+    <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+    <span class="n">pmin_factor</span> <span class="o">=</span> <span class="n">mi</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;pmin_as_share_of_pmax&quot;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_scale</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="n">factor</span> <span class="o">=</span> <span class="n">pmin_factor</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">Pmin</span> <span class="k">if</span> <span class="n">factor</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">factor</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">Pmax</span>
+
+    <span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_scale</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># set Pmin to 0 for generators that are off or profile based</span>
+    <span class="n">profile_resource</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">mi</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;profile_resources&quot;</span><span class="p">])</span>
+    <span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">profile_resource</span><span class="p">),</span> <span class="s2">&quot;Pmin&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Pmin&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span></div>
+
+
+<div class="viewcode-block" id="adjust_ramp30"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.configure.adjust_ramp30">[docs]</a><span class="k">def</span> <span class="nf">adjust_ramp30</span><span class="p">(</span><span class="n">plant</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Adjust plant ramp_30 values inplace</span>
+
+<span class="sd">    :param pandas.DataDrame plant: a plant dataframe</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">plant</span><span class="o">.</span><span class="n">ramp_30</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="n">ramp30_points</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;coal&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">1400</span><span class="p">),</span> <span class="s2">&quot;ys&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">)},</span>
+        <span class="s2">&quot;dfo&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">1200</span><span class="p">),</span> <span class="s2">&quot;ys&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)},</span>
+        <span class="s2">&quot;ng&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;xs&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">600</span><span class="p">),</span> <span class="s2">&quot;ys&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)},</span>
+    <span class="p">}</span>
+    <span class="k">for</span> <span class="n">fuel</span><span class="p">,</span> <span class="n">points</span> <span class="ow">in</span> <span class="n">ramp30_points</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">fuel_idx</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">fuel</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">]</span>
+        <span class="n">slope</span> <span class="o">=</span> <span class="p">(</span><span class="n">points</span><span class="p">[</span><span class="s2">&quot;ys&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">points</span><span class="p">[</span><span class="s2">&quot;ys&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span>
+            <span class="n">points</span><span class="p">[</span><span class="s2">&quot;xs&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">points</span><span class="p">[</span><span class="s2">&quot;xs&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">intercept</span> <span class="o">=</span> <span class="n">points</span><span class="p">[</span><span class="s2">&quot;ys&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">slope</span> <span class="o">*</span> <span class="n">points</span><span class="p">[</span><span class="s2">&quot;xs&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">fuel_idx</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+            <span class="n">pmax</span> <span class="o">=</span> <span class="n">fuel_idx</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+            <span class="n">norm_ramp</span> <span class="o">=</span> <span class="n">pmax</span> <span class="o">*</span> <span class="n">slope</span> <span class="o">+</span> <span class="n">intercept</span>
+            <span class="k">if</span> <span class="n">pmax</span> <span class="o">&lt;</span> <span class="n">points</span><span class="p">[</span><span class="s2">&quot;xs&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="n">norm_ramp</span> <span class="o">=</span> <span class="n">points</span><span class="p">[</span><span class="s2">&quot;ys&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">pmax</span> <span class="o">&gt;</span> <span class="n">points</span><span class="p">[</span><span class="s2">&quot;xs&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="n">norm_ramp</span> <span class="o">=</span> <span class="n">points</span><span class="p">[</span><span class="s2">&quot;ys&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">plant</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="s2">&quot;ramp_30&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">norm_ramp</span> <span class="o">*</span> <span class="n">pmax</span></div>
+
+
+<div class="viewcode-block" id="linearize_gencost"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.configure.linearize_gencost">[docs]</a><span class="k">def</span> <span class="nf">linearize_gencost</span><span class="p">(</span><span class="n">gencost_before</span><span class="p">,</span> <span class="n">plant</span><span class="p">,</span> <span class="n">num_segments</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Updates the generator cost information to include piecewise linear cost curve</span>
+<span class="sd">    information. Allows the user to specify the number of piecewise segments into which</span>
+<span class="sd">    the cost curve should be split.</span>
+
+<span class="sd">    :param pandas.DataFrame gencost_before: the original gencost</span>
+<span class="sd">    :param pandas.DataFrame plant: the generator information containing Pmin/Pmax</span>
+<span class="sd">    :param int num_segments: The number of segments into which the piecewise linear</span>
+<span class="sd">        cost curve will be split.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- An updated DataFrame containing the piecewise</span>
+<span class="sd">        linear cost curve parameters.</span>
+<span class="sd">    :raises ValueError: if the generator cost curve is not of an acceptable form.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Raise errors if the provided cost curves are not in a form that can be handled</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gencost_before</span><span class="p">[</span><span class="n">gencost_before</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;gencost currently limited to polynomial&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gencost_before</span><span class="p">[</span><span class="n">gencost_before</span><span class="o">.</span><span class="n">n</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;gencost currently limited to quadratic&quot;</span><span class="p">)</span>
+
+    <span class="n">gencost_before</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="c1"># Access the quadratic cost curve information</span>
+    <span class="n">quad_term</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">c2</span>
+    <span class="n">lin_term</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">c1</span>
+    <span class="n">const_term</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">c0</span>
+
+    <span class="c1"># Convert dispatchable generators to piecewise segments</span>
+    <span class="n">dispatchable_gens</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span> <span class="o">!=</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span>
+    <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">dispatchable_gens</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">gencost_after</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">gencost_before</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;startup&quot;</span><span class="p">,</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c0&quot;</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">gencost_after</span><span class="p">[[</span><span class="s2">&quot;startup&quot;</span><span class="p">,</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c0&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="p">[</span>
+            <span class="p">[</span><span class="s2">&quot;startup&quot;</span><span class="p">,</span> <span class="s2">&quot;shutdown&quot;</span><span class="p">,</span> <span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">,</span> <span class="s2">&quot;c0&quot;</span><span class="p">]</span>
+        <span class="p">]</span>
+        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_segments</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">power_step</span> <span class="o">=</span> <span class="p">(</span><span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span> <span class="o">-</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span><span class="p">)</span> <span class="o">/</span> <span class="n">num_segments</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_segments</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">capacity_label</span> <span class="o">=</span> <span class="s2">&quot;p&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">price_label</span> <span class="o">=</span> <span class="s2">&quot;f&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">capacity_data</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmin</span> <span class="o">+</span> <span class="n">power_step</span> <span class="o">*</span> <span class="n">i</span>
+            <span class="n">price_data</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">quad_term</span> <span class="o">*</span> <span class="n">capacity_data</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">lin_term</span> <span class="o">*</span> <span class="n">capacity_data</span> <span class="o">+</span> <span class="n">const_term</span>
+            <span class="p">)</span>
+            <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dispatchable_gens</span><span class="p">,</span> <span class="n">capacity_label</span><span class="p">]</span> <span class="o">=</span> <span class="n">capacity_data</span><span class="p">[</span>
+                <span class="n">dispatchable_gens</span>
+            <span class="p">]</span>
+            <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">dispatchable_gens</span><span class="p">,</span> <span class="n">price_label</span><span class="p">]</span> <span class="o">=</span> <span class="n">price_data</span><span class="p">[</span>
+                <span class="n">dispatchable_gens</span>
+            <span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">gencost_after</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Convert non-dispatchable gens to fixed values</span>
+    <span class="n">nondispatchable_gens</span> <span class="o">=</span> <span class="o">~</span><span class="n">dispatchable_gens</span>
+    <span class="k">if</span> <span class="nb">sum</span><span class="p">(</span><span class="n">nondispatchable_gens</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+            <span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span>
+        <span class="p">]</span>
+        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+            <span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;n&quot;</span>
+        <span class="p">]</span>
+        <span class="n">power</span> <span class="o">=</span> <span class="n">plant</span><span class="o">.</span><span class="n">Pmax</span>
+        <span class="n">price_data</span> <span class="o">=</span> <span class="n">quad_term</span> <span class="o">*</span> <span class="n">power</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">lin_term</span> <span class="o">*</span> <span class="n">power</span> <span class="o">+</span> <span class="n">const_term</span>
+        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;c2&quot;</span><span class="p">,</span> <span class="s2">&quot;c1&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">gencost_after</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">,</span> <span class="s2">&quot;c0&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">price_data</span><span class="p">[</span><span class="n">nondispatchable_gens</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="s2">&quot;interconnect&quot;</span> <span class="ow">in</span> <span class="n">gencost_before</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">gencost_after</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gencost_before</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">gencost_after</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

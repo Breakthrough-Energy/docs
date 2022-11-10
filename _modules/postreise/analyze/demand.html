@@ -36,9 +36,7 @@
           <div class="body" role="main">
             
   <h1>Source code for postreise.analyze.demand</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">area_to_loadzone</span>
-
-<span class="kn">from</span> <span class="nn">postreise.analyze.generation.summarize</span> <span class="kn">import</span> <span class="p">(</span>
+<span></span><span class="kn">from</span> <span class="nn">postreise.analyze.generation.summarize</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_generation_time_series_by_resources</span><span class="p">,</span>
 <span class="p">)</span>
 
@@ -55,9 +53,7 @@
 <span class="sd">        column: demand values</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
-    <span class="n">loadzone_set</span> <span class="o">=</span> <span class="n">area_to_loadzone</span><span class="p">(</span>
-        <span class="n">scenario</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">],</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="n">area_type</span>
-    <span class="p">)</span>
+    <span class="n">loadzone_set</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">area_to_loadzone</span><span class="p">(</span><span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="n">area_type</span><span class="p">)</span>
     <span class="n">loadzone_id_set</span> <span class="o">=</span> <span class="p">{</span><span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">lz</span><span class="p">]</span> <span class="k">for</span> <span class="n">lz</span> <span class="ow">in</span> <span class="n">loadzone_set</span> <span class="k">if</span> <span class="n">lz</span> <span class="ow">in</span> <span class="n">grid</span><span class="o">.</span><span class="n">zone2id</span><span class="p">}</span>
 
     <span class="k">return</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_demand</span><span class="p">()[</span><span class="nb">list</span><span class="p">(</span><span class="n">loadzone_id_set</span><span class="p">)]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
@@ -74,9 +70,12 @@
 <span class="sd">    :return: (*pandas.Series*) -- time series of total demand, index: time stamps,</span>
 <span class="sd">        column: net demand values</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">renewables</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;wind&quot;</span><span class="p">,</span> <span class="s2">&quot;wind_offshore&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">]</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
     <span class="n">renewable_pg</span> <span class="o">=</span> <span class="n">get_generation_time_series_by_resources</span><span class="p">(</span>
-        <span class="n">scenario</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">renewables</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="n">area_type</span>
+        <span class="n">scenario</span><span class="p">,</span>
+        <span class="n">area</span><span class="p">,</span>
+        <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;renewable_resources&quot;</span><span class="p">],</span>
+        <span class="n">area_type</span><span class="o">=</span><span class="n">area_type</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">demand</span> <span class="o">=</span> <span class="n">get_demand_time_series</span><span class="p">(</span><span class="n">scenario</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">area_type</span><span class="o">=</span><span class="n">area_type</span><span class="p">)</span>
     <span class="n">net_demand</span> <span class="o">=</span> <span class="n">demand</span> <span class="o">-</span> <span class="n">renewable_pg</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>

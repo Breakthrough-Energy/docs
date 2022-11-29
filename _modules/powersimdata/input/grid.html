@@ -36,10 +36,7 @@
           <div class="body" role="main">
             
   <h1>Source code for powersimdata.input.grid</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">os</span>
-
-<span class="kn">from</span> <span class="nn">powersimdata.input.converter.reise_to_grid</span> <span class="kn">import</span> <span class="n">FromREISE</span><span class="p">,</span> <span class="n">FromREISEjl</span>
-<span class="kn">from</span> <span class="nn">powersimdata.network.constants.carrier.storage</span> <span class="kn">import</span> <span class="n">storage</span>
+<span></span><span class="kn">from</span> <span class="nn">powersimdata.network.constants.carrier.storage</span> <span class="kn">import</span> <span class="n">storage</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.hifld.model</span> <span class="kn">import</span> <span class="n">HIFLD</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.usa_tamu.model</span> <span class="kn">import</span> <span class="n">TAMU</span>
 <span class="kn">from</span> <span class="nn">powersimdata.utility.helpers</span> <span class="kn">import</span> <span class="n">MemoryCache</span><span class="p">,</span> <span class="n">cache_key</span>
@@ -50,7 +47,6 @@
 <div class="viewcode-block" id="Grid"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.grid.Grid">[docs]</a><span class="k">class</span> <span class="nc">Grid</span><span class="p">:</span>
 
     <span class="n">SUPPORTED_MODELS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">}</span>
-    <span class="n">SUPPORTED_ENGINES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;REISE&quot;</span><span class="p">,</span> <span class="s2">&quot;REISE.jl&quot;</span><span class="p">}</span>
 
     <span class="sd">&quot;&quot;&quot;Grid</span>
 
@@ -59,24 +55,18 @@
 <span class="sd">        interconnects in the region. The full list of interconnects of the grid models</span>
 <span class="sd">        is defined in :mod:`powersimdata.network.constants.model.model2interconnect`.</span>
 <span class="sd">    :param str source: model used to build the network. Can be one of the supported</span>
-<span class="sd">        models, or a .mat file that represents a grid.</span>
-<span class="sd">    :param str engine: engine used to run scenario, if using ScenarioGrid.</span>
+<span class="sd">        models</span>
 <span class="sd">    :raises TypeError: if source and engine are not both strings.</span>
 <span class="sd">    :raises ValueError: if source or engine does not exist.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;REISE&quot;</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;source must be a str&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">source</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">SUPPORTED_MODELS</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">source</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.mat&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">source</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">SUPPORTED_MODELS</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Source must be one of </span><span class="si">{</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">SUPPORTED_MODELS</span><span class="p">)</span><span class="si">}</span><span class="s2"> &quot;</span>
-                <span class="s2">&quot;or the path to a .mat file that represents a grid &quot;</span>
-            <span class="p">)</span>
-        <span class="k">if</span> <span class="n">engine</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">SUPPORTED_ENGINES</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Engine must be one of </span><span class="si">{</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">SUPPORTED_ENGINES</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
 
         <span class="n">key</span> <span class="o">=</span> <span class="n">cache_key</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>
@@ -87,11 +77,6 @@
             <span class="n">network</span> <span class="o">=</span> <span class="n">TAMU</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">source</span> <span class="o">==</span> <span class="s2">&quot;hifld&quot;</span><span class="p">:</span>
             <span class="n">network</span> <span class="o">=</span> <span class="n">HIFLD</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">source</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;.mat&quot;</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">engine</span> <span class="o">==</span> <span class="s2">&quot;REISE&quot;</span><span class="p">:</span>
-                <span class="n">network</span> <span class="o">=</span> <span class="n">FromREISE</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="n">engine</span> <span class="o">==</span> <span class="s2">&quot;REISE.jl&quot;</span><span class="p">:</span>
-                <span class="n">network</span> <span class="o">=</span> <span class="n">FromREISEjl</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown source: </span><span class="si">{</span><span class="n">source</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 

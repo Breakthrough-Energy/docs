@@ -55,8 +55,7 @@ Energy Sciences team. Here is what you will find on GitHub:
 
     flowchart TD
         subgraph M[PreREISE]
-        B["Prepare time series .csv's
-        and other data input"]
+        B["Prepare time series as CSV files"]
         end
 
         subgraph N[PowerSimData]
@@ -70,12 +69,18 @@ Energy Sciences team. Here is what you will find on GitHub:
         F["Simulation Engine to translate
         the optimization problem to solver"]
         end
-        D --".mat and .csv"--> O
+        D --".pkl and .csv"--> O
         O --".pkl"--> E
+        
         subgraph P[PostREISE]
         G["Optional output analysis and plotting"]
         end
         E ----> P
+
+        class M,N,O,P grey
+        class B,C,D,E,F,G white
+        classDef grey fill:#c0c5ce,stroke:#333,stroke-width:2px
+        classDef white fill:#ffffff,stroke:#333,stroke-width:2px
 
 The first three packages are written in Python. The last one, the simulation engine, is
 written in Julia. You are welcome to contribute to any of these packages. In the next

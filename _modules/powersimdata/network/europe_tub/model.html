@@ -1,0 +1,225 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>powersimdata.network.europe_tub.model &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <script src="../../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for powersimdata.network.europe_tub.model</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.network.constants.region.geography</span> <span class="kn">import</span> <span class="n">get_geography</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.constants.region.zones</span> <span class="kn">import</span> <span class="n">from_pypsa</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">check_and_format_interconnect</span><span class="p">,</span>
+    <span class="n">interconnect_to_name</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.zenodo</span> <span class="kn">import</span> <span class="n">Zenodo</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility.helpers</span> <span class="kn">import</span> <span class="n">_check_import</span>
+
+<span class="n">pypsa</span> <span class="o">=</span> <span class="n">_check_import</span><span class="p">(</span><span class="s2">&quot;pypsa&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="TUB"><a class="viewcode-back" href="../../../../powersimdata.network.europe_tub.html#powersimdata.network.europe_tub.model.TUB">[docs]</a><span class="k">class</span> <span class="nc">TUB</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;PyPSA Europe network.</span>
+
+<span class="sd">    :param str/iterable interconnect: interconnect name(s).</span>
+<span class="sd">    :param str zenodo_record_id: the zenodo record id. If set to None, v0.6.1 will</span>
+<span class="sd">        be used. If set to latest, the latest version will be used.</span>
+<span class="sd">    :param int reduction: reduction parameter (number of nodes in network). If None,</span>
+<span class="sd">        the full network is loaded.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">zenodo_record_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span> <span class="o">=</span> <span class="s2">&quot;europe_tub&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="n">check_and_format_interconnect</span><span class="p">(</span>
+            <span class="n">interconnect</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">zenodo_record_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="n">Zenodo</span><span class="p">(</span><span class="s2">&quot;7251657&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">zenodo_record_id</span> <span class="o">==</span> <span class="s2">&quot;latest&quot;</span><span class="p">:</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="n">Zenodo</span><span class="p">(</span><span class="s2">&quot;3601881&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="n">Zenodo</span><span class="p">(</span><span class="n">zenodo_record_id</span><span class="p">)</span>
+
+        <span class="n">z</span><span class="o">.</span><span class="n">load_data</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">dir</span><span class="p">,</span> <span class="s2">&quot;networks&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_reduction</span><span class="p">(</span><span class="n">reduction</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_set_reduction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reduction</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Validate and set reduction parameter</span>
+
+<span class="sd">        :raises ValueError: if ``reduction`` is not available.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">reduction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">available</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">s</span>
+                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">reduction</span><span class="p">)</span> <span class="ow">in</span> <span class="n">available</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="o">=</span> <span class="n">reduction</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Available reduced network: </span><span class="si">{</span><span class="s1">&#39; | &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">available</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TUB.build"><a class="viewcode-back" href="../../../../powersimdata.network.europe_tub.html#powersimdata.network.europe_tub.model.TUB.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Build network&quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;elec_s&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">network</span> <span class="o">=</span> <span class="n">pypsa</span><span class="o">.</span><span class="n">Network</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;.nc&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">network</span> <span class="o">=</span> <span class="n">pypsa</span><span class="o">.</span><span class="n">Network</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction</span><span class="si">}</span><span class="s2">_ec.nc&quot;</span><span class="p">)</span>
+
+        <span class="n">id2zone</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="n">l</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">)}</span>
+        <span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="n">l</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">id2zone</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">==</span> <span class="p">[</span><span class="s2">&quot;Europe&quot;</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">network</span> <span class="o">=</span> <span class="n">network</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="n">id2zone</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="n">zone2id</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">geo</span> <span class="o">=</span> <span class="n">get_geography</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">)</span>
+            <span class="nb">filter</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>  <span class="c1"># noqa: F841</span>
+                <span class="n">geo</span><span class="p">[</span><span class="s2">&quot;interconnect2abv&quot;</span><span class="p">][</span>
+                    <span class="n">interconnect_to_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">)</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">network</span> <span class="o">=</span> <span class="n">network</span><span class="p">[</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;country == @filter&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="n">l</span><span class="p">:</span> <span class="n">zone2id</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="n">l</span> <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+        <span class="n">zone</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="p">[</span><span class="s2">&quot;country&quot;</span><span class="p">]</span>
+            <span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">set_axis</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Bus&quot;</span><span class="p">:</span> <span class="s2">&quot;zone_name&quot;</span><span class="p">,</span> <span class="s2">&quot;country&quot;</span><span class="p">:</span> <span class="s2">&quot;abv&quot;</span><span class="p">})</span>
+            <span class="o">.</span><span class="n">rename_axis</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="s2">&quot;zone_id&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_immutables</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span>
+            <span class="n">interconnect</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span>
+            <span class="n">zone</span><span class="o">=</span><span class="n">from_pypsa</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">zone</span><span class="p">),</span>
+        <span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../index.html">
+    <img class="logo" src="../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -38,6 +38,9 @@
   <h1>Source code for powersimdata.network.europe_tub.model</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">os</span>
 
+<span class="kn">import</span> <span class="nn">pypsa</span>
+
+<span class="kn">from</span> <span class="nn">powersimdata.input.converter.pypsa_to_grid</span> <span class="kn">import</span> <span class="n">FromPyPSA</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.constants.region.geography</span> <span class="kn">import</span> <span class="n">get_geography</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.constants.region.zones</span> <span class="kn">import</span> <span class="n">from_pypsa</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.helpers</span> <span class="kn">import</span> <span class="p">(</span>
@@ -46,82 +49,41 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.zenodo</span> <span class="kn">import</span> <span class="n">Zenodo</span>
-<span class="kn">from</span> <span class="nn">powersimdata.utility.helpers</span> <span class="kn">import</span> <span class="n">_check_import</span>
-
-<span class="n">pypsa</span> <span class="o">=</span> <span class="n">_check_import</span><span class="p">(</span><span class="s2">&quot;pypsa&quot;</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="TUB"><a class="viewcode-back" href="../../../../powersimdata.network.europe_tub.html#powersimdata.network.europe_tub.model.TUB">[docs]</a><span class="k">class</span> <span class="nc">TUB</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;PyPSA Europe network.</span>
+<div class="viewcode-block" id="PyPSABase"><a class="viewcode-back" href="../../../../powersimdata.network.europe_tub.html#powersimdata.network.europe_tub.model.PyPSABase">[docs]</a><span class="k">class</span> <span class="nc">PyPSABase</span><span class="p">(</span><span class="n">FromPyPSA</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Arbitrary PyPSA network.</span>
 
 <span class="sd">    :param str/iterable interconnect: interconnect name(s).</span>
-<span class="sd">    :param str zenodo_record_id: the zenodo record id. If set to None, v0.6.1 will</span>
-<span class="sd">        be used. If set to latest, the latest version will be used.</span>
-<span class="sd">    :param int reduction: reduction parameter (number of nodes in network). If None,</span>
-<span class="sd">        the full network is loaded.</span>
+<span class="sd">    :param str grid_model: the grid model</span>
+<span class="sd">    :param pypsa.Network network: a PyPSA network object</span>
+<span class="sd">    :param bool add_pypsa_cols: PyPSA data frames with renamed columns appended to</span>
+<span class="sd">        Grid object data frames.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">zenodo_record_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">,</span> <span class="n">network</span><span class="p">,</span> <span class="n">add_pypsa_cols</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span> <span class="o">=</span> <span class="s2">&quot;europe_tub&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="n">add_pypsa_cols</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span> <span class="o">=</span> <span class="n">grid_model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="n">check_and_format_interconnect</span><span class="p">(</span>
             <span class="n">interconnect</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span>
         <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">zenodo_record_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">z</span> <span class="o">=</span> <span class="n">Zenodo</span><span class="p">(</span><span class="s2">&quot;7251657&quot;</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">zenodo_record_id</span> <span class="o">==</span> <span class="s2">&quot;latest&quot;</span><span class="p">:</span>
-            <span class="n">z</span> <span class="o">=</span> <span class="n">Zenodo</span><span class="p">(</span><span class="s2">&quot;3601881&quot;</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">z</span> <span class="o">=</span> <span class="n">Zenodo</span><span class="p">(</span><span class="n">zenodo_record_id</span><span class="p">)</span>
+<div class="viewcode-block" id="PyPSABase.build_eur"><a class="viewcode-back" href="../../../../powersimdata.network.europe_tub.html#powersimdata.network.europe_tub.model.PyPSABase.build_eur">[docs]</a>    <span class="k">def</span> <span class="nf">build_eur</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="n">l</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">)}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="n">l</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
-        <span class="n">z</span><span class="o">.</span><span class="n">load_data</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">dir</span><span class="p">,</span> <span class="s2">&quot;networks&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_set_reduction</span><span class="p">(</span><span class="n">reduction</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_set_reduction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reduction</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Validate and set reduction parameter</span>
-
-<span class="sd">        :raises ValueError: if ``reduction`` is not available.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">reduction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">available</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">s</span>
-                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span>
-            <span class="p">]</span>
-            <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">reduction</span><span class="p">)</span> <span class="ow">in</span> <span class="n">available</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="o">=</span> <span class="n">reduction</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Available reduced network: </span><span class="si">{</span><span class="s1">&#39; | &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">available</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-<div class="viewcode-block" id="TUB.build"><a class="viewcode-back" href="../../../../powersimdata.network.europe_tub.html#powersimdata.network.europe_tub.model.TUB.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Build network&quot;&quot;&quot;</span>
-        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;elec_s&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">network</span> <span class="o">=</span> <span class="n">pypsa</span><span class="o">.</span><span class="n">Network</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;.nc&quot;</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">network</span> <span class="o">=</span> <span class="n">pypsa</span><span class="o">.</span><span class="n">Network</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction</span><span class="si">}</span><span class="s2">_ec.nc&quot;</span><span class="p">)</span>
-
-        <span class="n">id2zone</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="n">l</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">)}</span>
-        <span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="n">l</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">id2zone</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">==</span> <span class="p">[</span><span class="s2">&quot;Europe&quot;</span><span class="p">]:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">network</span> <span class="o">=</span> <span class="n">network</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="n">id2zone</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="n">zone2id</span>
-        <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">!=</span> <span class="p">[</span><span class="s2">&quot;Europe&quot;</span><span class="p">]:</span>
             <span class="n">geo</span> <span class="o">=</span> <span class="n">get_geography</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">)</span>
             <span class="nb">filter</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>  <span class="c1"># noqa: F841</span>
                 <span class="n">geo</span><span class="p">[</span><span class="s2">&quot;interconnect2abv&quot;</span><span class="p">][</span>
                     <span class="n">interconnect_to_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">)</span>
                 <span class="p">]</span>
             <span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">network</span> <span class="o">=</span> <span class="n">network</span><span class="p">[</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;country == @filter&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="n">l</span><span class="p">:</span> <span class="n">zone2id</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">network</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;country == @filter&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span>
+            <span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">{</span><span class="n">l</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">index</span><span class="p">}</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="n">l</span> <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
         <span class="n">zone</span> <span class="o">=</span> <span class="p">(</span>
@@ -135,7 +97,80 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span>
             <span class="n">interconnect</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span>
             <span class="n">zone</span><span class="o">=</span><span class="n">from_pypsa</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">zone</span><span class="p">),</span>
-        <span class="p">)</span></div></div>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="PyPSABase.build"><a class="viewcode-back" href="../../../../powersimdata.network.europe_tub.html#powersimdata.network.europe_tub.model.PyPSABase.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Build network&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span> <span class="o">==</span> <span class="s2">&quot;europe_tub&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_eur</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_immutables</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">interconnect</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span>
+            <span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">build</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="TUB"><a class="viewcode-back" href="../../../../powersimdata.network.europe_tub.html#powersimdata.network.europe_tub.model.TUB">[docs]</a><span class="k">class</span> <span class="nc">TUB</span><span class="p">(</span><span class="n">PyPSABase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;PyPSA Europe network.</span>
+
+<span class="sd">    :param str/iterable interconnect: interconnect name(s).</span>
+<span class="sd">    :param str zenodo_record_id: the zenodo record id. If set to None, v0.6.1 will</span>
+<span class="sd">        be used. If set to latest, the latest version will be used.</span>
+<span class="sd">    :param int reduction: reduction parameter (number of nodes in network). If None,</span>
+<span class="sd">        the full network is loaded.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">zenodo_record_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">network</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">from_zenodo</span><span class="p">(</span><span class="n">zenodo_record_id</span><span class="p">,</span> <span class="n">reduction</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">interconnect</span><span class="p">,</span> <span class="s2">&quot;europe_tub&quot;</span><span class="p">,</span> <span class="n">network</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TUB.from_zenodo"><a class="viewcode-back" href="../../../../powersimdata.network.europe_tub.html#powersimdata.network.europe_tub.model.TUB.from_zenodo">[docs]</a>    <span class="k">def</span> <span class="nf">from_zenodo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">zenodo_record_id</span><span class="p">,</span> <span class="n">reduction</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create network from zenodo data</span>
+
+<span class="sd">        :param str zenodo_record_id: the zenodo record id. If set to None, v0.6.1 will</span>
+<span class="sd">            be used. If set to latest, the latest version will be used.</span>
+<span class="sd">        :param int reduction: reduction parameter (number of nodes in network). If None,</span>
+<span class="sd">            the full network is loaded.</span>
+<span class="sd">        :return: (*pypsa.Network*) -- a PyPSA network object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">zenodo_record_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="n">Zenodo</span><span class="p">(</span><span class="s2">&quot;7251657&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">zenodo_record_id</span> <span class="o">==</span> <span class="s2">&quot;latest&quot;</span><span class="p">:</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="n">Zenodo</span><span class="p">(</span><span class="s2">&quot;3601881&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="n">Zenodo</span><span class="p">(</span><span class="n">zenodo_record_id</span><span class="p">)</span>
+
+        <span class="n">z</span><span class="o">.</span><span class="n">load_data</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">dir</span><span class="p">,</span> <span class="s2">&quot;networks&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_network</span><span class="p">(</span><span class="n">reduction</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_get_network</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reduction</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a PyPSA network with the given reduction</span>
+
+<span class="sd">        :param int reduction: reduction parameter (number of nodes in network). If None,</span>
+<span class="sd">            the full network is loaded.</span>
+<span class="sd">        :return: (*pypsa.Network*) -- a PyPSA network object</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;elec_s&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_reduction</span><span class="p">(</span><span class="n">reduction</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">reduction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pypsa</span><span class="o">.</span><span class="n">Network</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;.nc&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pypsa</span><span class="o">.</span><span class="n">Network</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="n">reduction</span><span class="si">}</span><span class="s2">_ec.nc&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_check_reduction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reduction</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Validate reduction parameter</span>
+
+<span class="sd">        :param int reduction: reduction parameter (number of nodes in network).</span>
+<span class="sd">        :raises ValueError: if ``reduction`` is not available.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">reduction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">available</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">s</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">reduction</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">available</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Available reduced network: </span><span class="si">{</span><span class="s1">&#39; | &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">available</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 </pre></div>
 
           </div>

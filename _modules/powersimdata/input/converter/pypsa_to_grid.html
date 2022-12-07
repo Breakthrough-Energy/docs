@@ -44,7 +44,6 @@
 <span class="kn">from</span> <span class="nn">powersimdata.input.abstract_grid</span> <span class="kn">import</span> <span class="n">AbstractGrid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.const</span> <span class="kn">import</span> <span class="n">grid_const</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.const.pypsa_const</span> <span class="kn">import</span> <span class="n">pypsa_const</span>
-<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.constants.carrier.storage</span> <span class="kn">import</span> <span class="n">storage</span> <span class="k">as</span> <span class="n">storage_const</span>
 
 
@@ -170,7 +169,7 @@
 <div class="viewcode-block" id="FromPyPSA"><a class="viewcode-back" href="../../../../powersimdata.input.converter.html#powersimdata.input.converter.pypsa_to_grid.FromPyPSA">[docs]</a><span class="k">class</span> <span class="nc">FromPyPSA</span><span class="p">(</span><span class="n">AbstractGrid</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Grid builder for PyPSA network object.</span>
 
-<span class="sd">    :param pypsa.Network network: Network to read in.</span>
+<span class="sd">    :param pypsa.Network network: PyPSA network to read in.</span>
 <span class="sd">    :param bool add_pypsa_cols: PyPSA data frames with renamed columns appended to</span>
 <span class="sd">        Grid object data frames.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -178,23 +177,35 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">network</span><span class="p">,</span> <span class="n">add_pypsa_cols</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_read_network</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="n">add_pypsa_cols</span><span class="o">=</span><span class="n">add_pypsa_cols</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">network</span> <span class="o">=</span> <span class="n">network</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_pypsa_cols</span> <span class="o">=</span> <span class="n">add_pypsa_cols</span>
 
-    <span class="k">def</span> <span class="nf">_read_network</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">add_pypsa_cols</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;PyPSA Network reader.</span>
+    <span class="k">def</span> <span class="nf">_set_interconnect</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="p">)</span>
 
-<span class="sd">        :param pypsa.Network n: PyPSA network to read in.</span>
-<span class="sd">        :param bool add_pypsa_cols: PyPSA data frames with renamed columns appended to</span>
-<span class="sd">            Grid object data frames</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="c1"># Interconnect and data location</span>
-        <span class="c1"># only relevant if the PyPSA network was originally created from PSD</span>
-        <span class="n">interconnect</span> <span class="o">=</span> <span class="n">n</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;, &quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">interconnect</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">data_loc</span> <span class="o">=</span> <span class="n">interconnect</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_set_data_loc</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">data_loc</span> <span class="o">=</span> <span class="s2">&quot;pypsa&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="s2">&quot;pypsa&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_set_zone_mapping</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">network</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span><span class="p">):</span>
+            <span class="k">return</span>
+        <span class="c1"># only relevant if the PyPSA network was originally created from PSD</span>
+        <span class="k">if</span> <span class="s2">&quot;zone_id&quot;</span> <span class="ow">in</span> <span class="n">n</span><span class="o">.</span><span class="n">buses</span> <span class="ow">and</span> <span class="s2">&quot;zone_name&quot;</span> <span class="ow">in</span> <span class="n">n</span><span class="o">.</span><span class="n">buses</span><span class="p">:</span>
+            <span class="n">uniques</span> <span class="o">=</span> <span class="o">~</span><span class="n">n</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">zone_id</span><span class="o">.</span><span class="n">duplicated</span><span class="p">()</span> <span class="o">*</span> <span class="n">n</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">zone_id</span><span class="o">.</span><span class="n">notnull</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">n</span><span class="o">.</span><span class="n">buses</span><span class="p">[</span><span class="n">uniques</span><span class="p">]</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;zone_name&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">zone_id</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="n">_invert_dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FromPyPSA.build"><a class="viewcode-back" href="../../../../powersimdata.input.converter.html#powersimdata.input.converter.pypsa_to_grid.FromPyPSA.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;PyPSA Network reader.&quot;&quot;&quot;</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">network</span>
+        <span class="n">add_pypsa_cols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_pypsa_cols</span>
 
         <span class="c1"># Read in data from PyPSA</span>
         <span class="n">bus_pypsa</span> <span class="o">=</span> <span class="n">n</span><span class="o">.</span><span class="n">buses</span>
@@ -218,18 +229,6 @@
         <span class="n">bus</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
             <span class="p">[</span><span class="s2">&quot;(?i)PQ&quot;</span><span class="p">,</span> <span class="s2">&quot;(?i)PV&quot;</span><span class="p">,</span> <span class="s2">&quot;(?i)Slack&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="n">regex</span><span class="o">=</span><span class="kc">True</span>
         <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
-
-        <span class="c1"># zones mapping</span>
-        <span class="c1"># only relevant if the PyPSA network was originally created from PSD</span>
-        <span class="k">if</span> <span class="s2">&quot;zone_id&quot;</span> <span class="ow">in</span> <span class="n">n</span><span class="o">.</span><span class="n">buses</span> <span class="ow">and</span> <span class="s2">&quot;zone_name&quot;</span> <span class="ow">in</span> <span class="n">n</span><span class="o">.</span><span class="n">buses</span><span class="p">:</span>
-            <span class="n">uniques</span> <span class="o">=</span> <span class="o">~</span><span class="n">n</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">zone_id</span><span class="o">.</span><span class="n">duplicated</span><span class="p">()</span> <span class="o">*</span> <span class="n">n</span><span class="o">.</span><span class="n">buses</span><span class="o">.</span><span class="n">zone_id</span><span class="o">.</span><span class="n">notnull</span><span class="p">()</span>
-            <span class="n">zone2id</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">n</span><span class="o">.</span><span class="n">buses</span><span class="p">[</span><span class="n">uniques</span><span class="p">]</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;zone_name&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">zone_id</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
-            <span class="p">)</span>
-            <span class="n">id2zone</span> <span class="o">=</span> <span class="n">_invert_dict</span><span class="p">(</span><span class="n">zone2id</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">zone2id</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="n">id2zone</span> <span class="o">=</span> <span class="p">{}</span>
 
         <span class="c1"># substations</span>
         <span class="c1"># only relevant if the PyPSA network was originally created from PSD</span>
@@ -494,15 +493,18 @@
             <span class="n">df</span><span class="p">[</span><span class="s2">&quot;pypsa_component&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;stores&quot;</span>
 
         <span class="c1"># Build PSD grid object</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="n">data_loc</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="n">interconnect</span>
+
+        <span class="c1"># Interconnect and data location</span>
+        <span class="c1"># only relevant if the PyPSA network was originally created from PSD</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_interconnect</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_data_loc</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_zone_mapping</span><span class="p">()</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">bus</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;bus&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sub</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;sub&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bus2sub</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;bus2sub&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">branch</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;branch&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sort_index</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dcline</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;dcline&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span> <span class="o">=</span> <span class="n">zone2id</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">id2zone</span> <span class="o">=</span> <span class="n">id2zone</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;plant&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;before&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;gencost&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gencost</span><span class="p">[</span><span class="s2">&quot;after&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;gencost&quot;</span><span class="p">]</span>
@@ -536,6 +538,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;storage_id&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;gencost&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;storage_id&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">[</span><span class="s2">&quot;StorageData&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;storage_id&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
 
     <span class="k">def</span> <span class="nf">_translate_pnl</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pnl</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Translate time-dependent data frames with one time step from PyPSA to static</span>
@@ -550,12 +553,7 @@
         <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
             <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">pnl</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">translators</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">pnl</span><span class="p">},</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">df</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">__class__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;If anyone asks, I&#39;m a Grid object!&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">Grid</span></div>
+        <span class="k">return</span> <span class="n">df</span></div>
 </pre></div>
 
           </div>

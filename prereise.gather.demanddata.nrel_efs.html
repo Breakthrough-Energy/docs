@@ -59,7 +59,11 @@
 <li class="toctree-l3"><a class="reference internal" href="prereise.gather.demanddata.nrel_efs.tests.html#prereise.gather.demanddata.nrel_efs.tests.test_get_efs_data.test_partition_flexibility_by_sector"><code class="docutils literal notranslate"><span class="pre">test_partition_flexibility_by_sector()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="prereise.gather.demanddata.nrel_efs.tests.html#prereise-gather-demanddata-nrel-efs-tests-test-map-states-module">prereise.gather.demanddata.nrel_efs.tests.test_map_states module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="prereise.gather.demanddata.nrel_efs.tests.html#module-prereise.gather.demanddata.nrel_efs.tests.test_map_states">prereise.gather.demanddata.nrel_efs.tests.test_map_states module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="prereise.gather.demanddata.nrel_efs.tests.html#prereise.gather.demanddata.nrel_efs.tests.test_map_states.test_decompose_demand_profile_by_state_to_loadzone"><code class="docutils literal notranslate"><span class="pre">test_decompose_demand_profile_by_state_to_loadzone()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="prereise.gather.demanddata.nrel_efs.tests.html#prereise.gather.demanddata.nrel_efs.tests.test_map_states.test_shift_local_time_by_loadzone_to_utc"><code class="docutils literal notranslate"><span class="pre">test_shift_local_time_by_loadzone_to_utc()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="prereise.gather.demanddata.nrel_efs.tests.html#module-prereise.gather.demanddata.nrel_efs.tests">Module contents</a></li>
 </ul>
 </li>
@@ -284,8 +288,69 @@ data for each state and time step in the specified sectors.</p>
 </dd></dl>
 
 </section>
-<section id="prereise-gather-demanddata-nrel-efs-map-states-module">
-<h2>prereise.gather.demanddata.nrel_efs.map_states module<a class="headerlink" href="#prereise-gather-demanddata-nrel-efs-map-states-module" title="Permalink to this heading">¶</a></h2>
+<section id="module-prereise.gather.demanddata.nrel_efs.map_states">
+<span id="prereise-gather-demanddata-nrel-efs-map-states-module"></span><h2>prereise.gather.demanddata.nrel_efs.map_states module<a class="headerlink" href="#module-prereise.gather.demanddata.nrel_efs.map_states" title="Permalink to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="prereise.gather.demanddata.nrel_efs.map_states.decompose_demand_profile_by_state_to_loadzone">
+<span class="sig-prename descclassname"><span class="pre">prereise.gather.demanddata.nrel_efs.map_states.</span></span><span class="sig-name descname"><span class="pre">decompose_demand_profile_by_state_to_loadzone</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">profile_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prereise/gather/demanddata/nrel_efs/map_states.html#decompose_demand_profile_by_state_to_loadzone"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prereise.gather.demanddata.nrel_efs.map_states.decompose_demand_profile_by_state_to_loadzone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Transforms the sectoral demand data so that it is separated by load zone rather
+than by state.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<em>pandas.DataFrame</em>) – DataFrame of the sectoral demand data, where the rows
+are time steps (in local time) and the columns are the states. This input is
+intended to be the output of <code class="xref py py-func docutils literal notranslate"><span class="pre">combine_efs_demand()</span></code> or the components
+that are output from <code class="xref py py-func docutils literal notranslate"><span class="pre">partition_flexibility_by_sector()</span></code>.</p></li>
+<li><p><strong>profile_type</strong> (<em>str</em>) – A string that identifies the type of profile that is
+provided. Can be one of <em>‘demand’</em> or <em>‘demand_flexibility’</em>.</p></li>
+<li><p><strong>regions</strong> (<em>iterable</em>) – The combination of interconnection names and state
+abbreviations that dictate the zone IDs to be included. Can choose any of:
+<em>‘Eastern’</em>, <em>‘Western’</em>, <em>‘Texas’</em>, any state abbreviation in the contiguous
+United States, or <em>‘All’</em>. Defaults to None.</p></li>
+<li><p><strong>save</strong> (<em>str</em>) – Saves a .csv if a string representing a valid file path and file
+name is provided. Defaults to None, indicating that a .csv file should not be
+saved.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(<em>pandas.DataFrame</em>) – Sectoral demand, split by load zone ID.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>TypeError</strong> – if df is not a pandas.DataFrame, if profile_type is not a string,
+if regions is not an iterable, if the components of regions are not strings, or
+if save is not input as a string.</p></li>
+<li><p><strong>ValueError</strong> – if df does not have the proper timestamps or the correct number
+of states, if profile_type is not valid, or if the components of regions are
+not valid.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="prereise.gather.demanddata.nrel_efs.map_states.shift_local_time_by_loadzone_to_utc">
+<span class="sig-prename descclassname"><span class="pre">prereise.gather.demanddata.nrel_efs.map_states.</span></span><span class="sig-name descname"><span class="pre">shift_local_time_by_loadzone_to_utc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/prereise/gather/demanddata/nrel_efs/map_states.html#shift_local_time_by_loadzone_to_utc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#prereise.gather.demanddata.nrel_efs.map_states.shift_local_time_by_loadzone_to_utc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Maps the local time for each load zone to the corresponding UTC time.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>df</strong> (<em>pandas.DataFrame</em>) – DataFrame of the demand data, where the rows are time
+steps (in local time) and the columns are load zone IDs.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>(<em>pandas.DataFrame</em>) – Demand, shifted to account for UTC time.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>TypeError</strong> – if df is not a pandas.DataFrame.</p></li>
+<li><p><strong>ValueError</strong> – if df does not have the proper timestamps or the correct number
+of states.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 <section id="module-prereise.gather.demanddata.nrel_efs">
 <span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-prereise.gather.demanddata.nrel_efs" title="Permalink to this heading">¶</a></h2>

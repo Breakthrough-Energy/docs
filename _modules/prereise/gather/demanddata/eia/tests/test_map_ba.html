@@ -1,0 +1,223 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.demanddata.eia.tests.test_map_ba &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../../" id="documentation_options" src="../../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../../_static/jquery.js"></script>
+    <script src="../../../../../../_static/underscore.js"></script>
+    <script src="../../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../../../../_static/doctools.js"></script>
+    <script src="../../../../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.demanddata.eia.tests.test_map_ba</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">pytest</span>
+<span class="kn">from</span> <span class="nn">pandas.testing</span> <span class="kn">import</span> <span class="n">assert_series_equal</span>
+
+<span class="kn">from</span> <span class="nn">prereise.gather.demanddata.eia.map_ba</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">aggregate_ba_demand</span><span class="p">,</span>
+    <span class="n">get_demand_in_loadzone</span><span class="p">,</span>
+    <span class="n">map_buses_to_ba</span><span class="p">,</span>
+    <span class="n">map_buses_to_county</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="test_get_demand_in_loadzone_case"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.eia.tests.html#prereise.gather.demanddata.eia.tests.test_map_ba.test_get_demand_in_loadzone_case">[docs]</a><span class="k">def</span> <span class="nf">test_get_demand_in_loadzone_case</span><span class="p">():</span>
+    <span class="n">bus_map</span><span class="p">,</span> <span class="n">agg_demand</span> <span class="o">=</span> <span class="n">create_loadzone_dataframe</span><span class="p">()</span>
+    <span class="n">zone_demand</span> <span class="o">=</span> <span class="n">get_demand_in_loadzone</span><span class="p">(</span><span class="n">agg_demand</span><span class="p">,</span> <span class="n">bus_map</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">zone_demand</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span>
+        <span class="p">[(</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">4</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)]</span> <span class="o">*</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="p">[(</span><span class="mi">3</span> <span class="o">/</span> <span class="mi">4</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">4</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]</span> <span class="o">*</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="test_get_demand_in_loadzone_has_equal_total_demand"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.eia.tests.html#prereise.gather.demanddata.eia.tests.test_map_ba.test_get_demand_in_loadzone_has_equal_total_demand">[docs]</a><span class="k">def</span> <span class="nf">test_get_demand_in_loadzone_has_equal_total_demand</span><span class="p">():</span>
+    <span class="n">bus_map</span><span class="p">,</span> <span class="n">agg_demand</span> <span class="o">=</span> <span class="n">create_loadzone_dataframe</span><span class="p">()</span>
+    <span class="n">zone_demand</span> <span class="o">=</span> <span class="n">get_demand_in_loadzone</span><span class="p">(</span><span class="n">agg_demand</span><span class="p">,</span> <span class="n">bus_map</span><span class="p">)</span>
+    <span class="n">assert_series_equal</span><span class="p">(</span>
+        <span class="n">agg_demand</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">zone_demand</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">check_dtype</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="test_aggregate_ba_demand_sums_first_three_columns"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.eia.tests.html#prereise.gather.demanddata.eia.tests.test_map_ba.test_aggregate_ba_demand_sums_first_three_columns">[docs]</a><span class="k">def</span> <span class="nf">test_aggregate_ba_demand_sums_first_three_columns</span><span class="p">():</span>
+    <span class="n">initial_df</span> <span class="o">=</span> <span class="n">create_ba_to_region_dataframe</span><span class="p">()</span>
+    <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;ABC&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">]}</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">aggregate_ba_demand</span><span class="p">(</span><span class="n">initial_df</span><span class="p">,</span> <span class="n">mapping</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;ABC&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="test_aggregate_ba_demand_sums_first_columns_pairs"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.eia.tests.html#prereise.gather.demanddata.eia.tests.test_map_ba.test_aggregate_ba_demand_sums_first_columns_pairs">[docs]</a><span class="k">def</span> <span class="nf">test_aggregate_ba_demand_sums_first_columns_pairs</span><span class="p">():</span>
+    <span class="n">initial_df</span> <span class="o">=</span> <span class="n">create_ba_to_region_dataframe</span><span class="p">()</span>
+    <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;AB&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">],</span> <span class="s2">&quot;CD&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;D&quot;</span><span class="p">]}</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">aggregate_ba_demand</span><span class="p">(</span><span class="n">initial_df</span><span class="p">,</span> <span class="n">mapping</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;AB&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="k">assert</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;CD&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">70</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="create_loadzone_dataframe"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.eia.tests.html#prereise.gather.demanddata.eia.tests.test_map_ba.create_loadzone_dataframe">[docs]</a><span class="k">def</span> <span class="nf">create_loadzone_dataframe</span><span class="p">():</span>
+    <span class="n">bus_map_data</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;BA&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;zone_name&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;X&quot;</span><span class="p">,</span> <span class="s2">&quot;X&quot;</span><span class="p">,</span> <span class="s2">&quot;X&quot;</span><span class="p">,</span> <span class="s2">&quot;Y&quot;</span><span class="p">,</span> <span class="s2">&quot;Y&quot;</span><span class="p">,</span> <span class="s2">&quot;Y&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;Pd&quot;</span><span class="p">:</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="n">bus_map</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">bus_map_data</span><span class="p">)</span>
+    <span class="n">agg_demand</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">*</span> <span class="mi">3</span><span class="p">})</span>
+    <span class="n">agg_demand</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="s2">&quot;2016-01-01&quot;</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">),</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">bus_map</span><span class="p">,</span> <span class="n">agg_demand</span></div>
+
+
+<div class="viewcode-block" id="create_ba_to_region_dataframe"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.eia.tests.html#prereise.gather.demanddata.eia.tests.test_map_ba.create_ba_to_region_dataframe">[docs]</a><span class="k">def</span> <span class="nf">create_ba_to_region_dataframe</span><span class="p">():</span>
+    <span class="n">start_data</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+        <span class="s2">&quot;B&quot;</span><span class="p">:</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span>
+        <span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span>
+        <span class="s2">&quot;D&quot;</span><span class="p">:</span> <span class="nb">range</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">40</span><span class="p">),</span>
+        <span class="s2">&quot;E&quot;</span><span class="p">:</span> <span class="nb">range</span><span class="p">(</span><span class="mi">40</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="n">initial_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">start_data</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">initial_df</span></div>
+
+
+<div class="viewcode-block" id="test_map_buses_to_county"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.eia.tests.html#prereise.gather.demanddata.eia.tests.test_map_ba.test_map_buses_to_county">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">skip</span><span class="p">(</span><span class="n">reason</span><span class="o">=</span><span class="s2">&quot;Currently failing due to issues with the geo.fcc.gov API&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">test_map_buses_to_county</span><span class="p">():</span>
+    <span class="n">bus_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">34.0522</span><span class="p">,</span> <span class="mf">29.7604</span><span class="p">,</span> <span class="mf">40.7128</span><span class="p">],</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">118.2437</span><span class="p">,</span> <span class="o">-</span><span class="mf">95.3698</span><span class="p">,</span> <span class="o">-</span><span class="mf">74.0060</span><span class="p">],</span>
+        <span class="p">},</span>
+        <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;CA&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;NY&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">expected_res</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Los Angeles__CA&quot;</span><span class="p">,</span> <span class="s2">&quot;Harris__TX&quot;</span><span class="p">,</span> <span class="s2">&quot;New York__NY&quot;</span><span class="p">]</span>
+    <span class="n">bus_county</span><span class="p">,</span> <span class="n">bus_no_county_match</span> <span class="o">=</span> <span class="n">map_buses_to_county</span><span class="p">(</span><span class="n">bus_df</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">bus_county</span><span class="p">[</span><span class="s2">&quot;County&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="n">expected_res</span>
+    <span class="k">assert</span> <span class="n">bus_no_county_match</span> <span class="o">==</span> <span class="p">[]</span></div>
+
+
+<div class="viewcode-block" id="test_map_buses_to_ba"><a class="viewcode-back" href="../../../../../../prereise.gather.demanddata.eia.tests.html#prereise.gather.demanddata.eia.tests.test_map_ba.test_map_buses_to_ba">[docs]</a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">skip</span><span class="p">(</span><span class="n">reason</span><span class="o">=</span><span class="s2">&quot;Currently failing due to issues with the geo.fcc.gov API&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">test_map_buses_to_ba</span><span class="p">():</span>
+    <span class="n">bus_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">34.0522</span><span class="p">,</span> <span class="mf">29.7604</span><span class="p">,</span> <span class="mf">39.9042</span><span class="p">],</span>
+            <span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">118.2437</span><span class="p">,</span> <span class="o">-</span><span class="mf">95.3698</span><span class="p">,</span> <span class="mf">116.4074</span><span class="p">],</span>
+        <span class="p">},</span>
+        <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;CA&quot;</span><span class="p">,</span> <span class="s2">&quot;Texas&quot;</span><span class="p">,</span> <span class="s2">&quot;Beijing&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">expected_res</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;LDWP&quot;</span><span class="p">,</span> <span class="s2">&quot;ERCOT&quot;</span><span class="p">,</span> <span class="s2">&quot;LDWP&quot;</span><span class="p">]</span>
+    <span class="n">bus_ba</span><span class="p">,</span> <span class="n">bus_no_county_match</span> <span class="o">=</span> <span class="n">map_buses_to_ba</span><span class="p">(</span><span class="n">bus_df</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">bus_ba</span><span class="p">[</span><span class="s2">&quot;BA&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="n">expected_res</span>
+    <span class="k">assert</span> <span class="n">bus_no_county_match</span> <span class="o">==</span> <span class="p">[</span><span class="s2">&quot;Beijing&quot;</span><span class="p">]</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../../index.html">
+    <img class="logo" src="../../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

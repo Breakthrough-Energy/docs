@@ -1,0 +1,440 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>postreise.plot.plot_carbon_map &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for postreise.plot.plot_carbon_map</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">bokeh.models</span> <span class="kn">import</span> <span class="n">ColumnDataSource</span><span class="p">,</span> <span class="n">HoverTool</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.check</span> <span class="kn">import</span> <span class="n">_check_scenario_is_in_analyze_state</span>
+
+<span class="kn">from</span> <span class="nn">postreise.analyze.generation.emissions</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">generate_emissions_stats</span><span class="p">,</span>
+    <span class="n">summarize_emissions_by_bus</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.canvas</span> <span class="kn">import</span> <span class="n">create_map_canvas</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.check</span> <span class="kn">import</span> <span class="n">_check_func_kwargs</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.colors</span> <span class="kn">import</span> <span class="n">be_green</span><span class="p">,</span> <span class="n">be_purple</span><span class="p">,</span> <span class="n">be_red</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">add_state_borders</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.projection_helpers</span> <span class="kn">import</span> <span class="n">project_bus</span>
+
+
+<div class="viewcode-block" id="combine_bus_info_and_emission"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_carbon_map.combine_bus_info_and_emission">[docs]</a><span class="k">def</span> <span class="nf">combine_bus_info_and_emission</span><span class="p">(</span><span class="n">scenario</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Build data frame needed for plotting carbon emitted by thermal generators.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- bus data frame with emission.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">carbon_by_bus</span> <span class="o">=</span> <span class="n">summarize_emissions_by_bus</span><span class="p">(</span><span class="n">generate_emissions_stats</span><span class="p">(</span><span class="n">scenario</span><span class="p">),</span> <span class="n">grid</span><span class="p">)</span>
+
+    <span class="n">selected</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">carbon_by_bus</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+    <span class="n">bus_w_emission</span> <span class="o">=</span> <span class="n">selected</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+        <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">carbon_by_bus</span><span class="p">),</span> <span class="n">right_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">left_index</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">bus_w_emission</span></div>
+
+
+<div class="viewcode-block" id="aggregate_bus_emission_generator"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_carbon_map.aggregate_bus_emission_generator">[docs]</a><span class="k">def</span> <span class="nf">aggregate_bus_emission_generator</span><span class="p">(</span><span class="n">bus</span><span class="p">,</span> <span class="n">coordinate_rounding</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Aggregate emission for buses based on similar lat/lon coordinates</span>
+
+<span class="sd">    :param pandas.DataFrame bus: bus data frame containing &#39;coal&#39;, &#39;ng&#39;, &#39;lat&#39;, &#39;lon&#39;</span>
+<span class="sd">        &#39;type&#39; and &#39;color&#39; columns.</span>
+<span class="sd">    :param int coordinate_rounding: number of digits to round lat/lon for aggregation.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- aggregated data frame.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bus_w_xy</span> <span class="o">=</span> <span class="n">project_bus</span><span class="p">(</span><span class="n">bus</span><span class="p">)</span>
+    <span class="n">bus_w_xy</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_w_xy</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">coordinate_rounding</span><span class="p">)</span>
+    <span class="n">bus_w_xy</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_w_xy</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">coordinate_rounding</span><span class="p">)</span>
+
+    <span class="n">aggregated</span> <span class="o">=</span> <span class="n">bus_w_xy</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span>
+        <span class="p">{</span><span class="s2">&quot;coal&quot;</span><span class="p">:</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="s2">&quot;ng&quot;</span><span class="p">:</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">aggregated</span> <span class="o">=</span> <span class="n">aggregated</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">aggregated</span></div>
+
+
+<div class="viewcode-block" id="aggregate_bus_emission_difference"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_carbon_map.aggregate_bus_emission_difference">[docs]</a><span class="k">def</span> <span class="nf">aggregate_bus_emission_difference</span><span class="p">(</span><span class="n">bus</span><span class="p">,</span> <span class="n">coordinate_rounding</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Aggregate emission for buses based on similar lat/lon coordinates</span>
+
+<span class="sd">    :param pandas.DataFrame bus: bus data frame containing &#39;coal&#39;, &#39;ng&#39;, &#39;lat&#39;, &#39;lon&#39;</span>
+<span class="sd">        &#39;type&#39; and &#39;color&#39; columns.</span>
+<span class="sd">    :param int coordinate_rounding: number of digits to round lat/lon for aggregation.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- aggregated data frame.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bus_w_xy</span> <span class="o">=</span> <span class="n">project_bus</span><span class="p">(</span><span class="n">bus</span><span class="p">)</span>
+    <span class="n">bus_w_xy</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_w_xy</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">coordinate_rounding</span><span class="p">)</span>
+    <span class="n">bus_w_xy</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus_w_xy</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">coordinate_rounding</span><span class="p">)</span>
+
+    <span class="n">aggregated</span> <span class="o">=</span> <span class="n">bus_w_xy</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span>
+        <span class="p">{</span><span class="s2">&quot;amount&quot;</span><span class="p">:</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="s2">&quot;mean&quot;</span><span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">aggregated</span> <span class="o">=</span> <span class="n">aggregated</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">aggregated</span></div>
+
+
+<div class="viewcode-block" id="prepare_bus_data_generator"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_carbon_map.prepare_bus_data_generator">[docs]</a><span class="k">def</span> <span class="nf">prepare_bus_data_generator</span><span class="p">(</span><span class="n">bus_emission</span><span class="p">,</span> <span class="n">coordinate_rounding</span><span class="p">,</span> <span class="n">color_ng</span><span class="p">,</span> <span class="n">color_coal</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Prepare data with amount of emissions.</span>
+
+<span class="sd">    :param pandas.DataFrame bus_emission: bus data frame with emission as returned by</span>
+<span class="sd">        :func:`combine_bus_info_and_emission`.</span>
+<span class="sd">    :param int coordinate_rounding: number of digits to round lat/lon for aggregation.</span>
+<span class="sd">    :param str color_ng: color assigned for ng, default to BE purple.</span>
+<span class="sd">    :param str color_coal: color assigned for coal, default to black/gray.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- data for plotting.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bus_emission</span><span class="p">[</span><span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">bus_emission</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">bus_emission</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">bus_emission</span><span class="p">[</span><span class="s2">&quot;ng&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">color_ng</span>
+    <span class="n">bus_emission</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">bus_emission</span><span class="p">[</span><span class="s2">&quot;coal&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">color_coal</span>
+    <span class="n">bus_emission</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">bus_emission</span><span class="p">[</span><span class="s2">&quot;ng&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;natural gas&quot;</span>
+    <span class="n">bus_emission</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">bus_emission</span><span class="p">[</span><span class="s2">&quot;coal&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;coal&quot;</span>
+
+    <span class="n">grouped_bus_emission</span> <span class="o">=</span> <span class="n">aggregate_bus_emission_generator</span><span class="p">(</span>
+        <span class="n">bus_emission</span><span class="p">,</span> <span class="n">coordinate_rounding</span>
+    <span class="p">)</span>
+    <span class="n">grouped_bus_emission</span><span class="p">[</span><span class="s2">&quot;amount&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">grouped_bus_emission</span><span class="p">[</span><span class="s2">&quot;ng&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">grouped_bus_emission</span><span class="p">[</span><span class="s2">&quot;coal&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">grouped_bus_emission</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;amount != 0&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;color&quot;</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="prepare_bus_data_difference"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_carbon_map.prepare_bus_data_difference">[docs]</a><span class="k">def</span> <span class="nf">prepare_bus_data_difference</span><span class="p">(</span>
+    <span class="n">bus_emission</span><span class="p">,</span> <span class="n">coordinate_rounding</span><span class="p">,</span> <span class="n">color_up</span><span class="p">,</span> <span class="n">color_down</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Prepare data with amount of emissions and type for hover tips</span>
+
+<span class="sd">    :param pandas.DataFrame bus_emission: bus data frame with emission as returned by</span>
+<span class="sd">        :func:`combine_bus_info_and_emission`.</span>
+<span class="sd">    :param int coordinate_rounding: number of digits to round lat/lon for aggregation.</span>
+<span class="sd">    :param str color_up: color assigned to &#39;increase&#39; in emissions.</span>
+<span class="sd">    :param str color_down: color assigned to &#39;decrase&#39; in emissions.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- data for plotting.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">grouped_bus_emission</span> <span class="o">=</span> <span class="n">aggregate_bus_emission_difference</span><span class="p">(</span>
+        <span class="n">bus_emission</span><span class="p">,</span> <span class="n">coordinate_rounding</span>
+    <span class="p">)</span>
+    <span class="n">grouped_bus_emission</span><span class="p">[</span><span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">grouped_bus_emission</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">grouped_bus_emission</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">grouped_bus_emission</span><span class="p">[</span><span class="s2">&quot;amount&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">color_up</span>
+    <span class="n">grouped_bus_emission</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">grouped_bus_emission</span><span class="p">[</span><span class="s2">&quot;amount&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;color&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">color_down</span>
+    <span class="n">grouped_bus_emission</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">grouped_bus_emission</span><span class="p">[</span><span class="s2">&quot;amount&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;increase&quot;</span>
+    <span class="n">grouped_bus_emission</span><span class="o">.</span><span class="n">loc</span><span class="p">[(</span><span class="n">grouped_bus_emission</span><span class="p">[</span><span class="s2">&quot;amount&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">),</span> <span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;decrease&quot;</span>
+
+    <span class="n">grouped_bus_emission</span><span class="p">[</span><span class="s2">&quot;amount&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grouped_bus_emission</span><span class="p">[</span><span class="s2">&quot;amount&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">grouped_bus_emission</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;amount != 0&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;color&quot;</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="add_emission"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_carbon_map.add_emission">[docs]</a><span class="k">def</span> <span class="nf">add_emission</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="n">emission</span><span class="p">,</span> <span class="n">scale_factor</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Add emission.</span>
+
+<span class="sd">    :param pandas.DataFrame emission: emission data for plotting.</span>
+<span class="sd">    :param float scale_factor: scaling factor for size of emissions circles glyphs.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure*) -- carbon emission map.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># emissions as circles</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">emission</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">emission</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;size&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">emission</span><span class="p">[</span><span class="s2">&quot;amount&quot;</span><span class="p">])</span> <span class="o">*</span> <span class="n">scale_factor</span><span class="p">,</span>
+        <span class="s2">&quot;tons&quot;</span><span class="p">:</span> <span class="n">emission</span><span class="p">[</span><span class="s2">&quot;amount&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="n">emission</span><span class="p">[</span><span class="s2">&quot;color&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">emission</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">],</span>
+    <span class="p">}</span>
+    <span class="n">circle</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span>
+        <span class="s2">&quot;x&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;y&quot;</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="s2">&quot;color&quot;</span><span class="p">,</span>
+        <span class="n">alpha</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
+        <span class="n">size</span><span class="o">=</span><span class="s2">&quot;size&quot;</span><span class="p">,</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">ColumnDataSource</span><span class="p">(</span><span class="n">source</span><span class="p">),</span>
+        <span class="n">legend_group</span><span class="o">=</span><span class="s2">&quot;type&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">hover</span> <span class="o">=</span> <span class="n">HoverTool</span><span class="p">(</span>
+        <span class="n">tooltips</span><span class="o">=</span><span class="p">[</span>
+            <span class="p">(</span><span class="s2">&quot;Type&quot;</span><span class="p">,</span> <span class="s2">&quot;@type&quot;</span><span class="p">),</span>
+            <span class="p">(</span><span class="s2">&quot;Tons CO</span><span class="se">\u2082</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;@tons&quot;</span><span class="p">),</span>
+        <span class="p">],</span>
+        <span class="n">renderers</span><span class="o">=</span><span class="p">[</span><span class="n">circle</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">add_tools</span><span class="p">(</span><span class="n">hover</span><span class="p">)</span>
+
+    <span class="n">canvas</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="s2">&quot;bottom_right&quot;</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">label_text_font_size</span> <span class="o">=</span> <span class="s2">&quot;12pt&quot;</span>
+
+    <span class="k">return</span> <span class="n">canvas</span></div>
+
+
+<div class="viewcode-block" id="map_carbon_emission_generator"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_carbon_map.map_carbon_emission_generator">[docs]</a><span class="k">def</span> <span class="nf">map_carbon_emission_generator</span><span class="p">(</span>
+    <span class="n">scenario</span><span class="p">,</span>
+    <span class="n">coordinate_rounding</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">1400</span><span class="p">,</span> <span class="mi">800</span><span class="p">),</span>
+    <span class="n">color_coal</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span>
+    <span class="n">color_ng</span><span class="o">=</span><span class="n">be_purple</span><span class="p">,</span>
+    <span class="n">scale_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">state_borders_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Make map of carbon emissions at bus level. Color of markers indicates generator</span>
+<span class="sd">    type and size reflects emissions level.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param int coordinate_rounding: number of digits to round lat/lon for aggregation.</span>
+<span class="sd">    :param tuple figsize: size of the bokeh figure (in pixels).</span>
+<span class="sd">    :param str color_ng: color assigned for ng, default to BE purple.</span>
+<span class="sd">    :param str color_coal: color associated with coal, default to black/gray.</span>
+<span class="sd">    :param int/float scale_factor: scaling factor for size of emissions circles glyphs.</span>
+<span class="sd">    :param dict state_borders_kwargs: keyword arguments to be passed to</span>
+<span class="sd">        :func:`postreise.plot.plot_states.add_state_borders`.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure*) -- carbon emission map.</span>
+<span class="sd">    :raises TypeError:</span>
+<span class="sd">        if ``coordinate_rounding`` is not ``int``.</span>
+<span class="sd">        if ``color_coal`` and ``color_ng`` are not ``str``.</span>
+<span class="sd">        if ``scale_factor`` is not ``int`` or ``float``.</span>
+<span class="sd">    :raises ValueError:</span>
+<span class="sd">        if ``coordinate_rounding`` is negative.</span>
+<span class="sd">        if ``scale_factor`` is negative.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coordinate_rounding</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;coordinate_rounding must be an int&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">coordinate_rounding</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;coordinate_rounding must be positive&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">color_coal</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;color_coal must be a str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">color_ng</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;color_ng must be a str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scale_factor</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;scale_factor must be a int/float&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">scale_factor</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;scale_factor must be positive&quot;</span><span class="p">)</span>
+
+    <span class="c1"># create canvas</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">create_map_canvas</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+
+    <span class="c1"># add state borders</span>
+    <span class="n">default_state_borders_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;fill_alpha&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;background_map&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span>
+    <span class="n">all_state_borders_kwargs</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">{</span><span class="o">**</span><span class="n">default_state_borders_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">state_borders_kwargs</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">state_borders_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="n">default_state_borders_kwargs</span>
+    <span class="p">)</span>
+    <span class="n">_check_func_kwargs</span><span class="p">(</span>
+        <span class="n">add_state_borders</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">all_state_borders_kwargs</span><span class="p">),</span> <span class="s2">&quot;state_borders_kwargs&quot;</span>
+    <span class="p">)</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_state_borders</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="o">**</span><span class="n">all_state_borders_kwargs</span><span class="p">)</span>
+
+    <span class="c1"># add emission</span>
+    <span class="n">bus_emission</span> <span class="o">=</span> <span class="n">combine_bus_info_and_emission</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+    <span class="n">emission</span> <span class="o">=</span> <span class="n">prepare_bus_data_generator</span><span class="p">(</span>
+        <span class="n">bus_emission</span><span class="p">,</span> <span class="n">coordinate_rounding</span><span class="p">,</span> <span class="n">color_ng</span><span class="p">,</span> <span class="n">color_coal</span>
+    <span class="p">)</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_emission</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="n">emission</span><span class="p">,</span> <span class="n">scale_factor</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">canvas</span></div>
+
+
+<div class="viewcode-block" id="map_carbon_emission_difference"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_carbon_map.map_carbon_emission_difference">[docs]</a><span class="k">def</span> <span class="nf">map_carbon_emission_difference</span><span class="p">(</span>
+    <span class="n">scenario_1</span><span class="p">,</span>
+    <span class="n">scenario_2</span><span class="p">,</span>
+    <span class="n">coordinate_rounding</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">1400</span><span class="p">,</span> <span class="mi">800</span><span class="p">),</span>
+    <span class="n">color_increase</span><span class="o">=</span><span class="n">be_red</span><span class="p">,</span>
+    <span class="n">color_decrease</span><span class="o">=</span><span class="n">be_green</span><span class="p">,</span>
+    <span class="n">scale_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">state_borders_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Make map of difference in emissions between two scenarios at bus level. Color of</span>
+<span class="sd">    markers indicates increase/decrease in emissions (``scenario_2`` w.r,t.</span>
+<span class="sd">    ``scenario_1``) and size reflects relative difference in emissions.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario_1: scenario instance.</span>
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario_2: scenario instance.</span>
+<span class="sd">    :param int coordinate_rounding: number of digits to round lat/lon for aggregation.</span>
+<span class="sd">    :param tuple figsize: size of the bokeh figure (in pixels).</span>
+<span class="sd">    :param str color_increase: color assigned to increase in emissions.</span>
+<span class="sd">    :param str color_decrease: color associated to decrease in emissions.</span>
+<span class="sd">    :param float scale_factor: scaling factor for size of emissions circles glyphs.</span>
+<span class="sd">    :param dict state_borders_kwargs: keyword arguments to be passed to</span>
+<span class="sd">        :func:`postreise.plot.plot_states.add_state_borders`.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure*) -- carbon emission map.</span>
+<span class="sd">    :raises TypeError:</span>
+<span class="sd">        if ``coordinate_rounding`` is not ``int``.</span>
+<span class="sd">        if ``color_increase`` and ``color_decrease`` are not ``str``.</span>
+<span class="sd">        if ``scale_factor`` is not ``int`` or ``float``.</span>
+<span class="sd">    :raises ValueError:</span>
+<span class="sd">        if ``coordinate_rounding`` is negative.</span>
+<span class="sd">        if ``scale_factor`` is negative.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">scenario_1</span><span class="p">)</span>
+    <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">scenario_2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">coordinate_rounding</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;coordinate_rounding must be an int&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">coordinate_rounding</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;coordinate_rounding must be positive&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">color_increase</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;color_increase must be a str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">color_decrease</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;color_decrease must be a str&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scale_factor</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;scale_factor must be a int/float&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">scale_factor</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;scale_factor must be positive&quot;</span><span class="p">)</span>
+
+    <span class="c1"># create canvas</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">create_map_canvas</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">)</span>
+
+    <span class="c1"># add state borders</span>
+    <span class="n">default_state_borders_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;fill_alpha&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;background_map&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span>
+    <span class="n">all_state_borders_kwargs</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">{</span><span class="o">**</span><span class="n">default_state_borders_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">state_borders_kwargs</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">state_borders_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="n">default_state_borders_kwargs</span>
+    <span class="p">)</span>
+    <span class="n">_check_func_kwargs</span><span class="p">(</span>
+        <span class="n">add_state_borders</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">all_state_borders_kwargs</span><span class="p">),</span> <span class="s2">&quot;state_borders_kwargs&quot;</span>
+    <span class="p">)</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_state_borders</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="o">**</span><span class="n">all_state_borders_kwargs</span><span class="p">)</span>
+
+    <span class="c1"># add emission</span>
+    <span class="n">bus_emission_1</span> <span class="o">=</span> <span class="n">combine_bus_info_and_emission</span><span class="p">(</span><span class="n">scenario_1</span><span class="p">)</span>
+    <span class="n">bus_emission_2</span> <span class="o">=</span> <span class="n">combine_bus_info_and_emission</span><span class="p">(</span><span class="n">scenario_2</span><span class="p">)</span>
+    <span class="n">emission</span> <span class="o">=</span> <span class="n">bus_emission_1</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+        <span class="n">bus_emission_2</span><span class="p">,</span>
+        <span class="n">right_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">left_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">suffixes</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;_1&quot;</span><span class="p">,</span> <span class="s2">&quot;_2&quot;</span><span class="p">),</span>
+        <span class="n">how</span><span class="o">=</span><span class="s2">&quot;outer&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">emission</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">emission</span><span class="p">[</span><span class="s2">&quot;amount&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">emission</span><span class="p">[</span><span class="s2">&quot;ng_2&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">emission</span><span class="p">[</span><span class="s2">&quot;coal_2&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">emission</span><span class="p">[</span><span class="s2">&quot;ng_1&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">emission</span><span class="p">[</span><span class="s2">&quot;coal_1&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">emission</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">emission</span><span class="p">[</span><span class="s2">&quot;lon_1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">emission</span><span class="p">[</span><span class="s2">&quot;lon_2&quot;</span><span class="p">])</span>
+    <span class="n">emission</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">emission</span><span class="p">[</span><span class="s2">&quot;lat_1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">emission</span><span class="p">[</span><span class="s2">&quot;lat_2&quot;</span><span class="p">])</span>
+    <span class="n">emission</span> <span class="o">=</span> <span class="n">prepare_bus_data_difference</span><span class="p">(</span>
+        <span class="n">emission</span><span class="p">,</span> <span class="n">coordinate_rounding</span><span class="p">,</span> <span class="n">color_increase</span><span class="p">,</span> <span class="n">color_decrease</span>
+    <span class="p">)</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_emission</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="n">emission</span><span class="p">,</span> <span class="n">scale_factor</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">canvas</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

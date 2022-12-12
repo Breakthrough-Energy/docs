@@ -1,0 +1,235 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.hydrodata.eia.decompose_profile &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/jquery.js"></script>
+    <script src="../../../../../_static/underscore.js"></script>
+    <script src="../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="../../../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.hydrodata.eia.decompose_profile</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span> <span class="nn">powersimdata.network.model</span> <span class="kn">import</span> <span class="n">ModelImmutables</span>
+
+<span class="n">mi</span> <span class="o">=</span> <span class="n">ModelImmutables</span><span class="p">(</span><span class="s2">&quot;usa_tamu&quot;</span><span class="p">)</span>
+<span class="n">abv2interconnect</span> <span class="o">=</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;abv2interconnect&quot;</span><span class="p">]</span>
+<span class="n">abv2loadzone</span> <span class="o">=</span> <span class="n">mi</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;abv2loadzone&quot;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="get_profile_by_state"><a class="viewcode-back" href="../../../../../prereise.gather.hydrodata.eia.html#prereise.gather.hydrodata.eia.decompose_profile.get_profile_by_state">[docs]</a><span class="k">def</span> <span class="nf">get_profile_by_state</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">grid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Decompose total hydro profile into plant level profile based on hydro</span>
+<span class="sd">    generator capacities in the query state.</span>
+
+<span class="sd">    :param pandas.Series/list profile: profile in query state.</span>
+<span class="sd">    :param str state: the query state.</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: Grid instance. Use the generator</span>
+<span class="sd">        capacities in the given grid if provided, otherwise use the base grid.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- hydro profile for each plant</span>
+<span class="sd">        in the query state.</span>
+<span class="sd">    :raises TypeError: if profile is not a time-series and/or</span>
+<span class="sd">        state is not a str.</span>
+<span class="sd">    :raises ValueError: if state is invalid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;profile must be a pandas.Series object or list&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;state must be a str&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">abv2loadzone</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Invalid state. Possible states are </span><span class="si">%s</span><span class="s2">&quot;</span>
+            <span class="o">%</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">abv2loadzone</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">grid</span><span class="p">:</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">([</span><span class="n">abv2interconnect</span><span class="p">[</span><span class="n">state</span><span class="p">]])</span>
+
+    <span class="n">plant</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+    <span class="n">hydro_plant_in_state</span> <span class="o">=</span> <span class="n">plant</span><span class="p">[</span>
+        <span class="p">(</span><span class="n">plant</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;hydro&quot;</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">abv2loadzone</span><span class="p">[</span><span class="n">state</span><span class="p">]))</span>
+    <span class="p">]</span>
+
+    <span class="n">hydro_capacity_in_state</span> <span class="o">=</span> <span class="n">hydro_plant_in_state</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">hydro_profile</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="n">columns</span><span class="o">=</span><span class="n">hydro_plant_in_state</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">profile</span><span class="o">.</span><span class="n">index</span>
+    <span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">hydro_profile</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">factor</span> <span class="o">=</span> <span class="n">hydro_plant_in_state</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">hydro_capacity_in_state</span>
+        <span class="n">plant_profile</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span> <span class="o">*</span> <span class="n">factor</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">profile</span><span class="p">]</span>
+        <span class="n">hydro_profile</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">plant_profile</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">hydro_profile</span></div>
+
+
+<div class="viewcode-block" id="get_profile_by_plant"><a class="viewcode-back" href="../../../../../prereise.gather.hydrodata.eia.html#prereise.gather.hydrodata.eia.decompose_profile.get_profile_by_plant">[docs]</a><span class="k">def</span> <span class="nf">get_profile_by_plant</span><span class="p">(</span><span class="n">plant_df</span><span class="p">,</span> <span class="n">total_profile</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Decompose total hydro profile into plant level profile based on hydro</span>
+<span class="sd">    generator capacities in the dataframe.</span>
+
+<span class="sd">    :param pandas.DataFrame plant_df: plant dataframe contains generator</span>
+<span class="sd">        capacity as &#39;Pmax&#39; for each entry.</span>
+<span class="sd">    :param pandas.Series/list total_profile: aggregated profile to decompose</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- hydro profile for each plant decomposed</span>
+<span class="sd">        from the total_profile.</span>
+<span class="sd">    :raises TypeError: if plant_df is not a pandas.Dataframe and/or</span>
+<span class="sd">        total_profile is not a time-series and/or all elements in</span>
+<span class="sd">        total_profile are numbers.</span>
+<span class="sd">    :raises ValueError: if plant_df does not contain &#39;Pmax&#39; as a column.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plant_df</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;plant_df must be a pandas.DataFrame object&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">total_profile</span><span class="p">,</span> <span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;total_profile must be a pandas.Series object or list&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">))</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">total_profile</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;total_profile must be all numbers&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;Pmax&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">plant_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Pmax must be one of the columns of plant_df&quot;</span><span class="p">)</span>
+
+    <span class="n">total_hydro_capacity</span> <span class="o">=</span> <span class="n">plant_df</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">res_profile</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">total_profile</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">plant_df</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">plantid</span> <span class="ow">in</span> <span class="n">res_profile</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">total_hydro_capacity</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">factor</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">factor</span> <span class="o">=</span> <span class="n">plant_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">plantid</span><span class="p">][</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">total_hydro_capacity</span>
+        <span class="n">plant_profile</span> <span class="o">=</span> <span class="p">[</span><span class="n">val</span> <span class="o">*</span> <span class="n">factor</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">total_profile</span><span class="p">]</span>
+        <span class="n">res_profile</span><span class="p">[</span><span class="n">plantid</span><span class="p">]</span> <span class="o">=</span> <span class="n">plant_profile</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">res_profile</span></div>
+
+
+<div class="viewcode-block" id="get_normalized_profile"><a class="viewcode-back" href="../../../../../prereise.gather.hydrodata.eia.html#prereise.gather.hydrodata.eia.decompose_profile.get_normalized_profile">[docs]</a><span class="k">def</span> <span class="nf">get_normalized_profile</span><span class="p">(</span><span class="n">plant_df</span><span class="p">,</span> <span class="n">plant_profile</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Normalize plant level profile by Pmax of the corresponding plant</span>
+
+<span class="sd">    :param pandas.DataFrame plant_df: plant dataframe contains generator capacity as</span>
+<span class="sd">        &#39;Pmax&#39; for each entry.</span>
+<span class="sd">    :param pandas.DataFrame plant_profile: plant level profile with values of generation</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- normalized plant level profile</span>
+<span class="sd">    :raises TypeError: if plant_df and/or plant_profile is not a pandas.Dataframe</span>
+<span class="sd">    :raises ValueError: if plant_df does not contain &#39;Pmax&#39; as a column and/or</span>
+<span class="sd">        plants in plant_df don&#39;t match the ones in plant_profile</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plant_df</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;plant_df must be a pandas.DataFrame object&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plant_profile</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;plant_profile must be a pandas.DataFrame object&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;Pmax&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">plant_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Pmax must be one of the columns of plant_df&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">plant_df</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">plant_profile</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;plant_df and plant_profile must contain same plants&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">plant_profile</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">plant_df</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

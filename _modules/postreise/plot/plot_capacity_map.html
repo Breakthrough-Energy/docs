@@ -1,0 +1,306 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>postreise.plot.plot_capacity_map &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="shortcut icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for postreise.plot.plot_capacity_map</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This plotting module has a corresponding demo notebook in</span>
+<span class="c1">#   PostREISE/postreise/plot/demo: capacity_map_demo.py</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">bokeh.models</span> <span class="kn">import</span> <span class="n">ColumnDataSource</span><span class="p">,</span> <span class="n">HoverTool</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">colors</span> <span class="k">as</span> <span class="n">mcolors</span>
+<span class="kn">from</span> <span class="nn">powersimdata.scenario.check</span> <span class="kn">import</span> <span class="n">_check_scenario_is_in_analyze_state</span>
+
+<span class="kn">from</span> <span class="nn">postreise.plot.canvas</span> <span class="kn">import</span> <span class="n">create_map_canvas</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.check</span> <span class="kn">import</span> <span class="n">_check_func_kwargs</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.plot_states</span> <span class="kn">import</span> <span class="n">add_state_borders</span>
+<span class="kn">from</span> <span class="nn">postreise.plot.projection_helpers</span> <span class="kn">import</span> <span class="n">project_bus</span>
+
+
+<div class="viewcode-block" id="map_plant_capacity"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_capacity_map.map_plant_capacity">[docs]</a><span class="k">def</span> <span class="nf">map_plant_capacity</span><span class="p">(</span>
+    <span class="n">scenario</span><span class="p">,</span>
+    <span class="n">resources</span><span class="p">,</span>
+    <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">1400</span><span class="p">,</span> <span class="mi">800</span><span class="p">),</span>
+    <span class="n">x_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">y_range</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">disaggregation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">state_borders_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">min_capacity</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">size_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">legend_font_size</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+    <span class="n">legend_location</span><span class="o">=</span><span class="s2">&quot;bottom_right&quot;</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Make map of plant capacities, optionally disaggregated by new/existing. Area</span>
+<span class="sd">    is proportional to capacity.</span>
+
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param iterable resources: which types of resources to plot.</span>
+<span class="sd">    :param tuple figsize: size of the bokeh figure (in pixels).</span>
+<span class="sd">    :param tuple x_range: x range to zoom plot to (EPSG:3857).</span>
+<span class="sd">    :param tuple y_range: y range to zoom plot to (EPSG:3857).</span>
+<span class="sd">    :param str disaggregation: method used to disaggregate plants:</span>
+<span class="sd">        if &quot;new_vs_existing_plants&quot;: separates plants into added vs. existing.</span>
+<span class="sd">        if None, no disaggregation.</span>
+<span class="sd">    :param dict state_borders_kwargs: keyword arguments to pass to</span>
+<span class="sd">        :func:`postreise.plot.plot_states.add_state_borders`.</span>
+<span class="sd">    :param float/int min_capacity: minimum bus capacity (MW) for markers to be plotted.</span>
+<span class="sd">    :param float/int size_factor: scale size of glyphs.</span>
+<span class="sd">    :param float/int alpha: opacity of circles (between 0 and 1).</span>
+<span class="sd">    :param int/float legend_font_size: font size for legend.</span>
+<span class="sd">    :param str legend_location: location for legend.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure.Figure*) -- map with color-coded upgrades.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_check_scenario_is_in_analyze_state</span><span class="p">(</span><span class="n">scenario</span><span class="p">)</span>
+
+    <span class="c1"># create canvas</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">create_map_canvas</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="n">figsize</span><span class="p">,</span> <span class="n">x_range</span><span class="o">=</span><span class="n">x_range</span><span class="p">,</span> <span class="n">y_range</span><span class="o">=</span><span class="n">y_range</span><span class="p">)</span>
+
+    <span class="c1"># add state borders</span>
+    <span class="n">default_state_borders_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;line_color&quot;</span><span class="p">:</span> <span class="s2">&quot;gray&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;line_width&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="s2">&quot;fill_alpha&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="s2">&quot;background_map&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">all_state_borders_kwargs</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">{</span><span class="o">**</span><span class="n">default_state_borders_kwargs</span><span class="p">,</span> <span class="o">**</span><span class="n">state_borders_kwargs</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">state_borders_kwargs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="n">default_state_borders_kwargs</span>
+    <span class="p">)</span>
+    <span class="n">_check_func_kwargs</span><span class="p">(</span>
+        <span class="n">add_state_borders</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">all_state_borders_kwargs</span><span class="p">),</span> <span class="s2">&quot;state_borders_kwargs&quot;</span>
+    <span class="p">)</span>
+    <span class="n">canvas</span> <span class="o">=</span> <span class="n">add_state_borders</span><span class="p">(</span><span class="n">canvas</span><span class="p">,</span> <span class="o">**</span><span class="n">all_state_borders_kwargs</span><span class="p">)</span>
+
+    <span class="c1"># add plant capacity</span>
+    <span class="n">add_plant_capacity</span><span class="p">(</span>
+        <span class="n">canvas</span><span class="p">,</span>
+        <span class="n">scenario</span><span class="p">,</span>
+        <span class="n">resources</span><span class="p">,</span>
+        <span class="n">disaggregation</span><span class="p">,</span>
+        <span class="n">min_capacity</span><span class="p">,</span>
+        <span class="n">size_factor</span><span class="p">,</span>
+        <span class="n">alpha</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">canvas</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">label_text_font_size</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">legend_font_size</span><span class="si">}</span><span class="s2">pt&quot;</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="n">legend</span><span class="o">.</span><span class="n">location</span> <span class="o">=</span> <span class="n">legend_location</span>
+
+    <span class="k">return</span> <span class="n">canvas</span></div>
+
+
+<div class="viewcode-block" id="add_plant_capacity"><a class="viewcode-back" href="../../../postreise.plot.html#postreise.plot.plot_capacity_map.add_plant_capacity">[docs]</a><span class="k">def</span> <span class="nf">add_plant_capacity</span><span class="p">(</span>
+    <span class="n">canvas</span><span class="p">,</span>
+    <span class="n">scenario</span><span class="p">,</span>
+    <span class="n">resources</span><span class="p">,</span>
+    <span class="n">disaggregation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">min_capacity</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">size_factor</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Adds renewables capacity to a plot.</span>
+
+<span class="sd">    :param bokeh.plotting.figure.Figure canvas: canvas to plot capacities onto.</span>
+<span class="sd">    :param powersimdata.scenario.scenario.Scenario scenario: scenario instance.</span>
+<span class="sd">    :param iterable resources: which types of resources to plot.</span>
+<span class="sd">    :param tuple figsize: size of the bokeh figure (in pixels).</span>
+<span class="sd">    :param tuple x_range: x range to zoom plot to (EPSG:3857).</span>
+<span class="sd">    :param tuple y_range: y range to zoom plot to (EPSG:3857).</span>
+<span class="sd">    :param str disaggregation: method used to disaggregate plants:</span>
+<span class="sd">        if &quot;new_vs_existing_plants&quot;: separates plants into added vs. existing.</span>
+<span class="sd">        if None, no disaggregation.</span>
+<span class="sd">    :param float/int min_capacity: minimum bus capacity (MW) for markers to be plotted.</span>
+<span class="sd">    :param float/int size_factor: scale size of glyphs.</span>
+<span class="sd">    :param float/int alpha: opacity of circles (between 0 and 1).</span>
+<span class="sd">    :raises ValueError: if ``disaggregation`` is not &#39;new_vs_existing_plants&#39; or None.</span>
+<span class="sd">    :return: (*bokeh.plotting.figure.Figure*) -- map with color-coded upgrades.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ct</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_ct</span><span class="p">()</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">scenario</span><span class="o">.</span><span class="n">get_grid</span><span class="p">()</span>
+    <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">grid</span><span class="o">.</span><span class="n">plant</span> <span class="o">=</span> <span class="n">project_bus</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;type in @resources&quot;</span><span class="p">))</span>
+    <span class="n">type_colors</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;type2color&quot;</span><span class="p">]</span>
+
+    <span class="n">xy_capacity</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">disaggregation</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">grouped_capacities</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">Pmax</span>
+        <span class="n">grouped_capacities</span> <span class="o">=</span> <span class="n">grouped_capacities</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+        <span class="n">xy_capacity</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grouped_capacities</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;Pmax &gt; 0&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">disaggregation</span> <span class="o">==</span> <span class="s2">&quot;new_vs_existing_plants&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">&quot;new_plant&quot;</span> <span class="ow">in</span> <span class="n">ct</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">num_new_plants</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ct</span><span class="p">[</span><span class="s2">&quot;new_plant&quot;</span><span class="p">])</span>
+            <span class="n">scaled_plants</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="o">-</span><span class="n">num_new_plants</span><span class="p">]</span>
+            <span class="n">new_plants</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="n">num_new_plants</span><span class="p">:]</span>
+            <span class="n">grouped_new_capacities</span> <span class="o">=</span> <span class="n">new_plants</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">Pmax</span>
+            <span class="n">grouped_new_capacities</span> <span class="o">=</span> <span class="n">grouped_new_capacities</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+            <span class="n">xy_capacity</span><span class="p">[</span><span class="s2">&quot;new&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grouped_new_capacities</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;Pmax &gt; 0&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">scaled_plants</span> <span class="o">=</span> <span class="n">grid</span><span class="o">.</span><span class="n">plant</span>
+            <span class="n">new_plants</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">grid</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+            <span class="n">xy_capacity</span><span class="p">[</span><span class="s2">&quot;new&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;Pmax&quot;</span><span class="p">])</span>
+        <span class="n">grouped_capacities</span> <span class="o">=</span> <span class="n">scaled_plants</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">Pmax</span>
+        <span class="n">grouped_capacities</span> <span class="o">=</span> <span class="n">grouped_capacities</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+        <span class="n">xy_capacity</span><span class="p">[</span><span class="s2">&quot;existing&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grouped_capacities</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;Pmax &gt; 0&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown disaggregation method: </span><span class="si">{</span><span class="n">disaggregation</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># capacity circles</span>
+    <span class="n">renderers</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">tranche</span><span class="p">,</span> <span class="n">plants</span> <span class="ow">in</span> <span class="n">xy_capacity</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">resource</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">resources</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">disaggregation</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">legend_label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2"> capacity&quot;</span>
+            <span class="k">elif</span> <span class="n">disaggregation</span> <span class="o">==</span> <span class="s2">&quot;new_vs_existing_plants&quot;</span><span class="p">:</span>
+                <span class="n">legend_label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2"> capacity of </span><span class="si">{</span><span class="n">tranche</span><span class="si">}</span><span class="s2"> plants&quot;</span>
+            <span class="k">if</span> <span class="n">resource</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">plants</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">unique</span><span class="p">():</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;no </span><span class="si">{</span><span class="n">resource</span><span class="si">}</span><span class="s2"> plants for grouping: </span><span class="si">{</span><span class="n">tranche</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">matching_plants</span> <span class="o">=</span> <span class="n">plants</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;type == @resource&quot;</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">matching_plants</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">matching_plants</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;capacity&quot;</span><span class="p">:</span> <span class="n">matching_plants</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;radius&quot;</span><span class="p">:</span> <span class="n">matching_plants</span><span class="p">[</span><span class="s2">&quot;Pmax&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">size_factor</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="n">circle</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span>
+                <span class="s2">&quot;x&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;y&quot;</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="n">mcolors</span><span class="o">.</span><span class="n">to_hex</span><span class="p">(</span><span class="n">type_colors</span><span class="p">[</span><span class="n">resource</span><span class="p">]),</span>
+                <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+                <span class="n">size</span><span class="o">=</span><span class="s2">&quot;radius&quot;</span><span class="p">,</span>
+                <span class="n">source</span><span class="o">=</span><span class="n">ColumnDataSource</span><span class="p">(</span><span class="n">data</span><span class="p">),</span>
+                <span class="n">legend_label</span><span class="o">=</span><span class="n">legend_label</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">renderers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">circle</span><span class="p">)</span>
+
+    <span class="n">hover</span> <span class="o">=</span> <span class="n">HoverTool</span><span class="p">(</span>
+        <span class="n">tooltips</span><span class="o">=</span><span class="p">[</span>
+            <span class="p">(</span><span class="s2">&quot;Capacity (MW)&quot;</span><span class="p">,</span> <span class="s2">&quot;@capacity&quot;</span><span class="p">),</span>
+        <span class="p">],</span>
+        <span class="n">renderers</span><span class="o">=</span><span class="n">renderers</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">canvas</span><span class="o">.</span><span class="n">add_tools</span><span class="p">(</span><span class="n">hover</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">canvas</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

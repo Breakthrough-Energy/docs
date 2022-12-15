@@ -216,8 +216,8 @@ Generator Capacity and Generation
 
 
       data = os.path.join(os.path.dirname(inspect.getfile(postreise)), "data")
-        hist_gen = pd.read_csv(
-        os.path.join(data, "2016_Historical_USA_TAMU_Generation_GWh.csv"), index_col=0
+      hist_gen = pd.read_csv(
+          os.path.join(data, "2016_Historical_USA_TAMU_Generation_GWh.csv"), index_col=0
       ).T
       historical_generation = summarize_hist_gen(hist_gen, hist_gen.columns.to_list())
 

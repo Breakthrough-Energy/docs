@@ -147,6 +147,10 @@
             <span class="p">)</span>
 
             <span class="c1"># Add missing information</span>
+            <span class="n">version</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">base_grid</span><span class="o">.</span><span class="n">version</span>
+            <span class="n">version</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="n">version</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">version</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;grid_model_version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">version</span>
+
             <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;execute&quot;</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;runtime&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;infeasibilities&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
@@ -183,7 +187,6 @@
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">exported_methods</span> <span class="o">|=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">exported_methods</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;grid_model&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">grid_model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_scenario_info</span><span class="p">[</span><span class="s2">&quot;interconnect&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span><span class="n">interconnect</span></div>
 
@@ -470,19 +473,36 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">table</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="s2">&quot;reduction&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;reduction&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zenodo_record_id</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="kc">None</span> <span class="k">if</span> <span class="s2">&quot;zenodo_record_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;zenodo_record_id&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">print_existing_study</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">set_base_grid</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_base_profile</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">set_change_table</span><span class="p">()</span>
 
 <div class="viewcode-block" id="FromPyPSA.set_base_grid"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.FromPyPSA.set_base_grid">[docs]</a>    <span class="k">def</span> <span class="nf">set_base_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Set base grid&quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_grid</span> <span class="o">=</span> <span class="n">Grid</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interconnect</span><span class="p">,</span>
+            <span class="n">source</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span>
+            <span class="n">reduction</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction</span><span class="p">,</span>
+            <span class="n">zenodo_record_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">zenodo_record_id</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="FromPyPSA.set_base_profile"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.FromPyPSA.set_base_profile">[docs]</a>    <span class="k">def</span> <span class="nf">set_base_profile</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set base profile.&quot;&quot;&quot;</span>
+        <span class="n">version</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">base_grid</span><span class="o">.</span><span class="n">version</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">version</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">version</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">version</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">demand</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hydro</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solar</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wind</span> <span class="o">=</span> <span class="n">version</span></div>
 
 <div class="viewcode-block" id="FromPyPSA.set_change_table"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.FromPyPSA.set_change_table">[docs]</a>    <span class="k">def</span> <span class="nf">set_change_table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Set change table&quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">change_table</span> <span class="o">=</span> <span class="n">ChangeTable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_grid</span><span class="p">)</span></div></div>
 
 
 <div class="viewcode-block" id="get_builder"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.get_builder">[docs]</a><span class="k">def</span> <span class="nf">get_builder</span><span class="p">(</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">interconnect</span><span class="p">,</span> <span class="n">table</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>

@@ -40,6 +40,10 @@
 
 <span class="kn">import</span> <span class="nn">pypsa</span>
 
+<span class="kn">from</span> <span class="nn">powersimdata.input.converter.helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">add_interconnect_to_grid_data_frames</span><span class="p">,</span>
+    <span class="n">add_zone_to_grid_data_frames</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.converter.pypsa_to_grid</span> <span class="kn">import</span> <span class="n">FromPyPSA</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.constants.region.geography</span> <span class="kn">import</span> <span class="n">get_geography</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.constants.region.zones</span> <span class="kn">import</span> <span class="n">from_pypsa</span>
@@ -171,7 +175,24 @@
             <span class="n">s</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span>
         <span class="p">]</span>
         <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">reduction</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">available</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Available reduced network: </span><span class="si">{</span><span class="s1">&#39; | &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">available</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Available reduced network: </span><span class="si">{</span><span class="s1">&#39; | &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">available</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_add_information</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add zone and interconnect columns to data frames&quot;&quot;&quot;</span>
+        <span class="n">bus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bus</span>
+        <span class="n">bus2sub</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bus2sub</span>
+        <span class="n">bus</span><span class="p">[</span><span class="s2">&quot;zone_name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">bus2sub</span><span class="o">.</span><span class="n">sub_id</span><span class="p">)</span>
+        <span class="n">bus</span><span class="o">.</span><span class="n">zone_id</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">zone_name</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span><span class="p">)</span>
+        <span class="n">add_zone_to_grid_data_frames</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="n">zone2ic</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">zones</span><span class="p">[</span><span class="s2">&quot;loadzone2interconnect&quot;</span><span class="p">]</span>
+        <span class="n">bus2sub</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="n">bus2sub</span><span class="o">.</span><span class="n">sub_id</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">zone2ic</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sub</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">zone2ic</span><span class="p">)</span>
+        <span class="n">add_interconnect_to_grid_data_frames</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TUB.build"><a class="viewcode-back" href="../../../../powersimdata.network.europe_tub.html#powersimdata.network.europe_tub.model.TUB.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_add_information</span><span class="p">()</span></div></div>
 </pre></div>
 
           </div>

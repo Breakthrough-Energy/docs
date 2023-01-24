@@ -34,10 +34,13 @@
             
   <h1>Source code for powersimdata.input.profile_input</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">fs</span> <span class="kn">import</span> <span class="n">errors</span>
+<span class="kn">from</span> <span class="nn">fs.multifs</span> <span class="kn">import</span> <span class="n">MultiFS</span>
 
 <span class="kn">from</span> <span class="nn">powersimdata.data_access.context</span> <span class="kn">import</span> <span class="n">Context</span>
 <span class="kn">from</span> <span class="nn">powersimdata.data_access.fs_helper</span> <span class="kn">import</span> <span class="n">get_blob_fs</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.input_base</span> <span class="kn">import</span> <span class="n">InputBase</span>
+<span class="kn">from</span> <span class="nn">powersimdata.utility</span> <span class="kn">import</span> <span class="n">server_setup</span>
 
 <span class="n">profile_kind</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;demand&quot;</span><span class="p">,</span>
@@ -70,13 +73,20 @@
     <span class="k">return</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">_&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.csv&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">matching</span><span class="p">]</span></div>
 
 
+<span class="k">def</span> <span class="nf">_make_fs</span><span class="p">():</span>
+    <span class="n">mfs</span> <span class="o">=</span> <span class="n">MultiFS</span><span class="p">()</span>
+    <span class="n">writeable</span> <span class="o">=</span> <span class="n">server_setup</span><span class="o">.</span><span class="n">BLOB_TOKEN_RW</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="n">mfs</span><span class="o">.</span><span class="n">add_fs</span><span class="p">(</span><span class="s2">&quot;profile_fs&quot;</span><span class="p">,</span> <span class="n">get_blob_fs</span><span class="p">(</span><span class="s2">&quot;profiles&quot;</span><span class="p">),</span> <span class="n">write</span><span class="o">=</span><span class="n">writeable</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mfs</span>
+
+
 <div class="viewcode-block" id="ProfileInput"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.profile_input.ProfileInput">[docs]</a><span class="k">class</span> <span class="nc">ProfileInput</span><span class="p">(</span><span class="n">InputBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Loads profile data&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_file_extension</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="s2">&quot;csv&quot;</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">profile_kind</span><span class="p">}</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span> <span class="o">=</span> <span class="n">Context</span><span class="o">.</span><span class="n">get_data_access</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">get_blob_fs</span><span class="p">(</span><span class="s2">&quot;profiles&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span> <span class="o">=</span> <span class="n">Context</span><span class="o">.</span><span class="n">get_data_access</span><span class="p">(</span><span class="n">_make_fs</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_get_file_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scenario_info</span><span class="p">,</span> <span class="n">field_name</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the path to the specified profile</span>
@@ -103,8 +113,10 @@
         <span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">parse_dates</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">if</span> <span class="s2">&quot;demand_flexibility&quot;</span> <span class="ow">in</span> <span class="n">path</span><span class="p">:</span>
             <span class="n">data</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="nb">all</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
             <span class="n">data</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">data</span>
 
 <div class="viewcode-block" id="ProfileInput.get_profile_version"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.profile_input.ProfileInput.get_profile_version">[docs]</a>    <span class="k">def</span> <span class="nf">get_profile_version</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
@@ -120,7 +132,27 @@
         <span class="k">def</span> <span class="nf">_callback</span><span class="p">(</span><span class="n">fs</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">get_profile_version</span><span class="p">(</span><span class="n">fs</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">get_profile_version</span><span class="p">(</span><span class="n">_callback</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">get_profile_version</span><span class="p">(</span><span class="n">_callback</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ProfileInput.upload"><a class="viewcode-back" href="../../../powersimdata.input.html#powersimdata.input.profile_input.ProfileInput.upload">[docs]</a>    <span class="k">def</span> <span class="nf">upload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">profile</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Upload the given profile to blob storage and local cache</span>
+
+<span class="sd">        :param str grid_model: the grid model</span>
+<span class="sd">        :param str name: the file name for the profile, without extension</span>
+<span class="sd">        :param pandas.DataFrame profile: profile data frame</span>
+<span class="sd">        :raises ValueError: if no credential with write access is set</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="s2">&quot;raw&quot;</span><span class="p">,</span> <span class="n">grid_model</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">])</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_access</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">profile</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">errors</span><span class="o">.</span><span class="n">ResourceReadOnly</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Profile </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> missing from blob storage and no credential with &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;write access provided. Please set the </span><span class="si">{</span><span class="n">server_setup</span><span class="o">.</span><span class="n">BLOB_KEY_NAME</span><span class="si">}</span><span class="s2"> &quot;</span>
+                <span class="s2">&quot;environment variable to enable automatic upload.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></div></div>
 </pre></div>
 
           </div>

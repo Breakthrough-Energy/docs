@@ -327,6 +327,15 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">plan_name</span> <span class="o">=</span> <span class="n">plan_name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">scenario_name</span> <span class="o">=</span> <span class="n">scenario_name</span>
 
+    <span class="k">def</span> <span class="nf">_check_time_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">,</span> <span class="n">interval</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate time range and interval</span>
+
+<span class="sd">        :param str start_date: start date.</span>
+<span class="sd">        :param str end_date: start date.</span>
+<span class="sd">        :param str interval: interval.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
     <span class="k">def</span> <span class="nf">set_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">,</span> <span class="n">interval</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets scenario start and end dates as well as the interval that will</span>
 <span class="sd">        be used to split the date range.</span>
@@ -336,27 +345,13 @@
 <span class="sd">        :param str interval: interval.</span>
 <span class="sd">        :raises ValueError: if start date, end date or interval are invalid.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">min_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-01 00:00:00&quot;</span><span class="p">)</span>
-        <span class="n">max_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-12-31 23:00:00&quot;</span><span class="p">)</span>
-
-        <span class="n">start_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">start_date</span><span class="p">)</span>
-        <span class="n">end_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">end_date</span><span class="p">)</span>
-        <span class="n">hours</span> <span class="o">=</span> <span class="p">(</span><span class="n">end_ts</span> <span class="o">-</span> <span class="n">start_ts</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
-        <span class="k">if</span> <span class="n">start_ts</span> <span class="o">&gt;</span> <span class="n">end_ts</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;start_date &gt; end_date&quot;</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">start_ts</span> <span class="o">&lt;</span> <span class="n">min_ts</span> <span class="ow">or</span> <span class="n">start_ts</span> <span class="o">&gt;</span> <span class="n">max_ts</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;start_date not in [</span><span class="si">%s</span><span class="s2">,</span><span class="si">%s</span><span class="s2">[&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">min_ts</span><span class="p">,</span> <span class="n">max_ts</span><span class="p">))</span>
-        <span class="k">elif</span> <span class="n">end_ts</span> <span class="o">&lt;</span> <span class="n">min_ts</span> <span class="ow">or</span> <span class="n">end_ts</span> <span class="o">&gt;</span> <span class="n">max_ts</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;end_date not in ]</span><span class="si">%s</span><span class="s2">,</span><span class="si">%s</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">min_ts</span><span class="p">,</span> <span class="n">max_ts</span><span class="p">))</span>
-        <span class="k">elif</span> <span class="n">hours</span> <span class="o">%</span> <span class="nb">int</span><span class="p">(</span><span class="n">interval</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Incorrect interval for start and end dates&quot;</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">start_date</span> <span class="o">=</span> <span class="n">start_date</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">end_date</span> <span class="o">=</span> <span class="n">end_date</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">interval</span> <span class="o">=</span> <span class="n">interval</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_time_range</span><span class="p">(</span><span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">,</span> <span class="n">interval</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start_date</span> <span class="o">=</span> <span class="n">start_date</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">end_date</span> <span class="o">=</span> <span class="n">end_date</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interval</span> <span class="o">=</span> <span class="n">interval</span>
 
     <span class="k">def</span> <span class="nf">set_engine</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">engine</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets simulation engine to be used for scenarion.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets simulation engine to be used for scenario.</span>
 
 <span class="sd">        :param str engine: simulation engine</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -414,6 +409,29 @@
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">possible</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">)))</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;&lt;-- End: Available profiles&quot;</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_check_time_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_date</span><span class="p">,</span> <span class="n">end_date</span><span class="p">,</span> <span class="n">interval</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate time range and interval</span>
+
+<span class="sd">        :param str start_date: start date.</span>
+<span class="sd">        :param str end_date: start date.</span>
+<span class="sd">        :param str interval: interval.</span>
+<span class="sd">        :raises ValueError: if start date, end date or interval are invalid.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">min_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-01-01 00:00:00&quot;</span><span class="p">)</span>
+        <span class="n">max_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="s2">&quot;2016-12-31 23:00:00&quot;</span><span class="p">)</span>
+
+        <span class="n">start_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">start_date</span><span class="p">)</span>
+        <span class="n">end_ts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timestamp</span><span class="p">(</span><span class="n">end_date</span><span class="p">)</span>
+        <span class="n">hours</span> <span class="o">=</span> <span class="p">(</span><span class="n">end_ts</span> <span class="o">-</span> <span class="n">start_ts</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">timedelta64</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">start_ts</span> <span class="o">&gt;</span> <span class="n">end_ts</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;start_date &gt; end_date&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">start_ts</span> <span class="o">&lt;</span> <span class="n">min_ts</span> <span class="ow">or</span> <span class="n">start_ts</span> <span class="o">&gt;</span> <span class="n">max_ts</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;start_date not in [</span><span class="si">%s</span><span class="s2">,</span><span class="si">%s</span><span class="s2">[&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">min_ts</span><span class="p">,</span> <span class="n">max_ts</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">end_ts</span> <span class="o">&lt;</span> <span class="n">min_ts</span> <span class="ow">or</span> <span class="n">end_ts</span> <span class="o">&gt;</span> <span class="n">max_ts</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;end_date not in ]</span><span class="si">%s</span><span class="s2">,</span><span class="si">%s</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">min_ts</span><span class="p">,</span> <span class="n">max_ts</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">hours</span> <span class="o">%</span> <span class="nb">int</span><span class="p">(</span><span class="n">interval</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Incorrect interval for start and end dates&quot;</span><span class="p">)</span>
 
 <div class="viewcode-block" id="FromCSV.set_base_grid"><a class="viewcode-back" href="../../../powersimdata.scenario.html#powersimdata.scenario.create.FromCSV.set_base_grid">[docs]</a>    <span class="k">def</span> <span class="nf">set_base_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set base grid&quot;&quot;&quot;</span>

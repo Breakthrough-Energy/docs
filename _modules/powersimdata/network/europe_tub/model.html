@@ -42,6 +42,11 @@
     <span class="n">add_zone_to_grid_data_frames</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">powersimdata.input.converter.pypsa_to_grid</span> <span class="kn">import</span> <span class="n">FromPyPSA</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.converter.pypsa_to_profiles</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">get_pypsa_demand_profile</span><span class="p">,</span>
+    <span class="n">get_pypsa_gen_profile</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">powersimdata.input.profile_input</span> <span class="kn">import</span> <span class="n">ProfileInput</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.constants.region.geography</span> <span class="kn">import</span> <span class="n">get_geography</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.constants.region.zones</span> <span class="kn">import</span> <span class="n">from_pypsa</span>
 <span class="kn">from</span> <span class="nn">powersimdata.network.helpers</span> <span class="kn">import</span> <span class="p">(</span>
@@ -145,34 +150,51 @@
         <span class="n">z</span><span class="o">.</span><span class="n">load_data</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">dir</span><span class="p">,</span> <span class="s2">&quot;networks&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">version</span> <span class="o">=</span> <span class="n">z</span><span class="o">.</span><span class="n">version</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_network</span><span class="p">(</span><span class="n">reduction</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="o">=</span> <span class="n">reduction</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_network</span><span class="p">()</span></div>
 
-    <span class="k">def</span> <span class="nf">_get_network</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reduction</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_get_network</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a PyPSA network with the given reduction</span>
 
-<span class="sd">        :param int reduction: reduction parameter (number of nodes in network). If None,</span>
-<span class="sd">            the full network is loaded.</span>
 <span class="sd">        :return: (*pypsa.Network*) -- a PyPSA network object</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">,</span> <span class="s2">&quot;elec_s&quot;</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_check_reduction</span><span class="p">(</span><span class="n">reduction</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">reduction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_check_reduction</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">pypsa</span><span class="o">.</span><span class="n">Network</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;.nc&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">pypsa</span><span class="o">.</span><span class="n">Network</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="n">reduction</span><span class="si">}</span><span class="s2">_ec.nc&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pypsa</span><span class="o">.</span><span class="n">Network</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction</span><span class="si">}</span><span class="s2">.nc&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_check_reduction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reduction</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_check_reduction</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate reduction parameter</span>
 
-<span class="sd">        :param int reduction: reduction parameter (number of nodes in network).</span>
 <span class="sd">        :raises ValueError: if ``reduction`` is not available.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">reduction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span>
-        <span class="n">available</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">s</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span>
-        <span class="p">]</span>
-        <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">reduction</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">available</span><span class="p">:</span>
+        <span class="n">prefix</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_loc</span><span class="p">)]</span>
+        <span class="n">available</span> <span class="o">=</span> <span class="p">{</span><span class="n">s</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">prefix</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()}</span>
+        <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">available</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Available reduced network: </span><span class="si">{</span><span class="s1">&#39; | &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">available</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_profile_version</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the profile version given the current record version from zenodo and the</span>
+<span class="sd">        reduction.</span>
+
+<span class="sd">        :return: (*str*) -- the version which is used to construct a file name</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">append</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">reduction</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">version</span><span class="si">}</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="n">append</span>
+
+    <span class="k">def</span> <span class="nf">_profile_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if a profile has been uploaded for the given version</span>
+
+<span class="sd">        :param str kind: the kind of profile to check</span>
+<span class="sd">        :return: (*bool*) -- True if the profile is available</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_profile_input</span> <span class="o">=</span> <span class="n">ProfileInput</span><span class="p">()</span>
+        <span class="n">available</span> <span class="o">=</span> <span class="n">_profile_input</span><span class="o">.</span><span class="n">get_profile_version</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">kind</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profile_version</span> <span class="ow">in</span> <span class="n">available</span>
 
     <span class="k">def</span> <span class="nf">_add_information</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Add zone and interconnect columns to data frames&quot;&quot;&quot;</span>
@@ -187,8 +209,38 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">sub</span><span class="o">.</span><span class="n">interconnect</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">zone2ic</span><span class="p">)</span>
         <span class="n">add_interconnect_to_grid_data_frames</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
+    <span class="k">def</span> <span class="nf">_extract_profiles</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract and upload profiles if necessary&quot;&quot;&quot;</span>
+        <span class="n">profiles</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profile_exists</span><span class="p">(</span><span class="s2">&quot;demand&quot;</span><span class="p">):</span>
+            <span class="n">demand</span> <span class="o">=</span> <span class="n">get_pypsa_demand_profile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="p">)</span>
+            <span class="n">demand</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">demand</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span><span class="p">)</span>
+            <span class="n">profiles</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;demand_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_profile_version</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">demand</span>
+        <span class="n">p2c</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_immutables</span><span class="o">.</span><span class="n">plants</span><span class="p">[</span><span class="s2">&quot;group_profile_resources&quot;</span><span class="p">])</span>
+        <span class="n">p2c</span><span class="p">[</span><span class="s2">&quot;hydro&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;ror&quot;</span><span class="p">,</span> <span class="s2">&quot;hydro&quot;</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">p2c</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profile_exists</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+                <span class="n">profile</span> <span class="o">=</span> <span class="n">get_pypsa_gen_profile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="p">,</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">p2c</span><span class="p">[</span><span class="n">k</span><span class="p">]})</span>
+                <span class="n">profiles</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_profile_version</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">profile</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">profiles</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Uploading profiles: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">profiles</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">_profile_input</span> <span class="o">=</span> <span class="n">ProfileInput</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">profiles</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">_profile_input</span><span class="o">.</span><span class="n">upload</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_model</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_update_cols</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update columns with default values&quot;&quot;&quot;</span>
+        <span class="n">pd_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zone2id</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bus</span><span class="p">[</span><span class="s2">&quot;Pd&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">pd_mask</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plant</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="mi">1</span>
+
 <div class="viewcode-block" id="TUB.build"><a class="viewcode-back" href="../../../../powersimdata.network.europe_tub.html#powersimdata.network.europe_tub.model.TUB.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct the network used to build a grid object and extract/upload the</span>
+<span class="sd">        profiles if necessary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_extract_profiles</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_cols</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_add_information</span><span class="p">()</span></div></div>
 </pre></div>
 

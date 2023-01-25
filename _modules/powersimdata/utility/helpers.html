@@ -75,7 +75,7 @@
         <span class="k">return</span> <span class="n">keys</span></div></div>
 
 
-<div class="viewcode-block" id="cache_key"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.cache_key">[docs]</a><span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+<div class="viewcode-block" id="cache_key"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.cache_key">[docs]</a><span class="k">def</span> <span class="nf">cache_key</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Creates a cache key from the given args. The user should ensure that the</span>
 <span class="sd">    range of inputs will not result in key collisions.</span>
 
@@ -83,7 +83,7 @@
 <span class="sd">    :return: (*tuple*) -- a tuple containing the input in heirarchical</span>
 <span class="sd">        structure</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">kb</span> <span class="o">=</span> <span class="n">CacheKeyBuilder</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+    <span class="n">kb</span> <span class="o">=</span> <span class="n">CacheKeyBuilder</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">kb</span><span class="o">.</span><span class="n">build</span><span class="p">()</span></div>
 
 
@@ -93,9 +93,10 @@
 <span class="sd">    :param args: variable length arguments from which to build a key</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Constructor&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">args</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">extend</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
 
 <div class="viewcode-block" id="CacheKeyBuilder.build"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.CacheKeyBuilder.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Combine args into a tuple, preserving the structure of each element.</span>
@@ -111,7 +112,8 @@
             <span class="k">return</span> <span class="n">arg</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">set</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
             <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_build</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arg</span><span class="p">)</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unsupported type for cache key = </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;cache key of type = </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span><span class="si">}</span><span class="s2"> may result in unexpected behavior&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;obj:</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="nb">id</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span></div>
 
 
 <div class="viewcode-block" id="PrintManager"><a class="viewcode-back" href="../../../powersimdata.utility.html#powersimdata.utility.helpers.PrintManager">[docs]</a><span class="k">class</span> <span class="nc">PrintManager</span><span class="p">:</span>

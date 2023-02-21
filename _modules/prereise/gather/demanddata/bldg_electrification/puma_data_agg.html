@@ -1,0 +1,396 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.demanddata.bldg_electrification.puma_data_agg &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="../../../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.demanddata.bldg_electrification.puma_data_agg</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This script develops puma-level data directly from census and aggregated from census tract data</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">import</span> <span class="nn">geopandas</span> <span class="k">as</span> <span class="nn">gpd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">prereise.gather.demanddata.bldg_electrification</span> <span class="kn">import</span> <span class="n">const</span>
+
+
+<div class="viewcode-block" id="aggregate_puma_df"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.puma_data_agg.aggregate_puma_df">[docs]</a><span class="k">def</span> <span class="nf">aggregate_puma_df</span><span class="p">(</span>
+    <span class="n">puma_states</span><span class="p">,</span> <span class="n">tract_puma_mapping</span><span class="p">,</span> <span class="n">tract_gbs_area</span><span class="p">,</span> <span class="n">tract_degday_normals</span><span class="p">,</span> <span class="n">tract_pop</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Scale census tract data up to puma areas.</span>
+
+<span class="sd">    :param pandas.DataFrame puma_states: mapping of puma to state.</span>
+<span class="sd">    :param pandas.DataFrame tract_puma_mapping: tract to puma mapping.</span>
+<span class="sd">    :param pandas.DataFrame tract_gbs_area: General Building Stock area for residential, commercial, industrial areas by tract</span>
+<span class="sd">    :param pandas.DataFrame tract_degday_normals: heating and cooling degree day normals by tract</span>
+<span class="sd">    :param pandas.DataFrame tract_pop: population by tract</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- population; residential, commercial, industrial areas;</span>
+<span class="sd">        heating degree days; cooling degree days; residential space heating household fuel</span>
+<span class="sd">        fractions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Set up puma_df data frame</span>
+    <span class="n">puma_df</span> <span class="o">=</span> <span class="n">puma_states</span><span class="o">.</span><span class="n">to_frame</span><span class="p">()</span>
+
+    <span class="c1"># Combine tract-level data into single data frame with only census tracts with building area data</span>
+    <span class="n">tract_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">tract_gbs_area</span><span class="p">,</span> <span class="n">tract_degday_normals</span><span class="p">,</span> <span class="n">tract_pop</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">join</span><span class="o">=</span><span class="s2">&quot;inner&quot;</span>
+    <span class="p">)</span>
+    <span class="n">tract_data</span> <span class="o">=</span> <span class="n">tract_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="o">~</span><span class="n">tract_data</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">duplicated</span><span class="p">()]</span>
+
+    <span class="c1"># Group tracts by PUMA for aggregration</span>
+    <span class="n">grouped_tracts</span> <span class="o">=</span> <span class="n">tract_data</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">tract_puma_mapping</span><span class="p">[</span><span class="s2">&quot;puma&quot;</span><span class="p">])</span>
+    <span class="c1"># Sum population and GBS areas; store in data frame</span>
+    <span class="n">puma_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">grouped_tracts</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="s2">&quot;pop&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grouped_tracts</span><span class="p">[</span><span class="s2">&quot;pop&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">puma_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">grouped_tracts</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="s2">&quot;res_area_gbs_m2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grouped_tracts</span><span class="p">[</span>
+        <span class="s2">&quot;res_area_gbs_m2&quot;</span>
+    <span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">puma_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">grouped_tracts</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="s2">&quot;com_area_gbs_m2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grouped_tracts</span><span class="p">[</span>
+        <span class="s2">&quot;com_area_gbs_m2&quot;</span>
+    <span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">puma_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">grouped_tracts</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="s2">&quot;ind_area_gbs_m2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">grouped_tracts</span><span class="p">[</span>
+        <span class="s2">&quot;ind_area_gbs_m2&quot;</span>
+    <span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="c1"># Population-weighted average hdd, cdd, and acpen</span>
+    <span class="n">tract_data</span><span class="p">[</span><span class="s2">&quot;pop_hdd65_normals&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tract_data</span><span class="p">[</span><span class="s2">&quot;pop&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">tract_data</span><span class="p">[</span><span class="s2">&quot;hdd65_normals&quot;</span><span class="p">]</span>
+    <span class="n">tract_data</span><span class="p">[</span><span class="s2">&quot;pop_cdd65_normals&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tract_data</span><span class="p">[</span><span class="s2">&quot;pop&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">tract_data</span><span class="p">[</span><span class="s2">&quot;cdd65_normals&quot;</span><span class="p">]</span>
+    <span class="n">puma_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">grouped_tracts</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="s2">&quot;hdd65_normals&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">grouped_tracts</span><span class="p">[</span><span class="s2">&quot;pop_hdd65_normals&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">grouped_tracts</span><span class="p">[</span><span class="s2">&quot;pop&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="p">)</span>
+    <span class="n">puma_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">grouped_tracts</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="s2">&quot;cdd65_normals&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">grouped_tracts</span><span class="p">[</span><span class="s2">&quot;pop_cdd65_normals&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">grouped_tracts</span><span class="p">[</span><span class="s2">&quot;pop&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Load RECS and CBECS area scales for res and com</span>
+    <span class="n">resscales</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="s2">&quot;area_scale_res.csv&quot;</span><span class="p">))</span>
+    <span class="n">comscales</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="s2">&quot;area_scale_com.csv&quot;</span><span class="p">))</span>
+
+    <span class="c1"># Compute GBS areas for state groups in RECS and CBECS</span>
+    <span class="n">resscales</span><span class="p">[</span><span class="s2">&quot;GBS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">puma_df</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;state in @s&quot;</span><span class="p">)[</span><span class="s2">&quot;res_area_gbs_m2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">conv_m2_to_ft2</span>
+        <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">conv_ft2_to_bsf</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">resscales</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="p">]</span>
+    <span class="n">comscales</span><span class="p">[</span><span class="s2">&quot;GBS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">puma_df</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;state in @s&quot;</span><span class="p">)[</span><span class="s2">&quot;com_area_gbs_m2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">conv_m2_to_ft2</span>
+        <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">conv_ft2_to_bsf</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">comscales</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Compute scalar for GBS area to base year area correspondingg to RECS/CBECS</span>
+    <span class="c1"># and assuming a constant annual growth rate</span>
+    <span class="n">resscales</span><span class="p">[</span><span class="s2">&quot;area_scalar&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">resscales</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;RECS</span><span class="si">{</span><span class="n">const</span><span class="o">.</span><span class="n">recs_date_1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+        <span class="o">*</span> <span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">resscales</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;RECS</span><span class="si">{</span><span class="n">const</span><span class="o">.</span><span class="n">recs_date_2</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+                <span class="o">/</span> <span class="n">resscales</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;RECS</span><span class="si">{</span><span class="n">const</span><span class="o">.</span><span class="n">recs_date_1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="o">**</span> <span class="p">(</span>
+                <span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">base_year</span> <span class="o">-</span> <span class="n">const</span><span class="o">.</span><span class="n">recs_date_1</span><span class="p">)</span>
+                <span class="o">/</span> <span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">recs_date_2</span> <span class="o">-</span> <span class="n">const</span><span class="o">.</span><span class="n">recs_date_1</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="o">/</span> <span class="n">resscales</span><span class="p">[</span><span class="s2">&quot;GBS&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="n">comscales</span><span class="p">[</span><span class="s2">&quot;area_scalar&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">comscales</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;CBECS</span><span class="si">{</span><span class="n">const</span><span class="o">.</span><span class="n">cbecs_date_1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+        <span class="o">*</span> <span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">comscales</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;CBECS</span><span class="si">{</span><span class="n">const</span><span class="o">.</span><span class="n">cbecs_date_2</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+                <span class="o">/</span> <span class="n">comscales</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;CBECS</span><span class="si">{</span><span class="n">const</span><span class="o">.</span><span class="n">cbecs_date_1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="o">**</span> <span class="p">(</span>
+                <span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">base_year</span> <span class="o">-</span> <span class="n">const</span><span class="o">.</span><span class="n">cbecs_date_1</span><span class="p">)</span>
+                <span class="o">/</span> <span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">cbecs_date_2</span> <span class="o">-</span> <span class="n">const</span><span class="o">.</span><span class="n">cbecs_date_1</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="o">/</span> <span class="n">comscales</span><span class="p">[</span><span class="s2">&quot;GBS&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Scale puma area from gbs to base year</span>
+    <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">const</span><span class="o">.</span><span class="n">state_list</span><span class="p">:</span>
+        <span class="n">state_row_scale_res</span> <span class="o">=</span> <span class="n">resscales</span><span class="p">[</span><span class="n">resscales</span><span class="o">.</span><span class="n">eq</span><span class="p">(</span><span class="n">state</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+        <span class="n">state_row_scale_com</span> <span class="o">=</span> <span class="n">comscales</span><span class="p">[</span><span class="n">comscales</span><span class="o">.</span><span class="n">eq</span><span class="p">(</span><span class="n">state</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+        <span class="n">res_area_scalar</span> <span class="o">=</span> <span class="n">state_row_scale_res</span><span class="p">[</span><span class="s2">&quot;area_scalar&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">com_area_scalar</span> <span class="o">=</span> <span class="n">state_row_scale_com</span><span class="p">[</span><span class="s2">&quot;area_scalar&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">puma_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">puma_df</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">state</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;res_area_</span><span class="si">{</span><span class="n">const</span><span class="o">.</span><span class="n">base_year</span><span class="si">}</span><span class="s2">_m2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">puma_df</span><span class="p">[</span><span class="n">puma_df</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">state</span><span class="p">][</span><span class="s2">&quot;res_area_gbs_m2&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">res_area_scalar</span>
+        <span class="p">)</span>
+        <span class="n">puma_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">puma_df</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">state</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;com_area_</span><span class="si">{</span><span class="n">const</span><span class="o">.</span><span class="n">base_year</span><span class="si">}</span><span class="s2">_m2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">puma_df</span><span class="p">[</span><span class="n">puma_df</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">state</span><span class="p">][</span><span class="s2">&quot;com_area_gbs_m2&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">com_area_scalar</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">puma_df</span></div>
+
+
+<div class="viewcode-block" id="scale_fuel_fractions"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.puma_data_agg.scale_fuel_fractions">[docs]</a><span class="k">def</span> <span class="nf">scale_fuel_fractions</span><span class="p">(</span><span class="n">hh_fuels</span><span class="p">,</span> <span class="n">puma_df</span><span class="p">,</span> <span class="n">year</span><span class="o">=</span><span class="n">const</span><span class="o">.</span><span class="n">base_year</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Scale census tract data up to puma areas.</span>
+
+<span class="sd">    :param pandas.DataFrame hh_fuels: household fuel type by puma.</span>
+<span class="sd">    :param pandas.DataFrame puma_df: output of :func:`aggregate_puma_df`.</span>
+<span class="sd">    :param int/str year: year to use within label when creating columns.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- fractions of natural gas, fuel oil and kerosone,</span>
+<span class="sd">        propane, and electricity used for space heating, hot water, cooking, and other</span>
+<span class="sd">        in residential and commercial buildings.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Calculate res fractions of fuel usage based off ACS puma_fuel household data</span>
+    <span class="n">puma_df</span><span class="p">[</span><span class="s2">&quot;frac_sh_res_natgas_acs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hh_fuels</span><span class="p">[</span><span class="s2">&quot;hh_utilgas&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">hh_fuels</span><span class="p">[</span><span class="s2">&quot;hh_total&quot;</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;fok&quot;</span><span class="p">,</span> <span class="s2">&quot;othergas&quot;</span><span class="p">,</span> <span class="s2">&quot;coal&quot;</span><span class="p">,</span> <span class="s2">&quot;wood&quot;</span><span class="p">,</span> <span class="s2">&quot;solar&quot;</span><span class="p">,</span> <span class="s2">&quot;elec&quot;</span><span class="p">,</span> <span class="s2">&quot;other&quot;</span><span class="p">,</span> <span class="s2">&quot;none&quot;</span><span class="p">]:</span>
+        <span class="n">puma_df</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_sh_res_</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2">_acs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hh_fuels</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;hh_</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">hh_fuels</span><span class="p">[</span><span class="s2">&quot;hh_total&quot;</span><span class="p">]</span>
+
+    <span class="n">region_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">state</span><span class="p">:</span> <span class="n">r</span> <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">states</span> <span class="ow">in</span> <span class="n">const</span><span class="o">.</span><span class="n">regions</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">states</span><span class="p">}</span>
+    <span class="n">puma_region_groups</span> <span class="o">=</span> <span class="n">puma_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">puma_df</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">region_map</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">const</span><span class="o">.</span><span class="n">classes</span><span class="p">:</span>
+        <span class="c1"># Compute area fraction for each fuel type (column) in each region (index)</span>
+        <span class="n">area_fractions</span> <span class="o">=</span> <span class="n">puma_region_groups</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="n">f</span><span class="p">:</span> <span class="p">(</span>
+                        <span class="p">(</span>
+                            <span class="n">x</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_sh_res_</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2">_acs&quot;</span><span class="p">]</span>
+                            <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">_area_</span><span class="si">{</span><span class="n">const</span><span class="o">.</span><span class="n">base_year</span><span class="si">}</span><span class="s2">_m2&quot;</span><span class="p">]</span>
+                        <span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                        <span class="o">/</span> <span class="n">x</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">_area_</span><span class="si">{</span><span class="n">const</span><span class="o">.</span><span class="n">base_year</span><span class="si">}</span><span class="s2">_m2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+                    <span class="p">)</span>
+                    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">const</span><span class="o">.</span><span class="n">fuel</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="c1"># Scale per-PUMA values to match target regional values (calculated externally)</span>
+        <span class="n">uselist</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sh&quot;</span><span class="p">,</span> <span class="s2">&quot;dhw&quot;</span><span class="p">,</span> <span class="s2">&quot;other&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">c</span> <span class="o">==</span> <span class="s2">&quot;res&quot;</span> <span class="k">else</span> <span class="p">[</span><span class="s2">&quot;sh&quot;</span><span class="p">,</span> <span class="s2">&quot;dhw&quot;</span><span class="p">,</span> <span class="s2">&quot;cook&quot;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">uselist</span><span class="p">:</span>
+            <span class="n">area_fraction_targets</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;frac_target_</span><span class="si">{</span><span class="n">u</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">),</span>
+                <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">down_scale</span> <span class="o">=</span> <span class="n">area_fraction_targets</span> <span class="o">/</span> <span class="n">area_fractions</span>
+            <span class="n">up_scale</span> <span class="o">=</span> <span class="p">(</span><span class="n">area_fraction_targets</span> <span class="o">-</span> <span class="n">area_fractions</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">area_fractions</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">const</span><span class="o">.</span><span class="n">regions</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">const</span><span class="o">.</span><span class="n">fuel</span><span class="p">:</span>
+                    <span class="n">pre_scaling</span> <span class="o">=</span> <span class="n">puma_region_groups</span><span class="o">.</span><span class="n">get_group</span><span class="p">(</span><span class="n">r</span><span class="p">)[</span>
+                        <span class="sa">f</span><span class="s2">&quot;frac_sh_res_</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2">_acs&quot;</span>
+                    <span class="p">]</span>
+                    <span class="k">if</span> <span class="n">down_scale</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="n">f</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="n">scaled</span> <span class="o">=</span> <span class="n">pre_scaling</span> <span class="o">*</span> <span class="n">down_scale</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="n">f</span><span class="p">]</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">scaled</span> <span class="o">=</span> <span class="n">pre_scaling</span> <span class="o">+</span> <span class="n">up_scale</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="n">f</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">pre_scaling</span><span class="p">)</span>
+                    <span class="n">puma_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">pre_scaling</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;frac_</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">u</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">scaled</span>
+
+    <span class="c1"># Sum coal, wood, solar and other fractions for frac_com_other</span>
+    <span class="n">named_sh_com_fuels</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;elec&quot;</span><span class="p">,</span> <span class="s2">&quot;fok&quot;</span><span class="p">,</span> <span class="s2">&quot;natgas&quot;</span><span class="p">,</span> <span class="s2">&quot;othergas&quot;</span><span class="p">}</span>
+    <span class="n">named_sh_com_cols</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2">_sh_com_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">named_sh_com_fuels</span><span class="p">]</span>
+    <span class="n">puma_df</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_other_sh_com_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">puma_df</span><span class="p">[</span><span class="n">named_sh_com_cols</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># Copy residential space heating columns to match new column naming convention</span>
+    <span class="n">fossil_fuels</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;natgas&quot;</span><span class="p">,</span> <span class="s2">&quot;othergas&quot;</span><span class="p">,</span> <span class="s2">&quot;fok&quot;</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">const</span><span class="o">.</span><span class="n">classes</span><span class="p">:</span>
+        <span class="n">uselist</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sh&quot;</span><span class="p">,</span> <span class="s2">&quot;dhw&quot;</span><span class="p">,</span> <span class="s2">&quot;other&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">c</span> <span class="o">==</span> <span class="s2">&quot;res&quot;</span> <span class="k">else</span> <span class="p">[</span><span class="s2">&quot;sh&quot;</span><span class="p">,</span> <span class="s2">&quot;dhw&quot;</span><span class="p">,</span> <span class="s2">&quot;cook&quot;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">uselist</span><span class="p">:</span>
+            <span class="n">fossil_cols</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">u</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">fossil_fuels</span><span class="p">]</span>
+            <span class="n">puma_df</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">u</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">puma_df</span><span class="p">[</span><span class="n">fossil_cols</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">puma_df</span></div>
+
+
+<div class="viewcode-block" id="puma_timezone_latlong"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.puma_data_agg.puma_timezone_latlong">[docs]</a><span class="k">def</span> <span class="nf">puma_timezone_latlong</span><span class="p">(</span><span class="n">timezones</span><span class="p">,</span> <span class="n">pumas</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Assign timezone and lat/long to each puma.</span>
+
+<span class="sd">    :param geopandas.DataFrame timezones: US timezones.</span>
+<span class="sd">    :param geopandas.DataFrame pumas: US pumas.</span>
+
+<span class="sd">    :return: (*pandas.Series*) -- timezone for every puma.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- latitude and longitude for every puma.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">puma_timezone</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">overlay</span><span class="p">(</span><span class="n">pumas</span><span class="p">,</span> <span class="n">timezones</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="s2">&quot;EPSG:4269&quot;</span><span class="p">))</span>
+    <span class="n">puma_timezone</span><span class="p">[</span><span class="s2">&quot;area&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">puma_timezone</span><span class="o">.</span><span class="n">area</span>
+    <span class="n">puma_timezone</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;area&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">puma_timezone</span> <span class="o">=</span> <span class="n">puma_timezone</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="s2">&quot;GEOID10&quot;</span><span class="p">,</span> <span class="n">keep</span><span class="o">=</span><span class="s2">&quot;first&quot;</span><span class="p">)</span>
+    <span class="n">puma_timezone</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;GEOID10&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">puma_lat_long</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;puma&quot;</span><span class="p">:</span> <span class="s2">&quot;puma_&quot;</span> <span class="o">+</span> <span class="n">pumas</span><span class="p">[</span><span class="s2">&quot;GEOID10&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;latitude&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">pumas</span><span class="p">[</span><span class="s2">&quot;INTPTLAT10&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">pumas</span><span class="p">))],</span>
+            <span class="s2">&quot;longitude&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">pumas</span><span class="p">[</span><span class="s2">&quot;INTPTLON10&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">pumas</span><span class="p">))],</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">puma_lat_long</span> <span class="o">=</span> <span class="n">puma_lat_long</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;puma&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">puma_timezone</span><span class="p">[</span><span class="s2">&quot;tzid&quot;</span><span class="p">],</span> <span class="n">puma_lat_long</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">data_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)),</span> <span class="s2">&quot;data&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Load ACS fuel data</span>
+    <span class="n">puma_fuel</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="s2">&quot;puma_fuel.csv&quot;</span><span class="p">),</span> <span class="n">index_col</span><span class="o">=</span><span class="s2">&quot;puma&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Load tract_puma_mapping</span>
+    <span class="n">tract_puma_mapping</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="s2">&quot;tract_puma_mapping.csv&quot;</span><span class="p">),</span> <span class="n">index_col</span><span class="o">=</span><span class="s2">&quot;tract&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Load tract-level data for General Building Stock area for residential, commercial and industral classes</span>
+    <span class="n">tract_gbs_area</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="s2">&quot;tract_gbs_area.csv&quot;</span><span class="p">),</span> <span class="n">index_col</span><span class="o">=</span><span class="s2">&quot;tract&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Load tract-level data for heating and cooling degree day normals</span>
+    <span class="n">tract_degday_normals</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="s2">&quot;tract_degday_normals.csv&quot;</span><span class="p">),</span> <span class="n">index_col</span><span class="o">=</span><span class="s2">&quot;tract&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Load tract-level data for population</span>
+    <span class="n">tract_pop</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="s2">&quot;tract_pop.csv&quot;</span><span class="p">),</span> <span class="n">index_col</span><span class="o">=</span><span class="s2">&quot;tract&quot;</span><span class="p">)</span>
+
+    <span class="n">puma_data_unscaled</span> <span class="o">=</span> <span class="n">aggregate_puma_df</span><span class="p">(</span>
+        <span class="n">puma_fuel</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">],</span>
+        <span class="n">tract_puma_mapping</span><span class="p">,</span>
+        <span class="n">tract_gbs_area</span><span class="p">,</span>
+        <span class="n">tract_degday_normals</span><span class="p">,</span>
+        <span class="n">tract_pop</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">puma_data</span> <span class="o">=</span> <span class="n">scale_fuel_fractions</span><span class="p">(</span><span class="n">puma_fuel</span><span class="p">,</span> <span class="n">puma_data_unscaled</span><span class="p">)</span>
+
+    <span class="c1"># Add time zone information</span>
+    <span class="n">puma_timezones</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="s2">&quot;puma_timezone.csv&quot;</span><span class="p">),</span> <span class="n">index_col</span><span class="o">=</span><span class="s2">&quot;puma&quot;</span>
+    <span class="p">)</span>
+    <span class="n">puma_data</span><span class="p">[</span><span class="s2">&quot;timezone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">puma_timezones</span><span class="p">[</span><span class="s2">&quot;timezone&quot;</span><span class="p">]</span>
+
+    <span class="c1"># Add latitude and longitude information</span>
+    <span class="n">puma_lat_long</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="s2">&quot;puma_lat_long.csv&quot;</span><span class="p">),</span> <span class="n">index_col</span><span class="o">=</span><span class="s2">&quot;puma&quot;</span>
+    <span class="p">)</span>
+    <span class="n">puma_data</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">],</span> <span class="n">puma_data</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">puma_lat_long</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">],</span>
+        <span class="n">puma_lat_long</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Add residential AC penetration</span>
+    <span class="n">acpen_b</span> <span class="o">=</span> <span class="mf">0.00117796</span>
+    <span class="n">acpen_n</span> <span class="o">=</span> <span class="mf">1.1243</span>
+    <span class="n">puma_data</span><span class="p">[</span><span class="s2">&quot;AC_penetration&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span>
+        <span class="o">-</span><span class="n">acpen_b</span> <span class="o">*</span> <span class="n">puma_data</span><span class="p">[</span><span class="s2">&quot;cdd65_normals&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="n">acpen_n</span>
+    <span class="p">)</span>
+
+    <span class="n">puma_data</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="s2">&quot;puma_data.csv&quot;</span><span class="p">))</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 6.1.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

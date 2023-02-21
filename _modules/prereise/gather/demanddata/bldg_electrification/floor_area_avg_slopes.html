@@ -1,0 +1,747 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.demanddata.bldg_electrification.floor_area_avg_slopes &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="../../../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.demanddata.bldg_electrification.floor_area_avg_slopes</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">prereise.gather.demanddata.bldg_electrification</span> <span class="kn">import</span> <span class="n">const</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.demanddata.bldg_electrification.const</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">iso_name</span><span class="p">,</span>
+    <span class="n">iso_zone_name_shps</span><span class="p">,</span>
+    <span class="n">iso_zone_names</span><span class="p">,</span>
+    <span class="n">state_list</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.demanddata.bldg_electrification.helper</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">read_shapefile</span><span class="p">,</span>
+    <span class="n">state_shp_overlay</span><span class="p">,</span>
+    <span class="n">zone_shp_overlay</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="get_zone_floor_area"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.floor_area_avg_slopes.get_zone_floor_area">[docs]</a><span class="k">def</span> <span class="nf">get_zone_floor_area</span><span class="p">(</span><span class="n">iso</span><span class="p">,</span> <span class="n">zone_shape</span><span class="p">,</span> <span class="n">pumas_shp</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Computes the zone floor area for each ISO.</span>
+
+<span class="sd">    :param str iso: abbrev. name of ISO.</span>
+<span class="sd">    :param geopandas.GeoDataFrame zone_shape: geo data frame of zone(BA) shape file</span>
+<span class="sd">    :param geopandas.GeoDataFrame pumas_shp: geo data frame of pumas shape file</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- Floor area in square meters for all the zones</span>
+<span class="sd">        with breakdowns of residential, commercial, total heated and total cooled</span>
+
+<span class="sd">    .. note:: zone floor area in square meters saved as csv into Profiles/result_stats</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">zone_floor_area</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">zone</span> <span class="ow">in</span> <span class="n">iso_zone_names</span><span class="p">[</span><span class="n">iso</span><span class="p">]:</span>
+        <span class="n">puma_data_zone</span> <span class="o">=</span> <span class="n">zone_shp_overlay</span><span class="p">(</span>
+            <span class="n">iso_zone_name_shps</span><span class="p">[</span><span class="n">iso</span><span class="p">][</span><span class="n">iso_zone_names</span><span class="p">[</span><span class="n">iso</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">zone</span><span class="p">)],</span>
+            <span class="n">zone_shape</span><span class="p">,</span>
+            <span class="n">pumas_shp</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">puma_data_zone</span> <span class="o">=</span> <span class="n">puma_data_zone</span><span class="p">[</span><span class="o">~</span><span class="p">(</span><span class="n">puma_data_zone</span><span class="p">[</span><span class="s2">&quot;frac_in_zone&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">0.05</span><span class="p">)]</span>
+
+        <span class="n">total_area_zone_cool_res</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">puma_data_zone</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;res_area_</span><span class="si">{</span><span class="n">base_year</span><span class="si">}</span><span class="s2">_m2&quot;</span><span class="p">]</span>
+                <span class="o">*</span> <span class="n">puma_data_zone</span><span class="p">[</span><span class="s2">&quot;AC_penetration&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="o">*</span> <span class="n">puma_data_zone</span><span class="p">[</span><span class="s2">&quot;frac_in_zone&quot;</span><span class="p">]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">total_area_zone_cool_com</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">puma_data_zone</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;com_area_</span><span class="si">{</span><span class="n">base_year</span><span class="si">}</span><span class="s2">_m2&quot;</span><span class="p">]</span>
+                <span class="o">*</span> <span class="n">puma_data_zone</span><span class="p">[</span><span class="s2">&quot;AC_penetration&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="o">*</span> <span class="n">puma_data_zone</span><span class="p">[</span><span class="s2">&quot;frac_in_zone&quot;</span><span class="p">]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">total_area_zone_heat_res</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">puma_data_zone</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;res_area_</span><span class="si">{</span><span class="n">base_year</span><span class="si">}</span><span class="s2">_m2&quot;</span><span class="p">]</span>
+                <span class="o">*</span> <span class="n">puma_data_zone</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_elec_sh_res_</span><span class="si">{</span><span class="n">base_year</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="o">*</span> <span class="n">puma_data_zone</span><span class="p">[</span><span class="s2">&quot;frac_in_zone&quot;</span><span class="p">]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">total_area_zone_heat_com</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">puma_data_zone</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;com_area_</span><span class="si">{</span><span class="n">base_year</span><span class="si">}</span><span class="s2">_m2&quot;</span><span class="p">]</span>
+                <span class="o">*</span> <span class="n">puma_data_zone</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_elec_sh_com_</span><span class="si">{</span><span class="n">base_year</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="o">*</span> <span class="n">puma_data_zone</span><span class="p">[</span><span class="s2">&quot;frac_in_zone&quot;</span><span class="p">]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">total_area_res</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">puma_data_zone</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;res_area_</span><span class="si">{</span><span class="n">base_year</span><span class="si">}</span><span class="s2">_m2&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">puma_data_zone</span><span class="p">[</span><span class="s2">&quot;frac_in_zone&quot;</span><span class="p">]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">total_area_com</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">puma_data_zone</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;com_area_</span><span class="si">{</span><span class="n">base_year</span><span class="si">}</span><span class="s2">_m2&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">puma_data_zone</span><span class="p">[</span><span class="s2">&quot;frac_in_zone&quot;</span><span class="p">]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">zone_floor_area</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">zone_floor_area</span><span class="p">,</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="s2">&quot;total res&quot;</span><span class="p">:</span> <span class="n">total_area_res</span><span class="p">,</span>
+                        <span class="s2">&quot;total com&quot;</span><span class="p">:</span> <span class="n">total_area_com</span><span class="p">,</span>
+                        <span class="s2">&quot;heat&quot;</span><span class="p">:</span> <span class="n">total_area_zone_heat_res</span> <span class="o">+</span> <span class="n">total_area_zone_heat_com</span><span class="p">,</span>
+                        <span class="s2">&quot;% Heated&quot;</span><span class="p">:</span> <span class="p">(</span>
+                            <span class="p">(</span><span class="n">total_area_zone_heat_res</span> <span class="o">+</span> <span class="n">total_area_zone_heat_com</span><span class="p">)</span>
+                            <span class="o">/</span> <span class="p">(</span><span class="n">total_area_res</span> <span class="o">+</span> <span class="n">total_area_com</span><span class="p">)</span>
+                        <span class="p">)</span>
+                        <span class="o">*</span> <span class="mi">100</span><span class="p">,</span>
+                        <span class="s2">&quot;res heat&quot;</span><span class="p">:</span> <span class="n">total_area_zone_heat_res</span><span class="p">,</span>
+                        <span class="s2">&quot;com heat&quot;</span><span class="p">:</span> <span class="n">total_area_zone_heat_com</span><span class="p">,</span>
+                        <span class="s2">&quot;cool&quot;</span><span class="p">:</span> <span class="n">total_area_zone_cool_res</span> <span class="o">+</span> <span class="n">total_area_zone_cool_com</span><span class="p">,</span>
+                        <span class="s2">&quot;res cool&quot;</span><span class="p">:</span> <span class="n">total_area_zone_cool_res</span><span class="p">,</span>
+                        <span class="s2">&quot;com cool&quot;</span><span class="p">:</span> <span class="n">total_area_zone_cool_com</span><span class="p">,</span>
+                    <span class="p">},</span>
+                    <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="n">zone</span><span class="p">],</span>
+                <span class="p">),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="n">zone_floor_area</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;./Profiles/result_stats/</span><span class="si">{</span><span class="n">iso_name</span><span class="p">[</span><span class="n">iso</span><span class="p">]</span><span class="si">}</span><span class="s2">_zone_floor_area_m2.csv&quot;</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">zone_floor_area</span></div>
+
+
+<div class="viewcode-block" id="main_plots"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.floor_area_avg_slopes.main_plots">[docs]</a><span class="k">def</span> <span class="nf">main_plots</span><span class="p">(</span>
+    <span class="n">iso</span><span class="p">,</span> <span class="n">zone_shape</span><span class="p">,</span> <span class="n">pumas_shp</span><span class="p">,</span> <span class="n">state_shp</span><span class="p">,</span> <span class="n">country_shp</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">plot_show</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Creats floor area avraged slopes for all zones within the ISO for one year.</span>
+
+<span class="sd">    :param str iso: abbrev. name of ISO.</span>
+<span class="sd">    :param geopandas.GeoDataFrame zone_shape: geo data frame of zone(BA) shape file</span>
+<span class="sd">    :param geopandas.GeoDataFrame pumas_shp: geo data frame of pumas shape file</span>
+<span class="sd">    :param geopandas.GeoDataFrame state_shp: geo data frame of state shape file</span>
+<span class="sd">    :param geopandas.GeoDataFrame country_shp: geo data frame of nation shape file</span>
+<span class="sd">    :param bool plot_show: show the plot or not, default to True.</span>
+<span class="sd">    :param int size: defining the image size of plots in dpi.</span>
+
+<span class="sd">    .. note:: Floor area avg. heating and cooling slope, error and map plots for all</span>
+<span class="sd">        zones in each ISO saved as png and csv into Profiles/result_stats/hourly_plots</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">zone_floor_area</span> <span class="o">=</span> <span class="n">get_zone_floor_area</span><span class="p">(</span><span class="n">iso</span><span class="p">,</span> <span class="n">zone_shape</span><span class="p">,</span> <span class="n">pumas_shp</span><span class="p">)</span>
+
+    <span class="c1"># Slope plots for all zones in each ISO in btu/m2/C</span>
+
+    <span class="n">fig1</span><span class="p">,</span> <span class="n">ax1</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+    <span class="n">fig2</span><span class="p">,</span> <span class="n">ax2</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">zone</span> <span class="ow">in</span> <span class="n">iso_zone_names</span><span class="p">[</span><span class="n">iso</span><span class="p">]:</span>
+        <span class="n">dayhour_fits</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;https://besciences.blob.core.windows.net/datasets/bldg_el/dayhour_fits/</span><span class="si">{</span><span class="n">zone</span><span class="si">}</span><span class="s2">_dayhour_fits_</span><span class="si">{</span><span class="n">base_year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">,</span>
+            <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">wk_wknd</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;wk&quot;</span><span class="p">,</span> <span class="s2">&quot;wknd&quot;</span><span class="p">]:</span>
+            <span class="n">dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.heat.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">abs</span><span class="p">(</span><span class="n">dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.heat.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">])</span>
+                <span class="o">/</span> <span class="n">zone_floor_area</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">zone</span><span class="p">,</span> <span class="s2">&quot;heat&quot;</span><span class="p">]</span>
+                <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">conv_mw_to_btu</span>
+            <span class="p">)</span>
+            <span class="n">dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.heat.stderr.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.heat.stderr.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+                <span class="o">/</span> <span class="n">zone_floor_area</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">zone</span><span class="p">,</span> <span class="s2">&quot;heat&quot;</span><span class="p">]</span>
+                <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">conv_mw_to_btu</span>
+            <span class="p">)</span>
+            <span class="n">dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.cool.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">.db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.cool.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">.db&quot;</span><span class="p">]</span>
+                <span class="o">/</span> <span class="n">zone_floor_area</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">zone</span><span class="p">,</span> <span class="s2">&quot;cool&quot;</span><span class="p">]</span>
+                <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">conv_mw_to_btu</span>
+            <span class="p">)</span>
+            <span class="n">dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.cool.db.stderr.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.cool.db.stderr.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+                <span class="o">/</span> <span class="n">zone_floor_area</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">zone</span><span class="p">,</span> <span class="s2">&quot;cool&quot;</span><span class="p">]</span>
+                <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">conv_mw_to_btu</span>
+            <span class="p">)</span>
+
+        <span class="n">zone_dayhour</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="n">zone_dayhour</span><span class="p">[</span><span class="s2">&quot;s.heat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.heat.wk&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">5</span> <span class="o">+</span> <span class="n">dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.heat.wknd&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span>
+        <span class="p">)</span> <span class="o">/</span> <span class="mi">7</span>
+        <span class="n">zone_dayhour</span><span class="p">[</span><span class="s2">&quot;s.heat.stderr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+                <span class="n">dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.heat.stderr.wk&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">5</span><span class="o">**</span><span class="mi">2</span>
+                <span class="o">+</span> <span class="n">dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.heat.stderr.wknd&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">2</span><span class="o">**</span><span class="mi">2</span>
+            <span class="p">)</span>
+            <span class="o">/</span> <span class="mi">7</span>
+        <span class="p">)</span>
+        <span class="n">zone_dayhour</span><span class="p">[</span><span class="s2">&quot;s.cool.db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.cool.wk.db&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">5</span> <span class="o">+</span> <span class="n">dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.cool.wknd.db&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span>
+        <span class="p">)</span> <span class="o">/</span> <span class="mi">7</span>
+        <span class="n">zone_dayhour</span><span class="p">[</span><span class="s2">&quot;s.cool.db.stderr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+                <span class="n">dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.cool.db.stderr.wk&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">5</span><span class="o">**</span><span class="mi">2</span>
+                <span class="o">+</span> <span class="n">dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.cool.db.stderr.wknd&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">2</span><span class="o">**</span><span class="mi">2</span>
+            <span class="p">)</span>
+            <span class="o">/</span> <span class="mi">7</span>
+        <span class="p">)</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">zone_dayhour</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">zone_dayhour</span><span class="p">[</span><span class="s2">&quot;s.heat&quot;</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="n">zone</span><span class="p">)</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;$Btu_e/m^2/^oC$&quot;</span><span class="p">)</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;hour of day&quot;</span><span class="p">)</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;heating slopes, </span><span class="si">{</span><span class="n">iso_name</span><span class="p">[</span><span class="n">iso</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">zone_dayhour</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">zone_dayhour</span><span class="p">[</span><span class="s2">&quot;s.cool.db&quot;</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="n">zone</span><span class="p">)</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;$Btu_e/m^2/^oC$&quot;</span><span class="p">)</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;hour of day&quot;</span><span class="p">)</span>
+        <span class="n">ax2</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;cooling slopes, </span><span class="si">{</span><span class="n">iso_name</span><span class="p">[</span><span class="n">iso</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">plot_show</span><span class="p">:</span>
+        <span class="n">fig1</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;./Profiles/result_stats/hourly_plots/zone_plots/</span><span class="si">{</span><span class="n">iso_name</span><span class="p">[</span><span class="n">iso</span><span class="p">]</span><span class="si">}</span><span class="s2">_heating.png&quot;</span><span class="p">,</span>
+            <span class="n">dpi</span><span class="o">=</span><span class="n">size</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">fig2</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;./Profiles/result_stats/hourly_plots/zone_plots/</span><span class="si">{</span><span class="n">iso_name</span><span class="p">[</span><span class="n">iso</span><span class="p">]</span><span class="si">}</span><span class="s2">_cooling.png&quot;</span><span class="p">,</span>
+            <span class="n">dpi</span><span class="o">=</span><span class="n">size</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Create hourly slope plots with error bars for each zone within each ISO</span>
+
+    <span class="n">iso_slope</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+
+    <span class="n">iso_dayhour_fits</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">24</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">wk_wknd</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;wk&quot;</span><span class="p">,</span> <span class="s2">&quot;wknd&quot;</span><span class="p">]:</span>
+        <span class="n">iso_floor_area</span> <span class="o">=</span> <span class="n">zone_floor_area</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">iso_zone_names</span><span class="p">[</span><span class="n">iso</span><span class="p">]]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+        <span class="c1"># read hourly slopes</span>
+        <span class="n">dayhour_fits</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">i</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;https://besciences.blob.core.windows.net/datasets/bldg_el/dayhour_fits/</span><span class="si">{</span><span class="n">zone</span><span class="si">}</span><span class="s2">_dayhour_fits_</span><span class="si">{</span><span class="n">base_year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">,</span>
+                <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">zone</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">iso_zone_names</span><span class="p">[</span><span class="n">iso</span><span class="p">])</span>
+        <span class="p">}</span>
+
+        <span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.heat.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">dayhour_fits</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="sa">f</span><span class="s2">&quot;s.heat.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">iso_zone_names</span><span class="p">[</span><span class="n">iso</span><span class="p">]))</span>
+                <span class="p">],</span>
+                <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="o">/</span> <span class="n">iso_floor_area</span><span class="p">[</span><span class="s2">&quot;heat&quot;</span><span class="p">]</span>
+            <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">conv_mw_to_btu</span>
+        <span class="p">)</span>
+
+        <span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.cool.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">.db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">dayhour_fits</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="sa">f</span><span class="s2">&quot;s.cool.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">.db&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">iso_zone_names</span><span class="p">[</span><span class="n">iso</span><span class="p">]))</span>
+                <span class="p">],</span>
+                <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="o">/</span> <span class="n">iso_floor_area</span><span class="p">[</span><span class="s2">&quot;cool&quot;</span><span class="p">]</span>
+            <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">conv_mw_to_btu</span>
+        <span class="p">)</span>
+
+        <span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.heat.stderr.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">dayhour_fits</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="sa">f</span><span class="s2">&quot;s.heat.stderr.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_list</span><span class="p">())</span>
+                        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">iso_zone_names</span><span class="p">[</span><span class="n">iso</span><span class="p">]))</span>
+                    <span class="p">],</span>
+                    <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="o">/</span> <span class="n">iso_floor_area</span><span class="p">[</span><span class="s2">&quot;heat&quot;</span><span class="p">]</span>
+            <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">conv_mw_to_btu</span>
+        <span class="p">)</span>
+
+        <span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.cool.db.stderr.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span>
+                            <span class="n">dayhour_fits</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="sa">f</span><span class="s2">&quot;s.cool.db.stderr.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+                        <span class="p">)</span>
+                        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">iso_zone_names</span><span class="p">[</span><span class="n">iso</span><span class="p">]))</span>
+                    <span class="p">],</span>
+                    <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="o">/</span> <span class="n">iso_floor_area</span><span class="p">[</span><span class="s2">&quot;cool&quot;</span><span class="p">]</span>
+            <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">conv_mw_to_btu</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">plot_show</span><span class="p">:</span>
+            <span class="n">fig</span><span class="p">,</span> <span class="n">ax1</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+            <span class="n">ax1</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span>
+                <span class="n">iso_dayhour_fits</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.heat.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]),</span>
+                <span class="n">yerr</span><span class="o">=</span><span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.heat.stderr.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mf">1.96</span><span class="p">,</span>
+                <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>
+                <span class="n">capsize</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Heating Slopes&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">ax1</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span>
+                <span class="n">iso_dayhour_fits</span><span class="o">.</span><span class="n">index</span> <span class="o">+</span> <span class="mf">0.3</span><span class="p">,</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.cool.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">.db&quot;</span><span class="p">]),</span>
+                <span class="n">yerr</span><span class="o">=</span><span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;s.cool.db.stderr.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mf">1.96</span><span class="p">,</span>
+                <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>
+                <span class="n">capsize</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="s2">&quot;tab:orange&quot;</span><span class="p">,</span>
+                <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Cooling Slopes&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">ax1</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;$Btu_e/h/m^2/^oC$&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+            <span class="n">ax1</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Hour of the Day&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+            <span class="n">ax1</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+            <span class="n">text_wk_wknd</span> <span class="o">=</span> <span class="s2">&quot;Weekday&quot;</span> <span class="k">if</span> <span class="n">wk_wknd</span> <span class="o">==</span> <span class="s2">&quot;wk&quot;</span> <span class="k">else</span> <span class="s2">&quot;Weekend&quot;</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">text_wk_wknd</span><span class="si">}</span><span class="s2"> Hourly Profile of Heating and Cooling slopes, </span><span class="si">{</span><span class="n">iso_name</span><span class="p">[</span><span class="n">iso</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;./Profiles/result_stats/hourly_plots/iso plot with error/</span><span class="si">{</span><span class="n">iso</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">.png&quot;</span><span class="p">,</span>
+                <span class="n">dpi</span><span class="o">=</span><span class="n">size</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="n">iso_dayhour</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+    <span class="n">iso_dayhour</span><span class="p">[</span><span class="s2">&quot;s.heat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.heat.wk&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">5</span> <span class="o">+</span> <span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.heat.wknd&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="p">)</span> <span class="o">/</span> <span class="mi">7</span>
+    <span class="n">iso_dayhour</span><span class="p">[</span><span class="s2">&quot;s.heat.stderr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+            <span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.heat.stderr.wk&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">5</span><span class="o">**</span><span class="mi">2</span>
+            <span class="o">+</span> <span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.heat.stderr.wknd&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">2</span><span class="o">**</span><span class="mi">2</span>
+        <span class="p">)</span>
+        <span class="o">/</span> <span class="mi">7</span>
+    <span class="p">)</span>
+    <span class="n">iso_dayhour</span><span class="p">[</span><span class="s2">&quot;s.cool.db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.cool.wk.db&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">5</span> <span class="o">+</span> <span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.cool.wknd.db&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="p">)</span> <span class="o">/</span> <span class="mi">7</span>
+    <span class="n">iso_dayhour</span><span class="p">[</span><span class="s2">&quot;s.cool.db.stderr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+            <span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.cool.db.stderr.wk&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">5</span><span class="o">**</span><span class="mi">2</span>
+            <span class="o">+</span> <span class="n">iso_dayhour_fits</span><span class="p">[</span><span class="s2">&quot;s.cool.db.stderr.wknd&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">2</span><span class="o">**</span><span class="mi">2</span>
+        <span class="p">)</span>
+        <span class="o">/</span> <span class="mi">7</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">plot_show</span><span class="p">:</span>
+        <span class="n">fig</span><span class="p">,</span> <span class="n">ax1</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span>
+            <span class="n">iso_dayhour</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">iso_dayhour</span><span class="p">[</span><span class="s2">&quot;s.heat&quot;</span><span class="p">]),</span>
+            <span class="n">yerr</span><span class="o">=</span><span class="n">iso_dayhour</span><span class="p">[</span><span class="s2">&quot;s.heat.stderr&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mf">1.96</span><span class="p">,</span>
+            <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>
+            <span class="n">capsize</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+            <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Heating Slopes&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span>
+            <span class="n">iso_dayhour</span><span class="o">.</span><span class="n">index</span> <span class="o">+</span> <span class="mf">0.3</span><span class="p">,</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">iso_dayhour</span><span class="p">[</span><span class="s2">&quot;s.cool.db&quot;</span><span class="p">]),</span>
+            <span class="n">yerr</span><span class="o">=</span><span class="n">iso_dayhour</span><span class="p">[</span><span class="s2">&quot;s.cool.db.stderr&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mf">1.96</span><span class="p">,</span>
+            <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span>
+            <span class="n">capsize</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="s2">&quot;tab:orange&quot;</span><span class="p">,</span>
+            <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Cooling Slopes&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;$Btu_e/h/m^2/^oC$&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;Hour of the Day&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Hourly Profile of Heating and Cooling slopes, </span><span class="si">{</span><span class="n">iso_name</span><span class="p">[</span><span class="n">iso</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;./Profiles/result_stats/hourly_plots/iso plot with error/</span><span class="si">{</span><span class="n">iso</span><span class="si">}</span><span class="s2">.png&quot;</span><span class="p">,</span>
+            <span class="n">dpi</span><span class="o">=</span><span class="n">size</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">iso_slope</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">iso</span><span class="p">,</span> <span class="s2">&quot;s.heat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">iso_dayhour</span><span class="p">[</span><span class="s2">&quot;s.heat&quot;</span><span class="p">])</span>
+    <span class="n">iso_slope</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">iso</span><span class="p">,</span> <span class="s2">&quot;s.heat.stderr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">iso_dayhour</span><span class="p">[</span><span class="s2">&quot;s.heat.stderr&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="mi">24</span>
+    <span class="p">)</span>
+    <span class="n">iso_slope</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">iso</span><span class="p">,</span> <span class="s2">&quot;s.cool.db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">iso_dayhour</span><span class="p">[</span><span class="s2">&quot;s.cool.db&quot;</span><span class="p">])</span>
+    <span class="n">iso_slope</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">iso</span><span class="p">,</span> <span class="s2">&quot;s.cool.db.stderr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">iso_dayhour</span><span class="p">[</span><span class="s2">&quot;s.cool.db.stderr&quot;</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="mi">24</span>
+    <span class="p">)</span>
+
+    <span class="n">iso_slope</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;./Profiles/result_stats/hourly_plots/iso plot with error/</span><span class="si">{</span><span class="n">iso_name</span><span class="p">[</span><span class="n">iso</span><span class="p">]</span><span class="si">}</span><span class="s2">_iso_slope_with_error.csv&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Creating the zone and iso level heating and cooling load in mw/C and btu/m2/C</span>
+
+    <span class="n">zone_slope_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">zone</span> <span class="ow">in</span> <span class="n">iso_zone_names</span><span class="p">[</span><span class="n">iso</span><span class="p">]:</span>
+        <span class="n">hourly_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;https://besciences.blob.core.windows.net/datasets/bldg_el/dayhour_fits/</span><span class="si">{</span><span class="n">zone</span><span class="si">}</span><span class="s2">_dayhour_fits_</span><span class="si">{</span><span class="n">base_year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">,</span>
+            <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">htg_mean</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">hourly_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;s.heat.wk&quot;</span><span class="p">])</span> <span class="o">*</span> <span class="mi">5</span>
+            <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">hourly_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;s.heat.wknd&quot;</span><span class="p">])</span> <span class="o">*</span> <span class="mi">2</span>
+        <span class="p">)</span> <span class="o">/</span> <span class="mi">7</span>
+        <span class="n">clg_mean</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">hourly_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;s.cool.wk.db&quot;</span><span class="p">])</span> <span class="o">*</span> <span class="mi">5</span>
+            <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">hourly_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="s2">&quot;s.cool.wknd.db&quot;</span><span class="p">])</span> <span class="o">*</span> <span class="mi">2</span>
+        <span class="p">)</span> <span class="o">/</span> <span class="mi">7</span>
+        <span class="n">zone_slope_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">zone_slope_df</span><span class="p">,</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;Heating&quot;</span><span class="p">:</span> <span class="n">htg_mean</span><span class="p">,</span> <span class="s2">&quot;Cooling&quot;</span><span class="p">:</span> <span class="n">clg_mean</span><span class="p">},</span> <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="n">zone</span><span class="p">]),</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="n">zone_slope_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;./Profiles/result_stats/</span><span class="si">{</span><span class="n">iso_name</span><span class="p">[</span><span class="n">iso</span><span class="p">]</span><span class="si">}</span><span class="s2">_zone_elec_mw_c.csv&quot;</span><span class="p">)</span>
+    <span class="n">zone_elec_btu_m2_c</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+    <span class="n">zone_elec_btu_m2_c</span><span class="p">[</span><span class="s2">&quot;Heating&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">zone_slope_df</span><span class="p">[</span><span class="s2">&quot;Heating&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">zone_floor_area</span><span class="p">[</span><span class="s2">&quot;heat&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">conv_mw_to_btu</span>
+    <span class="p">)</span>
+    <span class="n">zone_elec_btu_m2_c</span><span class="p">[</span><span class="s2">&quot;Cooling&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">zone_slope_df</span><span class="p">[</span><span class="s2">&quot;Cooling&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">zone_floor_area</span><span class="p">[</span><span class="s2">&quot;cool&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">const</span><span class="o">.</span><span class="n">conv_mw_to_btu</span>
+    <span class="p">)</span>
+    <span class="n">zone_elec_btu_m2_c</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;./Profiles/result_stats/</span><span class="si">{</span><span class="n">iso_name</span><span class="p">[</span><span class="n">iso</span><span class="p">]</span><span class="si">}</span><span class="s2">_zone_elec_btu_m2_c.csv&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Creating ISO map plots containing load zones with the heating and cooling slope in btu/m2/C</span>
+    <span class="k">if</span> <span class="n">iso</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;NY&quot;</span><span class="p">,</span> <span class="s2">&quot;CA&quot;</span><span class="p">,</span> <span class="s2">&quot;PJM&quot;</span><span class="p">,</span> <span class="s2">&quot;SPP&quot;</span><span class="p">,</span> <span class="s2">&quot;NW&quot;</span><span class="p">,</span> <span class="s2">&quot;SE&quot;</span><span class="p">}:</span>
+        <span class="n">zone_elec_btu_m2_c</span><span class="p">[</span>
+            <span class="p">(</span><span class="n">zone_elec_btu_m2_c</span> <span class="o">&gt;=</span> <span class="mi">10</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">zone_elec_btu_m2_c</span> <span class="o">&lt;=</span> <span class="o">-</span><span class="mi">10</span><span class="p">)</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+        <span class="k">for</span> <span class="n">ba</span> <span class="ow">in</span> <span class="p">{</span>
+            <span class="s2">&quot;NYIS-ZOND&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;NYIS-ZONH&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;WALC&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;PJM-RECO&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;SWPP-WFEC&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;PSEI&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;AECI&quot;</span><span class="p">,</span>
+        <span class="p">}:</span>
+            <span class="n">zone_elec_btu_m2_c</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">ba</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+
+    <span class="n">zone_shp</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">iso</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;NE&quot;</span><span class="p">,</span> <span class="s2">&quot;PJM&quot;</span><span class="p">,</span> <span class="s2">&quot;SPP&quot;</span><span class="p">,</span> <span class="s2">&quot;MISO&quot;</span><span class="p">,</span> <span class="s2">&quot;SW&quot;</span><span class="p">,</span> <span class="s2">&quot;NW&quot;</span><span class="p">,</span> <span class="s2">&quot;SE&quot;</span><span class="p">}:</span>
+        <span class="n">zone_shp</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">iso_state_overlay</span><span class="p">[</span><span class="n">iso</span><span class="p">]])</span>
+
+    <span class="k">elif</span> <span class="n">iso</span> <span class="o">==</span> <span class="s2">&quot;USA&quot;</span> <span class="ow">or</span> <span class="n">iso</span> <span class="o">==</span> <span class="s2">&quot;Outliers&quot;</span><span class="p">:</span>
+        <span class="n">zone_shp</span> <span class="o">=</span> <span class="n">state_shp_overlay</span><span class="p">(</span><span class="s2">&quot;United States&quot;</span><span class="p">,</span> <span class="n">country_shp</span><span class="p">,</span> <span class="n">zone_shape</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">zone_shp</span> <span class="o">=</span> <span class="n">state_shp_overlay</span><span class="p">(</span><span class="n">iso</span><span class="p">,</span> <span class="n">state_shp</span><span class="p">,</span> <span class="n">zone_shape</span><span class="p">)</span>
+
+    <span class="n">zone_shp</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">zone_shp</span><span class="p">[</span><span class="s2">&quot;BA&quot;</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">iso_zone_name_shps</span><span class="p">[</span><span class="n">iso</span><span class="p">])):</span>
+        <span class="n">zone_shp</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">iso_zone_name_shps</span><span class="p">[</span><span class="n">iso</span><span class="p">][</span><span class="n">i</span><span class="p">],</span> <span class="s2">&quot;BA&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">iso_zone_names</span><span class="p">[</span><span class="n">iso</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">use</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;Heating&quot;</span><span class="p">,</span> <span class="s2">&quot;Cooling&quot;</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">iso</span> <span class="o">==</span> <span class="s2">&quot;Outliers&quot;</span> <span class="ow">and</span> <span class="n">use</span> <span class="o">==</span> <span class="s2">&quot;Heating&quot;</span><span class="p">:</span>
+            <span class="n">vmax</span> <span class="o">=</span> <span class="mi">250</span>
+        <span class="k">elif</span> <span class="n">iso</span> <span class="o">==</span> <span class="s2">&quot;Outliers&quot;</span> <span class="ow">and</span> <span class="n">use</span> <span class="o">==</span> <span class="s2">&quot;Cooling&quot;</span><span class="p">:</span>
+            <span class="n">vmax</span> <span class="o">=</span> <span class="mi">100</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">vmax</span> <span class="o">=</span> <span class="mi">10</span>
+        <span class="n">zone_shp</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">zone_shp</span><span class="p">[</span><span class="s2">&quot;BA&quot;</span><span class="p">]</span>
+        <span class="n">zone_shp</span><span class="p">[</span><span class="n">use</span><span class="p">]</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">zone_elec_btu_m2_c</span><span class="p">[</span><span class="n">use</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">plot_show</span><span class="p">:</span>
+            <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">zone_shp</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+                <span class="n">column</span><span class="o">=</span><span class="n">use</span><span class="p">,</span>
+                <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span>
+                <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">,</span>
+                <span class="n">legend</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">cmap</span><span class="o">=</span><span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">hot_r</span><span class="p">,</span>
+                <span class="n">edgecolor</span><span class="o">=</span><span class="s2">&quot;black&quot;</span><span class="p">,</span>
+                <span class="n">missing_kwds</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="s2">&quot;lightgrey&quot;</span><span class="p">},</span>
+                <span class="n">legend_kwds</span><span class="o">=</span><span class="p">{</span>
+                    <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="s2">&quot;$Btu_e/m^2/^oC$&quot;</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Load Zone </span><span class="si">{</span><span class="n">use</span><span class="si">}</span><span class="s2"> slopes, </span><span class="si">{</span><span class="n">iso_name</span><span class="p">[</span><span class="n">iso</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">tick_params</span><span class="p">(</span>
+                <span class="n">axis</span><span class="o">=</span><span class="s2">&quot;both&quot;</span><span class="p">,</span>
+                <span class="n">which</span><span class="o">=</span><span class="s2">&quot;both&quot;</span><span class="p">,</span>
+                <span class="n">bottom</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">top</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">right</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">left</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">labelbottom</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">labelleft</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;./Profiles/result_stats/hourly_plots/zone_plots/zone model/</span><span class="si">{</span><span class="n">iso</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">use</span><span class="si">}</span><span class="s2">_zone_model.png&quot;</span><span class="p">,</span>
+                <span class="n">dpi</span><span class="o">=</span><span class="n">size</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span>
+            <span class="s2">&quot;Profiles/result_stats/hourly_plots/zone_plots/zone model&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span>
+            <span class="s2">&quot;Profiles/result_stats/hourly_plots/iso plot with error&quot;</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Reading Balancing Authority, Pumas, state and country Boundary shapefiles for overlaying</span>
+    <span class="n">zone_shape</span> <span class="o">=</span> <span class="n">read_shapefile</span><span class="p">(</span>
+        <span class="s2">&quot;https://besciences.blob.core.windows.net/shapefiles/USA/balancing-authorities/ba_area/ba_area.zip&quot;</span>
+    <span class="p">)</span>
+    <span class="n">pumas_shp</span> <span class="o">=</span> <span class="n">read_shapefile</span><span class="p">(</span>
+        <span class="s2">&quot;https://besciences.blob.core.windows.net/shapefiles/USA/pumas-overlay/pumas_overlay.zip&quot;</span>
+    <span class="p">)</span>
+    <span class="n">state_shp</span> <span class="o">=</span> <span class="n">read_shapefile</span><span class="p">(</span>
+        <span class="s2">&quot;https://besciences.blob.core.windows.net/shapefiles/USA/state-outlines/cb_2018_us_state_20m.zip&quot;</span>
+    <span class="p">)</span>
+    <span class="n">country_shp</span> <span class="o">=</span> <span class="n">read_shapefile</span><span class="p">(</span>
+        <span class="s2">&quot;https://besciences.blob.core.windows.net/shapefiles/USA/nation-outlines/cb_2018_us_nation_20m.zip&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Executing the state overlay for all states in the US</span>
+    <span class="n">zone_shp_state</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">s</span><span class="p">:</span> <span class="n">state_shp_overlay</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">state_shp</span><span class="p">,</span> <span class="n">zone_shape</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">state_list</span>
+    <span class="p">}</span>
+
+    <span class="n">iso_state_overlay</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;NE&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;MA&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;ME&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;NH&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;VT&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;CT&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;RI&quot;</span><span class="p">],</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;PJM&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;DE&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;IL&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;IN&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;KY&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;MD&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;NC&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;MI&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;NJ&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;OH&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;PA&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;VA&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;WV&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;TN&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;DC&quot;</span><span class="p">],</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;SPP&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;KS&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;OK&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;NM&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;TX&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;AR&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;LA&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;MO&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;SD&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;ND&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;MT&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;MN&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;IA&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;WY&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;NE&quot;</span><span class="p">],</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;MISO&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;LA&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;AR&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;MS&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;MI&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;MO&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;KY&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;IN&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;IL&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;IA&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;MN&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;WI&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;ND&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;SD&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;TX&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;MT&quot;</span><span class="p">],</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;SW&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;AZ&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;NM&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;CO&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;NV&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;WY&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;SD&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;NE&quot;</span><span class="p">],</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;NW&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;CA&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;WA&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;OR&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;ID&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;NV&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;UT&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;WY&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;MT&quot;</span><span class="p">],</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;SE&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;MO&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;KY&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;MS&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;TN&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;AL&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;GA&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;NC&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;SC&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;FL&quot;</span><span class="p">],</span>
+            <span class="n">zone_shp_state</span><span class="p">[</span><span class="s2">&quot;VA&quot;</span><span class="p">],</span>
+        <span class="p">],</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Use base_year for model results</span>
+    <span class="n">base_year</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">base_year</span>
+
+    <span class="c1"># Plot size in dpi</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="mi">700</span>
+
+    <span class="k">for</span> <span class="n">iso</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="s2">&quot;NY&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;TX&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;CA&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;NE&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;PJM&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SPP&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;MISO&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SW&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;NW&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;SE&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;USA&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Outliers&quot;</span><span class="p">,</span>
+    <span class="p">]:</span>
+        <span class="n">main_plots</span><span class="p">(</span><span class="n">iso</span><span class="p">,</span> <span class="n">zone_shape</span><span class="p">,</span> <span class="n">pumas_shp</span><span class="p">,</span> <span class="n">state_shp</span><span class="p">,</span> <span class="n">country_shp</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span>
+
+    <span class="c1"># Delete the tmp folder that holds the shapefiles localy after the script is run to completion</span>
+    <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot;tmp&quot;</span><span class="p">),</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">onerror</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 6.1.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

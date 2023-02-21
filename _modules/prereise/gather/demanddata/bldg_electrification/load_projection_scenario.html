@@ -1,0 +1,341 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.demanddata.bldg_electrification.load_projection_scenario &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="../../../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.demanddata.bldg_electrification.load_projection_scenario</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">prereise.gather.demanddata.bldg_electrification</span> <span class="kn">import</span> <span class="n">const</span>
+
+
+<div class="viewcode-block" id="LoadProjectionScenario"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection_scenario.LoadProjectionScenario">[docs]</a><span class="k">class</span> <span class="nc">LoadProjectionScenario</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Define load projection scenario for a load zone.</span>
+<span class="sd">    For a base scenario, read and save building stock inputs.</span>
+<span class="sd">    For a projection scenario, some fields are projected from base scenario</span>
+<span class="sd">    based on the projection scenario inputs.</span>
+
+<span class="sd">    :param str id: id of scenario, &#39;base&#39; refers to modeled base year scenario</span>
+<span class="sd">    :param pandas.Series input_series: precomputed information of building stock floor</span>
+<span class="sd">        area and energy usages for a base scenario. User defined growth inputs for a</span>
+<span class="sd">        projection scenario. This series contains information for a load zone,</span>
+<span class="sd">        which are listed as follows:</span>
+<span class="sd">        1) population</span>
+<span class="sd">        2) total building floor area by type</span>
+<span class="sd">        3) primary energy source types and household fraction for space heating,</span>
+<span class="sd">           cooling, hot water and cooking</span>
+<span class="sd">        4) assumed dominate type of heat pump</span>
+<span class="sd">        5) assumed energy efficiency of cooking and air conditioning.</span>
+<span class="sd">    :param load_projection_scenario.LoadProjectionScenario other: the base scenario</span>
+<span class="sd">        instance for a projection scenario creation. None if creating a base scenario.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">id</span><span class="p">,</span> <span class="n">input_series</span><span class="p">,</span> <span class="n">other</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="nb">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">year</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">input_series</span><span class="p">[</span><span class="s2">&quot;year&quot;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hp_type_heat</span> <span class="o">=</span> <span class="n">input_series</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;heat_hp_type&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hp_type_dhw</span> <span class="o">=</span> <span class="n">input_series</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;dhw_hp_type&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cook_efficiency</span> <span class="o">=</span> <span class="n">input_series</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;cook_eff&quot;</span><span class="p">)</span>
+        <span class="n">input_series</span> <span class="o">=</span> <span class="n">input_series</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;float64&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cool_energy_intensity</span> <span class="o">=</span> <span class="n">input_series</span><span class="p">[</span><span class="s2">&quot;cool_energy_intensity(relative)&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats</span> <span class="o">=</span> <span class="n">input_series</span>
+        <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stats</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">input_series</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+            <span class="p">)</span>  <span class="c1"># drop rows that only used for defining future scenarios</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_compute_base_scenario</span><span class="p">()</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_compute_project_scenario</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_compute_base_scenario</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;pop&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;res&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;res_area_m2&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;com&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;com_area_m2&quot;</span><span class="p">],</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hp_heat_area_m2</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;frac_hp_res_heat&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;res&quot;</span><span class="p">]</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;frac_hp_com_heat&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;com&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hp_heat_frac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hp_heat_area_m2</span> <span class="o">/</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;res&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;com&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resist_heat_area_m2</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;frac_resist_res_heat&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;res&quot;</span><span class="p">]</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;frac_resist_com_heat&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;com&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resist_heat_frac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resist_heat_area_m2</span> <span class="o">/</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;res&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;com&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elec_cool_m2</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;frac_elec_res_cool&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;res&quot;</span><span class="p">]</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;frac_elec_com_cool&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;com&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_compute_project_scenario</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pop</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">pop</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;pop_ann_grow_rate&quot;</span><span class="p">])</span> <span class="o">**</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">year</span> <span class="o">-</span> <span class="n">other</span><span class="o">.</span><span class="n">year</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">clas</span> <span class="ow">in</span> <span class="n">const</span><span class="o">.</span><span class="n">classes</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_area_ann_grow_rate&quot;</span><span class="p">]):</span>
+                <span class="c1"># floor area growth rate is assumed to be proportional to population</span>
+                <span class="c1"># growth by default, unless user defines a growth rate for floor area</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="n">clas</span><span class="p">]</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="n">clas</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span>
+                    <span class="mi">1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;pop_ann_grow_rate&quot;</span><span class="p">]</span>
+                <span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">year</span> <span class="o">-</span> <span class="n">other</span><span class="o">.</span><span class="n">year</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="n">clas</span><span class="p">]</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="n">clas</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span>
+                    <span class="mi">1</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_area_ann_grow_rate&quot;</span><span class="p">]</span>
+                <span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">year</span> <span class="o">-</span> <span class="n">other</span><span class="o">.</span><span class="n">year</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]):</span>
+                <span class="c1"># calculate fraction of floor area using heat pump, resistance heat</span>
+                <span class="c1"># or fossil fuel furnace as major heating appliances</span>
+                <span class="c1"># Users can either define the fractions directly or the shift in major</span>
+                <span class="c1"># heating fuels from the base scenario or assume BAU cases</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;ff2hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="mi">1</span>
+                    <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span>
+                    <span class="o">/</span> <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;ff2hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span>
+                    <span class="o">+</span> <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_resist_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span>
+                    <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;resist2hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+                    <span class="o">+</span> <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;ff2hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_resist_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span>
+                    <span class="sa">f</span><span class="s2">&quot;frac_resist_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span>
+                <span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;resist2hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span>
+                    <span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span>
+                <span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;ff2hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_resist_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span>
+                    <span class="sa">f</span><span class="s2">&quot;frac_resist_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span>
+                <span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;ff2hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;resist2hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_elec_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_cool&quot;</span><span class="p">]):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_elec_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_cool&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span>
+                    <span class="sa">f</span><span class="s2">&quot;frac_elec_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_cool&quot;</span>
+                <span class="p">]</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_dhw_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_dhw_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_dhw_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+            <span class="n">cook_other</span> <span class="o">=</span> <span class="s2">&quot;cook&quot;</span> <span class="k">if</span> <span class="n">clas</span> <span class="o">==</span> <span class="s2">&quot;com&quot;</span> <span class="k">else</span> <span class="s2">&quot;other&quot;</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">cook_other</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">cook_other</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span>
+                    <span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">cook_other</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">hp_heat_area_m2</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;frac_hp_res_heat&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;res&quot;</span><span class="p">]</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;frac_hp_com_heat&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;com&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">hp_heat_frac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hp_heat_area_m2</span> <span class="o">/</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;res&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;com&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resist_heat_area_m2</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;frac_resist_res_heat&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;res&quot;</span><span class="p">]</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;frac_resist_com_heat&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;com&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resist_heat_frac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resist_heat_area_m2</span> <span class="o">/</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;res&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;com&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elec_cool_m2</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;frac_elec_res_cool&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;res&quot;</span><span class="p">]</span>
+            <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="s2">&quot;frac_elec_com_cool&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;com&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="LoadProjectionScenario.floor_area_growth"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection_scenario.LoadProjectionScenario.floor_area_growth">[docs]</a>    <span class="k">def</span> <span class="nf">floor_area_growth</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return (*float*) -- compound floor area growth</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;res&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;com&quot;</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span>
+            <span class="n">other</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;res&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">other</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="s2">&quot;com&quot;</span><span class="p">]</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="LoadProjectionScenario.floor_area_growth_type"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection_scenario.LoadProjectionScenario.floor_area_growth_type">[docs]</a>    <span class="k">def</span> <span class="nf">floor_area_growth_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">clas</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return (*float*) -- compound floor area growth by building type</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="n">clas</span><span class="p">]</span> <span class="o">/</span> <span class="n">other</span><span class="o">.</span><span class="n">floor_area_m2</span><span class="p">[</span><span class="n">clas</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="LoadProjectionScenario.frac_hp_growth"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection_scenario.LoadProjectionScenario.frac_hp_growth">[docs]</a>    <span class="k">def</span> <span class="nf">frac_hp_growth</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return (*float*) -- floor area growth ratio that use hp as main heating</span>
+<span class="sd">            appliance</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">hp_heat_area_m2</span> <span class="o">/</span> <span class="n">other</span><span class="o">.</span><span class="n">hp_heat_area_m2</span></div>
+
+<div class="viewcode-block" id="LoadProjectionScenario.frac_resist_growth"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection_scenario.LoadProjectionScenario.frac_resist_growth">[docs]</a>    <span class="k">def</span> <span class="nf">frac_resist_growth</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return (*float*) -- floor area growth ratio that use resistance heat as main</span>
+<span class="sd">            heating source</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">resist_heat_area_m2</span> <span class="o">/</span> <span class="n">other</span><span class="o">.</span><span class="n">resist_heat_area_m2</span></div>
+
+<div class="viewcode-block" id="LoadProjectionScenario.frac_cool_growth"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection_scenario.LoadProjectionScenario.frac_cool_growth">[docs]</a>    <span class="k">def</span> <span class="nf">frac_cool_growth</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return (*float*) -- floor area growth ratio that have electric air conditioning</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">elec_cool_m2</span> <span class="o">/</span> <span class="n">other</span><span class="o">.</span><span class="n">elec_cool_m2</span></div>
+
+<div class="viewcode-block" id="LoadProjectionScenario.frac_htg_ff2hp"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection_scenario.LoadProjectionScenario.frac_htg_ff2hp">[docs]</a>    <span class="k">def</span> <span class="nf">frac_htg_ff2hp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">clas</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return (*float*) -- fraction of floor area electrified for heating</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_heat&quot;</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="LoadProjectionScenario.frac_dhw_ff2hp"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection_scenario.LoadProjectionScenario.frac_dhw_ff2hp">[docs]</a>    <span class="k">def</span> <span class="nf">frac_dhw_ff2hp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">clas</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return (*float*) -- fraction of floor area electrified for dhw</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_dhw_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_dhw_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="LoadProjectionScenario.frac_cook_ff2hp"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection_scenario.LoadProjectionScenario.frac_cook_ff2hp">[docs]</a>    <span class="k">def</span> <span class="nf">frac_cook_ff2hp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">clas</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return (*float*) -- fraction of floor area electrified for cooking</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cook_other</span> <span class="o">=</span> <span class="s2">&quot;cook&quot;</span> <span class="k">if</span> <span class="n">clas</span> <span class="o">==</span> <span class="s2">&quot;com&quot;</span> <span class="k">else</span> <span class="s2">&quot;other&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="n">other</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">cook_other</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+            <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;frac_ff_</span><span class="si">{</span><span class="n">cook_other</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="LoadProjectionScenario.frac_cooling_eff_change"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection_scenario.LoadProjectionScenario.frac_cooling_eff_change">[docs]</a>    <span class="k">def</span> <span class="nf">frac_cooling_eff_change</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return (*float*) -- ratio of cooling efficiency improvement compares to base</span>
+<span class="sd">            scenario</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cool_energy_intensity</span> <span class="o">/</span> <span class="n">other</span><span class="o">.</span><span class="n">cool_energy_intensity</span></div>
+
+<div class="viewcode-block" id="LoadProjectionScenario.compare_hp_heat_type"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection_scenario.LoadProjectionScenario.compare_hp_heat_type">[docs]</a>    <span class="k">def</span> <span class="nf">compare_hp_heat_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :return (*bool*) -- True if the heat pump type for projection scenario is the</span>
+<span class="sd">            same as that of base scenario, otherwise False</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">hp_type_heat</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">hp_type_heat</span></div></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 6.1.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

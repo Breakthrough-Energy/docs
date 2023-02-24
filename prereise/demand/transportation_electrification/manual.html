@@ -1,0 +1,183 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>User Manual &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css" />
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="user-manual">
+<h1>User Manual<a class="headerlink" href="#user-manual" title="Permalink to this heading">¶</a></h1>
+<section id="pre-processed-input-data">
+<h2>Pre-processed input data<a class="headerlink" href="#pre-processed-input-data" title="Permalink to this heading">¶</a></h2>
+<p>The following data is provided for the user or could be overridden via an input from the
+user with a different preferred data set.</p>
+<ul class="simple">
+<li><p>Annual projections of vehicle miles traveled (VMT) are calculated in advance and are
+provided for the user for all Urban Areas in the U.S. Each state also has a VMT
+projection for the Rural Area in that state. See Section
+<code class="xref std std-numref docutils literal notranslate"><span class="pre">electric_vehicle_miles_traveled_projections</span></code> below for calculation process
+details using data from the National Renewable Energy Laboratory (NREL)’s
+Electrification Futures Study (EFS) and the Department of Transportation’s
+Transportation and Health Indicators.</p></li>
+<li><p>Projections of the fuel efficiency of battery electric vehicles are provided from
+NREL’s EFS, with more detail in Section <code class="xref std std-numref docutils literal notranslate"><span class="pre">fuel_efficiency_projections</span></code> below.</p></li>
+<li><p>Each vehicle type (LDV, LDT, MDV, and HDV) has a dataset with vehicle trip patterns
+that is used by the algorithm to represent a typical day of driving.  See Sections
+<code class="xref std std-numref docutils literal notranslate"><span class="pre">ev_charging_model</span></code> and <code class="xref std std-numref docutils literal notranslate"><span class="pre">vehicle_travel_patterns</span></code> for more details on
+the input data from the National Household Travel Survey (NHTS) and the Texas
+Commercial Vehicle Survey.</p></li>
+<li><p>Each typical day of driving is scaled by data from the MOVES model from the U.S.
+Environmental Protection Agency (EPA) that captures the variation in typical driving
+behavior across (i) urban/rural areas, (ii) weekend/weekday patterns, and (iii)
+monthly driving behavior (e.g. more driving in the summer than the winter).</p></li>
+</ul>
+</section>
+<section id="calling-the-main-transportation-electrification-method">
+<h2>Calling the main Transportation Electrification method<a class="headerlink" href="#calling-the-main-transportation-electrification-method" title="Permalink to this heading">¶</a></h2>
+<p>With the above input data, the main function call for the transportation module is
+<a class="reference internal" href="../../../prereise.gather.demanddata.transportation_electrification.html#module-prereise.gather.demanddata.transportation_electrification.generate_BEV_vehicle_profiles" title="prereise.gather.demanddata.transportation_electrification.generate_BEV_vehicle_profiles"><code class="xref py py-mod docutils literal notranslate"><span class="pre">prereise.gather.demanddata.transportation_electrification.generate_BEV_vehicle_profiles</span></code></a>
+and is called using a few user-specified inputs:</p>
+<ol class="arabic simple">
+<li><p>Charging Strategy (e.g. Immediate charging or Smart charging)</p></li>
+<li><p>Vehicle type (LDV, LDT, MDV, HDV)</p></li>
+<li><p>Vehicle range (whether 100, 200, or 300 miles on a single charge)</p></li>
+<li><p>Model Year</p></li>
+<li><p>U.S. State and the underlying Urban Area(s) / Rural Area that are being modelled</p></li>
+</ol>
+<p>Depending on the spatial region included in the broader simulation, the user can run a
+script across multiple U.S. States to calculate the projected electricity demand from
+electrified transportation for the full spatial region. From there, a spatial
+translation mechanism (described next) converts this demand to the accompanying demand
+nodes in the base simulation grid.</p>
+</section>
+<section id="spatial-translation-mechanism-between-any-two-different-spatial-resolutions">
+<h2>Spatial translation mechanism – between any two different spatial resolutions<a class="headerlink" href="#spatial-translation-mechanism-between-any-two-different-spatial-resolutions" title="Permalink to this heading">¶</a></h2>
+<p>We have developed a module called <code class="xref py py-mod docutils literal notranslate"><span class="pre">prereise.utility.translate_zones</span></code>. It takes
+in the shape files of the two spatial resolutions that the user would like to transform
+from one into the other. Then a transformation matrix that gives the fractions of every
+region in one resolution onto each region in the other resolution will be generated
+based on the overlay of the two shape files. Finally, the user can simply multiply
+profiles in its original resolution, such as Urban Areas (UA) and Rural Areas (RA), by
+the transformation matrix to obtain profiles in the resultant resolution, such as load
+zones in the base simulation grid. This allows each module to be built in whatever
+spatial resolution is best for that module and to then transform each module into a
+common spatial resolution that is then used by the multi-sector integrated energy
+systems model.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../index.html">
+    <img class="logo" src="../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 6.1.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+      |
+      <a href="../../../_sources/prereise/demand/transportation_electrification/manual.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

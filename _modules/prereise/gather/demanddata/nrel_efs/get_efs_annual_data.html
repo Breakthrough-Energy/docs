@@ -1,0 +1,165 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.demanddata.nrel_efs.get_efs_annual_data &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="../../../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.demanddata.nrel_efs.get_efs_annual_data</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="n">nrel_annual_efs_url</span> <span class="o">=</span> <span class="s2">&quot;https://data.nrel.gov/system/files/92/service_demand.csv.gzip&quot;</span>
+
+
+<div class="viewcode-block" id="get_efs_annual_data"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.nrel_efs.html#prereise.gather.demanddata.nrel_efs.get_efs_annual_data.get_efs_annual_data">[docs]</a><span class="k">def</span> <span class="nf">get_efs_annual_data</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">sector</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Download the electric technology service demand file from the NREL</span>
+<span class="sd">    Electrification Future Study (EFS) and return the electrification projection in</span>
+<span class="sd">    each state for a given sector</span>
+
+<span class="sd">    :param str path: path to electric technology service demand file from NREL EFS</span>
+<span class="sd">        (local or url)</span>
+<span class="sd">    :param str sector: sector to query in the file. Can be one of *&#39;RESIDENTIAL&#39;*,</span>
+<span class="sd">        *&#39;COMMERCIAL&#39;*, *&#39;PRODUCTIVE&#39;* (industrial) and *&#39;TRANSPORTATION&#39;*.</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- Columns are *&#39;SCENARIO&#39;* (range of electrification</span>
+<span class="sd">        futures, e.g. *&#39;MEDIUM ELECTRIFICATION - MODERATE TECHNOLOGY ADVANCEMENT&#39;*,</span>
+<span class="sd">        *&#39;DEMAND_TECHNOLOGY&#39;* (technologies for a given sector, e.g. *&#39;ELECTRIC LIGHT-</span>
+<span class="sd">        DUTY AUTO - 100 MILE RANGE&#39;* for transportation sector), *&#39;STATE&#39;* (50 United</span>
+<span class="sd">        States and District of Columbia), *&#39;SUBSECTOR&#39;* (a sub category of technology</span>
+<span class="sd">        for any sector, e.g. *&#39;AVIATION&#39;* of the transportation sector), *&#39;YEAR&#39;* (year</span>
+<span class="sd">        of projection), *&#39;FINAL_ENERGY&#39;* (type of energy, e.g. *&#39;RESIDUAL FUEL</span>
+<span class="sd">        OIL&#39;*), *&#39;UNIT&#39;* (unit of *&#39;VALUE&#39;*, e.g. *&#39;MILE&#39;*), *&#39;VALUE&#39;* (projected annual value).</span>
+<span class="sd">    :raises ValueError: if ``sector`` is invalid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">possible</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;RESIDENTIAL&quot;</span><span class="p">,</span> <span class="s2">&quot;COMMERCIAL&quot;</span><span class="p">,</span> <span class="s2">&quot;PRODUCTIVE&quot;</span><span class="p">,</span> <span class="s2">&quot;TRANSPORTATION&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">sector</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">possible</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;invalid sector. Choose from </span><span class="si">{</span><span class="s1">&#39; | &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">possible</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">compression</span><span class="o">=</span><span class="s2">&quot;gzip&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;SECTOR==@sector&quot;</span><span class="p">)[</span>
+        <span class="p">[</span>
+            <span class="s2">&quot;SCENARIO&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;SECTOR&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;DEMAND_TECHNOLOGY&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;STATE&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;SUBSECTOR&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;YEAR&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;FINAL_ENERGY&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;UNIT&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;VALUE&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+    <span class="p">]</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 6.1.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

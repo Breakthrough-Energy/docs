@@ -39,7 +39,8 @@ extensions = [
     "recommonmark",
     "sphinx_markdown_tables",
     "sphinx.ext.todo",
-    "sphinxcontrib.mermaid"
+    "sphinxcontrib.mermaid",
+    "sphinxcontrib.bibtex",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -58,12 +59,18 @@ author = "Breakthrough Energy Sciences Team"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = 'en' 
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["_build", "modules.rst", "setup.rst"]
+exclude_patterns = [
+    "_build",
+    "modules.rst",
+    "setup.rst",
+    "prereise/demand/transportation_electrification/data.rst",
+    "prereise/demand/transportation_electrification/methodology.rst",
+]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
@@ -72,6 +79,14 @@ pygments_style = "sphinx"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+
+# Enable numref
+numfig = True
+
+# Bibliography
+bibtex_bibfiles = ["refs.bib"]
+bibtex_encoding = "latin"
+bibtex_default_style = "unsrt"
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -217,4 +232,5 @@ todo_include_todos = True
 
 import errno
 import sphinx.util.osutil
+
 sphinx.util.osutil.ENOENT = errno.ENOENT

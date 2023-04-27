@@ -1,0 +1,625 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.demanddata.bldg_electrification.load_projection &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="../../../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid@9.4.0/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.demanddata.bldg_electrification.load_projection</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">product</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">prereise.gather.demanddata.bldg_electrification</span> <span class="kn">import</span> <span class="n">const</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.demanddata.bldg_electrification.ff2elec_profile_generator_cook</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">generate_cook_profiles</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.demanddata.bldg_electrification.ff2elec_profile_generator_dhw</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">generate_dhw_profiles</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.demanddata.bldg_electrification.ff2elec_profile_generator_htg</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">generate_htg_profiles</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.demanddata.bldg_electrification.helper</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">read_shapefile</span><span class="p">,</span>
+    <span class="n">zone_shp_overlay</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.demanddata.bldg_electrification.load_projection_scenario</span> <span class="kn">import</span> <span class="p">(</span>  <span class="c1"># noqa: F401</span>
+    <span class="n">LoadProjectionScenario</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">prereise.gather.demanddata.bldg_electrification.zone_profile_generator</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">zonal_data</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="temp_to_energy"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection.temp_to_energy">[docs]</a><span class="k">def</span> <span class="nf">temp_to_energy</span><span class="p">(</span><span class="n">temp_series</span><span class="p">,</span> <span class="n">hourly_fits_df</span><span class="p">,</span> <span class="n">db_wb_fit</span><span class="p">,</span> <span class="n">base_scen</span><span class="p">,</span> <span class="n">hp_heat_cop</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute baseload, heating, and cooling electricity for a certain hour of year</span>
+<span class="sd">    under model base year scenario</span>
+
+<span class="sd">    :param pandas.Series temp_series: data for the given hour.</span>
+<span class="sd">    :param pandas.DataFrame hourly_fits_df: hourly and week/weekend breakpoints and</span>
+<span class="sd">        coefficients for electricity use equations.</span>
+<span class="sd">    :param pandas.DataFrame db_wb_fit: least-square estimators of the linear</span>
+<span class="sd">        relationship between WBT and DBT</span>
+<span class="sd">    :param LoadProjectionScenario base_scen: reference scenario instance</span>
+<span class="sd">    :param pandas.DataFrame hp_heat_cop: heat pump COP against DBT with a 0.1 degree C</span>
+<span class="sd">        interval</span>
+<span class="sd">    :return: (*list*) -- energy for baseload, heat pump heating, resistance heating,</span>
+<span class="sd">        and cooling of certain hour</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">temp</span> <span class="o">=</span> <span class="n">temp_series</span><span class="p">[</span><span class="s2">&quot;temp_c&quot;</span><span class="p">]</span>
+    <span class="n">temp_wb</span> <span class="o">=</span> <span class="n">temp_series</span><span class="p">[</span><span class="s2">&quot;temp_c_wb&quot;</span><span class="p">]</span>
+    <span class="n">dark_frac</span> <span class="o">=</span> <span class="n">temp_series</span><span class="p">[</span><span class="s2">&quot;hourly_dark_frac&quot;</span><span class="p">]</span>
+    <span class="n">zone_hour</span> <span class="o">=</span> <span class="n">temp_series</span><span class="p">[</span><span class="s2">&quot;hour_local&quot;</span><span class="p">]</span>
+
+    <span class="n">heat_eng</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">mid_cool_eng</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">cool_eng</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">hp_eng</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">resist_eng</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">wk_wknd</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;wk&quot;</span>
+        <span class="k">if</span> <span class="n">temp_series</span><span class="p">[</span><span class="s2">&quot;weekday&quot;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">5</span> <span class="ow">and</span> <span class="o">~</span><span class="n">temp_series</span><span class="p">[</span><span class="s2">&quot;holiday&quot;</span><span class="p">]</span>  <span class="c1"># boolean value</span>
+        <span class="k">else</span> <span class="s2">&quot;wknd&quot;</span>
+    <span class="p">)</span>
+
+    <span class="p">(</span>
+        <span class="n">t_bpc</span><span class="p">,</span>
+        <span class="n">t_bph</span><span class="p">,</span>
+        <span class="n">i_heat</span><span class="p">,</span>
+        <span class="n">s_heat</span><span class="p">,</span>
+        <span class="n">s_dark</span><span class="p">,</span>
+        <span class="n">i_cool</span><span class="p">,</span>
+        <span class="n">s_cool_db</span><span class="p">,</span>
+        <span class="n">s_cool_wb</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">hourly_fits_df</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">zone_hour</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;t.bpc.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">.c&quot;</span><span class="p">],</span>
+        <span class="n">hourly_fits_df</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">zone_hour</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;t.bph.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">.c&quot;</span><span class="p">],</span>
+        <span class="n">hourly_fits_df</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">zone_hour</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;i.heat.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">],</span>
+        <span class="n">hourly_fits_df</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">zone_hour</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;s.heat.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">],</span>
+        <span class="n">hourly_fits_df</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">zone_hour</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;s.dark.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">],</span>
+        <span class="n">hourly_fits_df</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">zone_hour</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;i.cool.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">],</span>
+        <span class="n">hourly_fits_df</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">zone_hour</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;s.cool.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">.db&quot;</span><span class="p">],</span>
+        <span class="n">hourly_fits_df</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">zone_hour</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;s.cool.</span><span class="si">{</span><span class="n">wk_wknd</span><span class="si">}</span><span class="s2">.wb&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+
+    <span class="n">base_eng</span> <span class="o">=</span> <span class="n">s_heat</span> <span class="o">*</span> <span class="n">t_bph</span> <span class="o">+</span> <span class="n">s_dark</span> <span class="o">*</span> <span class="n">dark_frac</span> <span class="o">+</span> <span class="n">i_heat</span>
+
+    <span class="k">if</span> <span class="n">temp</span> <span class="o">&lt;=</span> <span class="n">t_bph</span><span class="p">:</span>
+        <span class="n">heat_eng</span> <span class="o">=</span> <span class="o">-</span><span class="n">s_heat</span> <span class="o">*</span> <span class="p">(</span><span class="n">t_bph</span> <span class="o">-</span> <span class="n">temp</span><span class="p">)</span>
+        <span class="c1"># Separate resistance heat and heat pump energy by COP.</span>
+        <span class="c1"># HP assumed to be medium performance HP that&#39;s used in Mike&#39;s Joule paper</span>
+        <span class="c1"># ! Since we now have our estimation of current heat pump adoption rate,</span>
+        <span class="c1"># this function can be merged to the same one in zone_profile_generator.py</span>
+        <span class="n">cop_hp</span> <span class="o">=</span> <span class="n">hp_heat_cop</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="n">temp</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;cop&quot;</span><span class="p">]</span>
+        <span class="n">hp_eng</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">heat_eng</span>
+            <span class="o">*</span> <span class="p">(</span><span class="n">base_scen</span><span class="o">.</span><span class="n">hp_heat_frac</span> <span class="o">/</span> <span class="n">cop_hp</span><span class="p">)</span>
+            <span class="o">/</span> <span class="p">(</span><span class="n">base_scen</span><span class="o">.</span><span class="n">resist_heat_frac</span> <span class="o">+</span> <span class="n">base_scen</span><span class="o">.</span><span class="n">hp_heat_frac</span> <span class="o">/</span> <span class="n">cop_hp</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">resist_eng</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">heat_eng</span>
+            <span class="o">*</span> <span class="p">(</span><span class="n">base_scen</span><span class="o">.</span><span class="n">resist_heat_frac</span><span class="p">)</span>
+            <span class="o">/</span> <span class="p">(</span><span class="n">base_scen</span><span class="o">.</span><span class="n">resist_heat_frac</span> <span class="o">+</span> <span class="n">base_scen</span><span class="o">.</span><span class="n">hp_heat_frac</span> <span class="o">/</span> <span class="n">cop_hp</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">temp</span> <span class="o">&gt;=</span> <span class="n">t_bph</span><span class="p">:</span>
+        <span class="n">cool_eng</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">s_cool_db</span> <span class="o">*</span> <span class="n">temp</span>
+            <span class="o">+</span> <span class="n">s_cool_wb</span>
+            <span class="o">*</span> <span class="p">(</span>
+                <span class="n">temp_wb</span>
+                <span class="o">-</span> <span class="p">(</span><span class="n">db_wb_fit</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">temp</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">db_wb_fit</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">temp</span> <span class="o">+</span> <span class="n">db_wb_fit</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+            <span class="p">)</span>
+            <span class="o">+</span> <span class="n">i_cool</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">temp</span> <span class="o">&gt;</span> <span class="n">t_bpc</span> <span class="ow">and</span> <span class="n">temp</span> <span class="o">&lt;</span> <span class="n">t_bph</span><span class="p">:</span>
+        <span class="n">mid_cool_eng</span> <span class="o">=</span> <span class="p">((</span><span class="n">temp</span> <span class="o">-</span> <span class="n">t_bpc</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">t_bph</span> <span class="o">-</span> <span class="n">t_bpc</span><span class="p">))</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span>
+            <span class="n">s_cool_db</span> <span class="o">*</span> <span class="n">t_bph</span>
+            <span class="o">+</span> <span class="n">s_cool_wb</span>
+            <span class="o">*</span> <span class="p">(</span>
+                <span class="n">temp_wb</span>
+                <span class="o">-</span> <span class="p">(</span><span class="n">db_wb_fit</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">temp</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">db_wb_fit</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">temp</span> <span class="o">+</span> <span class="n">db_wb_fit</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+            <span class="p">)</span>
+            <span class="o">+</span> <span class="n">i_cool</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">[</span><span class="n">base_eng</span><span class="p">,</span> <span class="n">hp_eng</span><span class="p">,</span> <span class="n">resist_eng</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">cool_eng</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="nb">max</span><span class="p">(</span><span class="n">mid_cool_eng</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span></div>
+
+
+<div class="viewcode-block" id="scale_energy"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection.scale_energy">[docs]</a><span class="k">def</span> <span class="nf">scale_energy</span><span class="p">(</span>
+    <span class="n">base_energy</span><span class="p">,</span>
+    <span class="n">temp_df</span><span class="p">,</span>
+    <span class="n">base_scen</span><span class="p">,</span>
+    <span class="n">new_scen</span><span class="p">,</span>
+    <span class="n">midperfhp_cop</span><span class="p">,</span>
+    <span class="n">advperfhp_cop</span><span class="p">,</span>
+    <span class="n">new_hp_profile</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Project energy consumption for each projection scenarios from the base scenario</span>
+
+<span class="sd">    :param pandas.DataFrame base_energy: dataframe of disaggregated electricity</span>
+<span class="sd">        consumptions for all weather years</span>
+<span class="sd">    :param pandas.DataFrame temp_df: weather records the given hours</span>
+<span class="sd">    :param LoadProjectionScenario base_scen: reference scenario instance</span>
+<span class="sd">    :param LoadProjectionScenario new_scen: projection scenario instance</span>
+<span class="sd">    :param pandas.DataFrame midperfhp_cop: average performance heat pump COP against</span>
+<span class="sd">        DBT with a 0.1 degree C interval</span>
+<span class="sd">    :param pandas.DataFrame advperfhp_cop: advanced performance heat pump (90%</span>
+<span class="sd">        percentile cold climate heat pump) COP against DBT with a 0.1 degree C interval</span>
+<span class="sd">    :param str new_hp_profile: either &quot;elec&quot; or &quot;ff&quot;. Choose either current electric</span>
+<span class="sd">        heat pump heating demand profiles or current fossil fuel heating demand that the</span>
+<span class="sd">        projected newly electrified load will follow.</span>
+<span class="sd">    :return (*pandas.DataFrame*) -- hourly electricity consumption induced by heat pump</span>
+<span class="sd">        heating, resistance heating, cooling, and baseload for a projection scenario</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">base_load_scaler</span> <span class="o">=</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">floor_area_growth</span><span class="p">(</span><span class="n">base_scen</span><span class="p">)</span>
+    <span class="n">cool_load_scaler</span> <span class="o">=</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">frac_cooling_eff_change</span><span class="p">(</span>
+        <span class="n">base_scen</span>
+    <span class="p">)</span> <span class="o">*</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">frac_cool_growth</span><span class="p">(</span><span class="n">base_scen</span><span class="p">)</span>
+    <span class="n">resist_load_scaler</span> <span class="o">=</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">frac_resist_growth</span><span class="p">(</span><span class="n">base_scen</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">compare_hp_heat_type</span><span class="p">(</span><span class="n">base_scen</span><span class="p">):</span>
+        <span class="n">hp_load_scaler</span> <span class="o">=</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">frac_hp_growth</span><span class="p">(</span><span class="n">base_scen</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">base_scen</span><span class="o">.</span><span class="n">hp_type_heat</span> <span class="o">==</span> <span class="s2">&quot;midperfhp&quot;</span><span class="p">:</span>
+            <span class="n">base_hp_heat_cop</span> <span class="o">=</span> <span class="n">midperfhp_cop</span>
+        <span class="k">elif</span> <span class="n">base_scen</span><span class="o">.</span><span class="n">hp_type_heat</span> <span class="o">==</span> <span class="s2">&quot;advperfhp&quot;</span><span class="p">:</span>
+            <span class="n">base_hp_heat_cop</span> <span class="o">=</span> <span class="n">advperfhp_cop</span>
+        <span class="k">if</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">hp_type_heat</span> <span class="o">==</span> <span class="s2">&quot;midperfhp&quot;</span><span class="p">:</span>
+            <span class="n">new_hp_heat_cop</span> <span class="o">=</span> <span class="n">midperfhp_cop</span>
+        <span class="k">elif</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">hp_type_heat</span> <span class="o">==</span> <span class="s2">&quot;advperfhp&quot;</span><span class="p">:</span>
+            <span class="n">new_hp_heat_cop</span> <span class="o">=</span> <span class="n">advperfhp_cop</span>
+
+        <span class="n">hp_cop_adv</span> <span class="o">=</span> <span class="n">base_hp_heat_cop</span> <span class="o">/</span> <span class="n">new_hp_heat_cop</span>  <span class="c1"># &lt;1</span>
+
+        <span class="n">hp_cop_scaler</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float64&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">temp_df</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+            <span class="n">hp_cop_scaler</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">hp_cop_adv</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+                <span class="nb">round</span><span class="p">(</span><span class="n">temp_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="s2">&quot;temp_c&quot;</span><span class="p">],</span> <span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;cop&quot;</span>
+            <span class="p">]</span>
+        <span class="n">hp_load_scaler</span> <span class="o">=</span> <span class="n">hp_cop_scaler</span> <span class="o">*</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">frac_hp_growth</span><span class="p">(</span><span class="n">base_scen</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">new_scen</span><span class="o">.</span><span class="n">frac_hp_growth</span><span class="p">(</span><span class="n">base_scen</span><span class="p">)):</span>
+        <span class="n">new_hp_cop_scaler</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float64&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">temp_df</span><span class="o">.</span><span class="n">index</span><span class="p">:</span>
+            <span class="n">new_hp_cop_scaler</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_hp_heat_cop</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span>
+                <span class="nb">round</span><span class="p">(</span><span class="n">temp_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="s2">&quot;temp_c&quot;</span><span class="p">],</span> <span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;cop&quot;</span>
+            <span class="p">]</span>
+        <span class="n">resist_hp_load_scaler</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">new_scen</span><span class="o">.</span><span class="n">hp_heat_area_m2</span> <span class="o">/</span> <span class="n">base_scen</span><span class="o">.</span><span class="n">resist_heat_area_m2</span> <span class="o">/</span> <span class="n">new_hp_cop_scaler</span>
+        <span class="p">)</span>
+    <span class="n">scen_load_mwh</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">base_energy</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="n">scen_load_mwh</span><span class="p">[</span><span class="s2">&quot;base_load_mw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">base_energy</span><span class="p">[</span><span class="s2">&quot;base_load_mw&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">base_load_scaler</span>
+    <span class="k">if</span> <span class="n">new_hp_profile</span> <span class="o">==</span> <span class="s2">&quot;elec&quot;</span><span class="p">:</span>  <span class="c1"># if user select to use the current electricity</span>
+        <span class="c1"># heat pump consumption profiles for heating load projection</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">new_scen</span><span class="o">.</span><span class="n">frac_hp_growth</span><span class="p">(</span><span class="n">base_scen</span><span class="p">)):</span>
+            <span class="n">scen_load_mwh</span><span class="p">[</span><span class="s2">&quot;heat_hp_load_mw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">base_energy</span><span class="p">[</span><span class="s2">&quot;heat_resist_load_mw&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">resist_hp_load_scaler</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">scen_load_mwh</span><span class="p">[</span><span class="s2">&quot;heat_hp_load_mw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">base_energy</span><span class="p">[</span><span class="s2">&quot;heat_hp_load_mw&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">hp_load_scaler</span>
+            <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">scen_load_mwh</span><span class="p">[</span><span class="s2">&quot;heat_existing_hp_load_mw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">base_energy</span><span class="p">[</span><span class="s2">&quot;heat_hp_load_mw&quot;</span><span class="p">]</span>
+    <span class="n">scen_load_mwh</span><span class="p">[</span><span class="s2">&quot;heat_resist_load_mw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">base_energy</span><span class="p">[</span><span class="s2">&quot;heat_resist_load_mw&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">resist_load_scaler</span>
+    <span class="p">)</span>
+    <span class="n">scen_load_mwh</span><span class="p">[</span><span class="s2">&quot;cool_load_mw&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">base_energy</span><span class="p">[</span><span class="s2">&quot;cool_load_mw&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">cool_load_scaler</span>
+
+    <span class="k">return</span> <span class="n">scen_load_mwh</span></div>
+
+
+<div class="viewcode-block" id="ff_electrify_profiles"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection.ff_electrify_profiles">[docs]</a><span class="k">def</span> <span class="nf">ff_electrify_profiles</span><span class="p">(</span>
+    <span class="n">weather_years</span><span class="p">,</span> <span class="n">puma_data</span><span class="p">,</span> <span class="n">base_scen</span><span class="p">,</span> <span class="n">new_scen</span><span class="p">,</span> <span class="n">new_hp_profile</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate hourly electricity loads for a projection scenario from converting</span>
+<span class="sd">    fossil fuel heating, dhw and cooking to electric ones</span>
+
+<span class="sd">    :param list weather_years: user defined year(s) of weather profile for</span>
+<span class="sd">        load projection</span>
+<span class="sd">    :param pandas.DataFrame puma_data: puma data within zone,</span>
+<span class="sd">        output of :func:`zone_shp_overlay`</span>
+<span class="sd">    :param LoadProjectionScenario base_scen: reference scenario instance</span>
+<span class="sd">    :param LoadProjectionScenario new_scen: projection scenario instance</span>
+<span class="sd">    :param str new_hp_profile: either &quot;elec&quot; or &quot;ff&quot;. Choose either current electric</span>
+<span class="sd">        heat pump heating demand profiles or current fossil fuel heating demand that the</span>
+<span class="sd">        projected newly electrified load will follow.</span>
+<span class="sd">    :return (*pandas.DataFrame*) -- hourly projection load from converting fossil fuel</span>
+<span class="sd">        consumption to electricity for projection scenarios given weather conditions</span>
+<span class="sd">        from selected weather years.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">ff2hp_dhw_profiles</span><span class="p">(</span><span class="n">clas</span><span class="p">):</span>
+        <span class="n">ff2hp_dhw_pumas_yrs</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">weather_year</span><span class="p">,</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">product</span><span class="p">(</span><span class="n">weather_years</span><span class="p">,</span> <span class="n">zone_states</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span>
+                    <span class="s2">&quot;Profiles&quot;</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;elec_dhw_ff2hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">weather_year</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">hp_type_dhw</span><span class="si">}</span><span class="s2">_mw.csv&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;generating hot water profiles for </span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
+                <span class="n">generate_dhw_profiles</span><span class="p">(</span><span class="n">weather_year</span><span class="p">,</span> <span class="p">[</span><span class="n">state</span><span class="p">],</span> <span class="n">clas</span><span class="p">,</span> <span class="n">hp_type_dhw</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">weather_year</span> <span class="ow">in</span> <span class="n">weather_years</span><span class="p">:</span>
+            <span class="n">ff2hp_dhw_pumas</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+                <span class="nb">list</span><span class="p">(</span>
+                    <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">zone_states</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+                            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span>
+                                <span class="s2">&quot;Profiles&quot;</span><span class="p">,</span>
+                                <span class="sa">f</span><span class="s2">&quot;elec_dhw_ff2hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">weather_year</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">hp_type_dhw</span><span class="si">}</span><span class="s2">_mw.csv&quot;</span><span class="p">,</span>
+                            <span class="p">)</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="p">),</span>
+                <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">ff2hp_dhw_pumas_yrs</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">ff2hp_dhw_pumas_yrs</span><span class="p">,</span> <span class="n">ff2hp_dhw_pumas</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+        <span class="n">ff2hp_dhw_yrs</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">ff2hp_dhw_pumas_yrs</span><span class="p">[</span><span class="n">puma_data</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+            <span class="o">.</span><span class="n">mul</span><span class="p">(</span><span class="n">puma_data</span><span class="p">[</span><span class="s2">&quot;frac_in_zone&quot;</span><span class="p">])</span>
+            <span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ff2hp_dhw_yrs</span>
+
+    <span class="k">def</span> <span class="nf">ff2hp_htg_profiles</span><span class="p">(</span><span class="n">clas</span><span class="p">):</span>
+        <span class="n">ff2hp_htg_pumas_yrs</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">weather_year</span><span class="p">,</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">product</span><span class="p">(</span><span class="n">weather_years</span><span class="p">,</span> <span class="n">zone_states</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span>
+                    <span class="s2">&quot;Profiles&quot;</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;elec_htg_ff2hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">weather_year</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">hp_type_heat</span><span class="si">}</span><span class="s2">_mw.csv&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;generating ff heating profiles for </span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
+                <span class="n">generate_htg_profiles</span><span class="p">(</span><span class="n">weather_year</span><span class="p">,</span> <span class="p">[</span><span class="n">state</span><span class="p">],</span> <span class="n">clas</span><span class="p">,</span> <span class="n">hp_type_heat</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">weather_year</span> <span class="ow">in</span> <span class="n">weather_years</span><span class="p">:</span>
+            <span class="n">ff2hp_htg_pumas</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+                <span class="nb">list</span><span class="p">(</span>
+                    <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">zone_states</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+                            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span>
+                                <span class="s2">&quot;Profiles&quot;</span><span class="p">,</span>
+                                <span class="sa">f</span><span class="s2">&quot;elec_htg_ff2hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">weather_year</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">hp_type_heat</span><span class="si">}</span><span class="s2">_mw.csv&quot;</span><span class="p">,</span>
+                            <span class="p">)</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="p">),</span>
+                <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">ff2hp_htg_pumas_yrs</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">ff2hp_htg_pumas_yrs</span><span class="p">,</span> <span class="n">ff2hp_htg_pumas</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+        <span class="n">ff2hp_htg_yrs</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">ff2hp_htg_pumas_yrs</span><span class="p">[</span><span class="n">puma_data</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+            <span class="o">.</span><span class="n">mul</span><span class="p">(</span><span class="n">puma_data</span><span class="p">[</span><span class="s2">&quot;frac_in_zone&quot;</span><span class="p">])</span>
+            <span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ff2hp_htg_yrs</span>
+
+    <span class="k">def</span> <span class="nf">ff2hp_cook_profiles</span><span class="p">(</span><span class="n">clas</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">zone_states</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span>
+                    <span class="s2">&quot;Profiles&quot;</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;elec_cook_ff2hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">const</span><span class="o">.</span><span class="n">base_year</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">cook_eff</span><span class="si">}</span><span class="s2">_mw.csv&quot;</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">):</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;generating ff cooking profiles for </span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
+                <span class="n">generate_cook_profiles</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">base_year</span><span class="p">,</span> <span class="p">[</span><span class="n">state</span><span class="p">],</span> <span class="n">clas</span><span class="p">,</span> <span class="n">cook_eff</span><span class="p">)</span>
+
+        <span class="n">ff2hp_cook_pumas</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="nb">list</span><span class="p">(</span>
+                <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">zone_states</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                    <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+                        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span>
+                            <span class="s2">&quot;Profiles&quot;</span><span class="p">,</span>
+                            <span class="sa">f</span><span class="s2">&quot;elec_cook_ff2hp_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">const</span><span class="o">.</span><span class="n">base_year</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">cook_eff</span><span class="si">}</span><span class="s2">_mw.csv&quot;</span><span class="p">,</span>
+                        <span class="p">),</span>
+                        <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">ff2hp_cook</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">ff2hp_cook_pumas</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">puma_data</span><span class="o">.</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">mul</span><span class="p">(</span><span class="n">puma_data</span><span class="p">[</span><span class="s2">&quot;frac_in_zone&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ff2hp_cook</span>
+
+    <span class="n">zone_states</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">puma_data</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]))</span>
+    <span class="n">hours_utc_weather_years</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span>
+        <span class="n">start</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">weather_years</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">-01-01&quot;</span><span class="p">,</span>
+        <span class="n">end</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">weather_years</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">-01-01&quot;</span><span class="p">,</span>
+        <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span>
+        <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;UTC&quot;</span><span class="p">,</span>
+    <span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">hp_type_dhw</span> <span class="o">=</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">hp_type_dhw</span>
+    <span class="n">hp_type_heat</span> <span class="o">=</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">hp_type_heat</span>
+    <span class="n">cook_eff</span> <span class="o">=</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">cook_efficiency</span>
+    <span class="n">ff2hp_load_mwh</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">hours_utc_weather_years</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">clas</span> <span class="ow">in</span> <span class="n">const</span><span class="o">.</span><span class="n">classes</span><span class="p">:</span>
+        <span class="n">frac_dhw_ff2hp</span> <span class="o">=</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">frac_dhw_ff2hp</span><span class="p">(</span><span class="n">base_scen</span><span class="p">,</span> <span class="n">clas</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">frac_dhw_ff2hp</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ff2hp_load_mwh</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;dhw_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ff2hp_dhw_profiles</span><span class="p">(</span><span class="n">clas</span><span class="p">)</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+            <span class="n">ff2hp_load_mwh</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;dhw_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">ff2hp_load_mwh</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;dhw_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+                <span class="o">*</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">floor_area_growth_type</span><span class="p">(</span><span class="n">base_scen</span><span class="p">,</span> <span class="n">clas</span><span class="p">)</span>
+                <span class="o">*</span> <span class="n">frac_dhw_ff2hp</span>
+            <span class="p">)</span>  <span class="c1"># scale energy consumption by floor area information</span>
+
+        <span class="n">frac_htg_ff2hp</span> <span class="o">=</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">frac_htg_ff2hp</span><span class="p">(</span><span class="n">base_scen</span><span class="p">,</span> <span class="n">clas</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">new_hp_profile</span> <span class="o">==</span> <span class="s2">&quot;ff&quot;</span> <span class="ow">and</span> <span class="n">frac_htg_ff2hp</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ff2hp_load_mwh</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;htg_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ff2hp_htg_profiles</span><span class="p">(</span><span class="n">clas</span><span class="p">)</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+            <span class="n">ff2hp_load_mwh</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;htg_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">ff2hp_load_mwh</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;htg_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+                <span class="o">*</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">floor_area_growth_type</span><span class="p">(</span><span class="n">base_scen</span><span class="p">,</span> <span class="n">clas</span><span class="p">)</span>
+                <span class="o">*</span> <span class="n">frac_htg_ff2hp</span>
+            <span class="p">)</span>
+
+        <span class="n">frac_cook_ff2hp</span> <span class="o">=</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">frac_cook_ff2hp</span><span class="p">(</span><span class="n">base_scen</span><span class="p">,</span> <span class="n">clas</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">frac_cook_ff2hp</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ff2hp_load_mwh</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;cook_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ff2hp_cook_profiles</span><span class="p">(</span><span class="n">clas</span><span class="p">)</span>
+            <span class="n">ff2hp_load_mwh</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;cook_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">ff2hp_load_mwh</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;cook_</span><span class="si">{</span><span class="n">clas</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+                <span class="o">*</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">floor_area_growth_type</span><span class="p">(</span><span class="n">base_scen</span><span class="p">,</span> <span class="n">clas</span><span class="p">)</span>
+                <span class="o">*</span> <span class="n">new_scen</span><span class="o">.</span><span class="n">frac_cook_ff2hp</span><span class="p">(</span><span class="n">base_scen</span><span class="p">,</span> <span class="n">clas</span><span class="p">)</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">ff2hp_load_mwh</span></div>
+
+
+<div class="viewcode-block" id="predict_scenario"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.load_projection.predict_scenario">[docs]</a><span class="k">def</span> <span class="nf">predict_scenario</span><span class="p">(</span>
+    <span class="n">zone_name</span><span class="p">,</span> <span class="n">zone_name_shp</span><span class="p">,</span> <span class="n">base_scen</span><span class="p">,</span> <span class="n">new_scens</span><span class="p">,</span> <span class="n">weather_years</span><span class="p">,</span> <span class="n">new_hp_profile</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load projection for one zone in all selected weather years.</span>
+
+<span class="sd">    :param str zone_name: name of load zone used to save profile.</span>
+<span class="sd">    :param str zone_name_shp: name of load zone within shapefile.</span>
+<span class="sd">    :param LoadProjectionScenario base_scen: reference scenario instance</span>
+<span class="sd">    :param LoadProjectionScenario new_scen: projection scenario instance</span>
+<span class="sd">    :param list weather_years: user defined year(s) of weather profile for load</span>
+<span class="sd">        projection</span>
+<span class="sd">    :param str new_hp_profile: either &quot;elec&quot; or &quot;ff&quot;. Choose either current electric</span>
+<span class="sd">        heat pump heating demand profiles or current fossil fuel heating demand that</span>
+<span class="sd">        the projected newly electrified load will follow.</span>
+<span class="sd">    :return (*dict*) -- hourly projected load breakdowns for all scenarios, keys are</span>
+<span class="sd">        scenario names, values are data frames of load breakdowns.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Use base_year for model fitting</span>
+    <span class="n">base_year</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">base_year</span>
+
+    <span class="n">zone_shp</span> <span class="o">=</span> <span class="n">read_shapefile</span><span class="p">(</span>
+        <span class="s2">&quot;https://besciences.blob.core.windows.net/shapefiles/USA/balancing-authorities/ba_area/ba_area.zip&quot;</span>
+    <span class="p">)</span>
+    <span class="n">pumas_shp</span> <span class="o">=</span> <span class="n">read_shapefile</span><span class="p">(</span>
+        <span class="s2">&quot;https://besciences.blob.core.windows.net/shapefiles/USA/pumas-overlay/pumas_overlay.zip&quot;</span>
+    <span class="p">)</span>
+
+    <span class="n">hours_utc_weather_years</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span>
+        <span class="n">start</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">weather_years</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">-01-01&quot;</span><span class="p">,</span>
+        <span class="n">end</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">weather_years</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">-01-01&quot;</span><span class="p">,</span>
+        <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span>
+        <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;UTC&quot;</span><span class="p">,</span>
+    <span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="c1"># prepare weather dataframe</span>
+    <span class="n">puma_data_zone</span> <span class="o">=</span> <span class="n">zone_shp_overlay</span><span class="p">(</span><span class="n">zone_name_shp</span><span class="p">,</span> <span class="n">zone_shp</span><span class="p">,</span> <span class="n">pumas_shp</span><span class="p">)</span>
+    <span class="n">temp_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">year</span> <span class="ow">in</span> <span class="n">weather_years</span><span class="p">:</span>
+        <span class="n">hours_utc_year</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span>
+            <span class="n">start</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">-01-01&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">year</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">-01-01&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;UTC&quot;</span>
+        <span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">temp_df_yr</span><span class="p">,</span> <span class="n">stats</span> <span class="o">=</span> <span class="n">zonal_data</span><span class="p">(</span><span class="n">puma_data_zone</span><span class="p">,</span> <span class="n">hours_utc_year</span><span class="p">,</span> <span class="n">year</span><span class="p">)</span>
+        <span class="n">temp_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">temp_df</span><span class="p">,</span> <span class="n">temp_df_yr</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">temp_df</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">hours_utc_weather_years</span>
+
+    <span class="c1"># compute least-square estimator for relation between WBT and DBT</span>
+    <span class="n">t_bpc_start</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">db_wb_regr_df</span> <span class="o">=</span> <span class="n">temp_df</span><span class="p">[</span>
+        <span class="p">(</span><span class="n">temp_df</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">year</span> <span class="o">==</span> <span class="n">base_year</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">temp_df</span><span class="p">[</span><span class="s2">&quot;temp_c&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">t_bpc_start</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="n">db_wb_fit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">polyfit</span><span class="p">(</span><span class="n">db_wb_regr_df</span><span class="p">[</span><span class="s2">&quot;temp_c&quot;</span><span class="p">],</span> <span class="n">db_wb_regr_df</span><span class="p">[</span><span class="s2">&quot;temp_c_wb&quot;</span><span class="p">],</span> <span class="mi">2</span><span class="p">)</span>
+
+    <span class="n">hourly_fits_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;https://besciences.blob.core.windows.net/datasets/bldg_el/dayhour_fits/</span><span class="si">{</span><span class="n">zone_name</span><span class="si">}</span><span class="s2">_dayhour_fits_</span><span class="si">{</span><span class="n">base_year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">,</span>
+        <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">midperfhp_cop</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span>
+            <span class="s2">&quot;data&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;cop_temp_htg_midperfhp.csv&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">advperfhp_cop</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span>
+            <span class="s2">&quot;data&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;cop_temp_htg_advperfhp.csv&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">midperfhp_cop</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">midperfhp_cop</span><span class="p">[</span><span class="s2">&quot;temp&quot;</span><span class="p">]</span>
+    <span class="n">advperfhp_cop</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">advperfhp_cop</span><span class="p">[</span><span class="s2">&quot;temp&quot;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">base_scen</span><span class="o">.</span><span class="n">hp_type_heat</span> <span class="o">==</span> <span class="s2">&quot;midperfhp&quot;</span><span class="p">:</span>
+        <span class="n">base_hp_heat_cop</span> <span class="o">=</span> <span class="n">midperfhp_cop</span>
+    <span class="k">elif</span> <span class="n">base_scen</span><span class="o">.</span><span class="n">hp_type_heat</span> <span class="o">==</span> <span class="s2">&quot;advperfhp&quot;</span><span class="p">:</span>
+        <span class="n">base_hp_heat_cop</span> <span class="o">=</span> <span class="n">advperfhp_cop</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s2">&quot;hp type not defined. Choose from &#39;midperfhp&#39; and &#39;advperfhp&#39;&quot;</span><span class="p">)</span>
+
+    <span class="c1"># run reference scenario</span>
+    <span class="n">zone_profile_refload_MWh</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>  <span class="c1"># noqa: N806</span>
+        <span class="p">{</span><span class="s2">&quot;hour_utc&quot;</span><span class="p">:</span> <span class="n">hours_utc_weather_years</span><span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="n">energy_list</span> <span class="o">=</span> <span class="n">zone_profile_refload_MWh</span><span class="o">.</span><span class="n">hour_utc</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">temp_to_energy</span><span class="p">(</span>
+            <span class="n">temp_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">x</span><span class="p">],</span> <span class="n">hourly_fits_df</span><span class="p">,</span> <span class="n">db_wb_fit</span><span class="p">,</span> <span class="n">base_scen</span><span class="p">,</span> <span class="n">base_hp_heat_cop</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="p">(</span>
+        <span class="n">zone_profile_refload_MWh</span><span class="p">[</span><span class="s2">&quot;base_load_mw&quot;</span><span class="p">],</span>
+        <span class="n">zone_profile_refload_MWh</span><span class="p">[</span><span class="s2">&quot;heat_hp_load_mw&quot;</span><span class="p">],</span>
+        <span class="n">zone_profile_refload_MWh</span><span class="p">[</span><span class="s2">&quot;heat_resist_load_mw&quot;</span><span class="p">],</span>
+        <span class="n">zone_profile_refload_MWh</span><span class="p">[</span><span class="s2">&quot;cool_load_mw&quot;</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">energy_list</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+        <span class="n">energy_list</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+        <span class="n">energy_list</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+        <span class="n">energy_list</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">]),</span>
+    <span class="p">)</span>
+    <span class="n">zone_profile_refload_MWh</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;hour_utc&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># scale energy to each projection scenarios</span>
+    <span class="n">elec_profile_load_mwh</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">zone_profile_load_mwh</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">zone_profile_load_mwh</span><span class="p">[</span><span class="s2">&quot;base&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">zone_profile_refload_MWh</span>
+    <span class="n">ff2hp_profile_load_mwh</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="nb">id</span><span class="p">,</span> <span class="n">scenario</span> <span class="ow">in</span> <span class="n">new_scens</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">elec_profile_load_mwh</span><span class="p">[</span><span class="nb">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">scale_energy</span><span class="p">(</span>
+            <span class="n">zone_profile_refload_MWh</span><span class="p">,</span>
+            <span class="n">temp_df</span><span class="p">,</span>
+            <span class="n">base_scen</span><span class="p">,</span>
+            <span class="n">scenario</span><span class="p">,</span>
+            <span class="n">midperfhp_cop</span><span class="p">,</span>
+            <span class="n">advperfhp_cop</span><span class="p">,</span>
+            <span class="n">new_hp_profile</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">ff2hp_profile_load_mwh</span><span class="p">[</span><span class="nb">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">ff_electrify_profiles</span><span class="p">(</span>
+            <span class="n">weather_years</span><span class="p">,</span> <span class="n">puma_data_zone</span><span class="p">,</span> <span class="n">base_scen</span><span class="p">,</span> <span class="n">scenario</span><span class="p">,</span> <span class="n">new_hp_profile</span>
+        <span class="p">)</span>
+        <span class="n">zone_profile_load_mwh</span><span class="p">[</span><span class="nb">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">elec_profile_load_mwh</span><span class="p">[</span><span class="nb">id</span><span class="p">],</span> <span class="n">ff2hp_profile_load_mwh</span><span class="p">[</span><span class="nb">id</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">zone_profile_load_mwh</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 6.2.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

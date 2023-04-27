@@ -1,0 +1,221 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.flexibilitydata.doe.doe_data &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="../../../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid@9.4.0/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.flexibilitydata.doe.doe_data</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">tarfile</span>
+<span class="kn">import</span> <span class="nn">urllib.request</span>
+<span class="kn">import</span> <span class="nn">zipfile</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+
+<div class="viewcode-block" id="cleanup_directory"><a class="viewcode-back" href="../../../../../prereise.gather.flexibilitydata.doe.html#prereise.gather.flexibilitydata.doe.doe_data.cleanup_directory">[docs]</a><span class="k">def</span> <span class="nf">cleanup_directory</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Recursively cleanup a folder by deleting meaningless or empty files</span>
+
+<span class="sd">    :param str root: the root directory containing raw de-compressed DOE flexibility data</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">all_files</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">all_files</span><span class="p">:</span>
+        <span class="n">fp</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;.&quot;</span> <span class="ow">or</span> <span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">:]</span> <span class="o">==</span> <span class="s2">&quot;csv&quot;</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.01</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span>
+
+    <span class="n">all_folders</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">all_folders</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">i</span><span class="p">)):</span>
+            <span class="n">cleanup_directory</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="download_doe"><a class="viewcode-back" href="../../../../../prereise.gather.flexibilitydata.doe.html#prereise.gather.flexibilitydata.doe.doe_data.download_doe">[docs]</a><span class="k">def</span> <span class="nf">download_doe</span><span class="p">(</span><span class="n">download_path</span><span class="o">=</span><span class="s2">&quot;data&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Download demand flexibility filters from OEDI, extract and cleanup</span>
+
+<span class="sd">    :param str download_path: the directory where the original DOE data will be stored</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># create data directory</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># download zip data</span>
+    <span class="n">oedi_filter_link</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;https://data.openei.org/files/180/2006weatherentireusdrfilters.tar.zip&quot;</span>
+    <span class="p">)</span>
+    <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">urlretrieve</span><span class="p">(</span>
+        <span class="n">oedi_filter_link</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="s2">&quot;filter.zip&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+
+    <span class="c1"># extract</span>
+    <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="s2">&quot;filter.zip&quot;</span><span class="p">),</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+        <span class="n">fh</span><span class="o">.</span><span class="n">extractall</span><span class="p">(</span><span class="n">download_path</span><span class="p">)</span>
+
+    <span class="c1"># delete and further extract</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="s2">&quot;filter.zip&quot;</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">download_path</span><span class="p">):</span>
+        <span class="n">fh</span> <span class="o">=</span> <span class="n">tarfile</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>
+        <span class="n">fh</span><span class="o">.</span><span class="n">extractall</span><span class="p">(</span><span class="n">download_path</span><span class="p">)</span>
+
+        <span class="n">fh</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">download_path</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>
+
+    <span class="c1"># cleanup</span>
+    <span class="n">cleanup_directory</span><span class="p">(</span><span class="n">download_path</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="aggregate_doe"><a class="viewcode-back" href="../../../../../prereise.gather.flexibilitydata.doe.html#prereise.gather.flexibilitydata.doe.doe_data.aggregate_doe">[docs]</a><span class="k">def</span> <span class="nf">aggregate_doe</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">out_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Aggregate sector flexibilties by summing up the percentage flexibility from all sectors</span>
+<span class="sd">    and store to output csv file</span>
+
+<span class="sd">    :param str root: the root directory containing raw de-compressed DOE flexibility data</span>
+<span class="sd">    :param str out_path: the output file where the aggregated data will be stored</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">all_folders</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+
+    <span class="c1"># initialize output container</span>
+    <span class="n">eia_flex</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">8808</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_folders</span><span class="p">))),</span> <span class="n">columns</span><span class="o">=</span><span class="n">all_folders</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">all_folders</span><span class="p">:</span>
+        <span class="n">all_csvs</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>
+
+        <span class="c1"># new column for total flexibility</span>
+        <span class="n">file_flex</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">all_csvs</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># assign index to the output df</span>
+        <span class="k">if</span> <span class="s2">&quot;time&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">eia_flex</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">eia_flex</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">file_flex</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+            <span class="n">eia_flex</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">eia_flex</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">eia_flex</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">file_flex</span><span class="p">[</span><span class="s2">&quot;Flexibility&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">all_csvs</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+            <span class="n">fn</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+            <span class="n">file_flex</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">file_flex</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">eia_flex</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="n">eia_flex</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">eia_flex</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">file_flex</span><span class="p">[</span><span class="s2">&quot;Flexibility&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">eia_flex</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">eia_flex</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">file_flex</span><span class="p">[</span><span class="s2">&quot;Flexibility&quot;</span><span class="p">],</span> <span class="n">fill_value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">eia_flex</span> <span class="o">=</span> <span class="n">eia_flex</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">eia_flex</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">out_path</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 6.2.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

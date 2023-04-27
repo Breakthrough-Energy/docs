@@ -1,0 +1,187 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.flexibilitydata.doe.batch_process &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="../../../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid@9.4.0/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.flexibilitydata.doe.batch_process</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">urllib.request</span>
+
+<span class="kn">from</span> <span class="nn">prereise.gather.flexibilitydata.doe.geo_data</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">eiaid_to_fips</span><span class="p">,</span>
+    <span class="n">eiaid_to_zip</span><span class="p">,</span>
+    <span class="n">fips_zip_conversion</span><span class="p">,</span>
+    <span class="n">get_census_data</span><span class="p">,</span>
+    <span class="n">get_county_fips_data</span><span class="p">,</span>
+    <span class="n">get_crosswalk_data</span><span class="p">,</span>
+    <span class="n">get_fips_population</span><span class="p">,</span>
+    <span class="n">get_lse_region_data</span><span class="p">,</span>
+    <span class="n">get_zip_population</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="get_cache_from_blob"><a class="viewcode-back" href="../../../../../prereise.gather.flexibilitydata.doe.html#prereise.gather.flexibilitydata.doe.batch_process.get_cache_from_blob">[docs]</a><span class="k">def</span> <span class="nf">get_cache_from_blob</span><span class="p">(</span><span class="n">cache_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Download previously uploaded cached files from BLOB storage</span>
+
+<span class="sd">    :param str cache_path: folder to store downloaded cache files</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">cache_names</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;eiaid2fips.pkl&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;eiaid2zip.pkl&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fips_population.pkl&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;fips2zip.pkl&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;zip_population.pkl&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;zip2fips.pkl&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;bus_fips.pkl&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;bus_zip.pkl&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="n">blob_path</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;https://besciences.blob.core.windows.net/datasets/demand_flexibility_doe/&quot;</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">cache_names</span><span class="p">:</span>
+        <span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">urlretrieve</span><span class="p">(</span><span class="n">blob_path</span> <span class="o">+</span> <span class="n">f</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cache_path</span><span class="p">,</span> <span class="n">f</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="collect_all_raw_data"><a class="viewcode-back" href="../../../../../prereise.gather.flexibilitydata.doe.html#prereise.gather.flexibilitydata.doe.batch_process.collect_all_raw_data">[docs]</a><span class="k">def</span> <span class="nf">collect_all_raw_data</span><span class="p">(</span><span class="n">download_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Download all required raw data needed for producing cached files</span>
+
+<span class="sd">    :param str download_path: folder to store the downloaded file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">get_census_data</span><span class="p">(</span><span class="n">download_path</span><span class="p">)</span>
+    <span class="n">get_crosswalk_data</span><span class="p">(</span><span class="n">download_path</span><span class="p">)</span>
+    <span class="n">get_lse_region_data</span><span class="p">(</span><span class="n">download_path</span><span class="p">)</span>
+    <span class="n">get_county_fips_data</span><span class="p">(</span><span class="n">download_path</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="create_geo_cache_files"><a class="viewcode-back" href="../../../../../prereise.gather.flexibilitydata.doe.html#prereise.gather.flexibilitydata.doe.batch_process.create_geo_cache_files">[docs]</a><span class="k">def</span> <span class="nf">create_geo_cache_files</span><span class="p">(</span><span class="n">raw_path</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Process downloaded raw files and create cached intermediate files</span>
+
+<span class="sd">    :param str raw_path: folder that contains downloaded raw data</span>
+<span class="sd">    :param str cache_path: folder to store processed cache files</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">cache_path</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">fips_zip_conversion</span><span class="p">(</span><span class="n">raw_path</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">)</span>
+    <span class="n">get_fips_population</span><span class="p">(</span><span class="n">raw_path</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">)</span>
+    <span class="n">get_zip_population</span><span class="p">(</span><span class="n">raw_path</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">)</span>
+    <span class="n">eiaid_to_zip</span><span class="p">(</span><span class="n">raw_path</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">)</span>
+    <span class="n">eiaid_to_fips</span><span class="p">(</span><span class="n">raw_path</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 6.2.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

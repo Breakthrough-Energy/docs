@@ -1,0 +1,495 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>prereise.gather.demanddata.bldg_electrification.weather_data_agg &#8212; documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/alabaster.css" />
+    <script data-url_root="../../../../../" id="documentation_options" src="../../../../../_static/documentation_options.js"></script>
+    <script src="../../../../../_static/doctools.js"></script>
+    <script src="../../../../../_static/sphinx_highlight.js"></script>
+    <script src="https://unpkg.com/mermaid@9.4.0/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true});</script>
+    <link rel="icon" href="../../../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for prereise.gather.demanddata.bldg_electrification.weather_data_agg</h1><div class="highlight"><pre>
+<span></span><span class="c1"># This script contains functions to download ERA5 data and manipulate it to</span>
+<span class="c1"># produce hourly time series of (dry bulb) temperature, dew point temperature</span>
+<span class="c1"># and surface pressure. It is designed for the specific use case. For more</span>
+<span class="c1"># general information on accessing ERA5 data, see:</span>
+<span class="c1"># https://confluence.ecmwf.int/display/CKB/How+to+download+ERA5</span>
+
+<span class="kn">import</span> <span class="nn">os</span>
+
+<span class="kn">import</span> <span class="nn">cdsapi</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">psychrolib</span>
+<span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
+<span class="kn">from</span> <span class="nn">dateutil</span> <span class="kn">import</span> <span class="n">tz</span>
+<span class="kn">from</span> <span class="nn">scipy.spatial</span> <span class="kn">import</span> <span class="n">cKDTree</span>
+<span class="kn">from</span> <span class="nn">suntime</span> <span class="kn">import</span> <span class="n">Sun</span>
+
+<span class="kn">from</span> <span class="nn">prereise.gather.demanddata.bldg_electrification</span> <span class="kn">import</span> <span class="n">const</span>
+
+<span class="n">psychrolib</span><span class="o">.</span><span class="n">SetUnitSystem</span><span class="p">(</span><span class="n">psychrolib</span><span class="o">.</span><span class="n">SI</span><span class="p">)</span>
+
+<span class="n">variable_names</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;temp&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;era5&quot;</span><span class="p">:</span> <span class="s2">&quot;2m_temperature&quot;</span><span class="p">,</span> <span class="s2">&quot;nc&quot;</span><span class="p">:</span> <span class="s2">&quot;t2m&quot;</span><span class="p">},</span>
+    <span class="s2">&quot;dewpt&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;era5&quot;</span><span class="p">:</span> <span class="s2">&quot;2m_dewpoint_temperature&quot;</span><span class="p">,</span> <span class="s2">&quot;nc&quot;</span><span class="p">:</span> <span class="s2">&quot;d2m&quot;</span><span class="p">},</span>
+    <span class="s2">&quot;pres&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;era5&quot;</span><span class="p">:</span> <span class="s2">&quot;surface_pressure&quot;</span><span class="p">,</span> <span class="s2">&quot;nc&quot;</span><span class="p">:</span> <span class="s2">&quot;sp&quot;</span><span class="p">},</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="era5_download"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.weather_data_agg.era5_download">[docs]</a><span class="k">def</span> <span class="nf">era5_download</span><span class="p">(</span><span class="n">years</span><span class="p">,</span> <span class="n">directory</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="s2">&quot;temp&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Download ERA5 data</span>
+
+<span class="sd">    :param iterable year: year(s) for which data to be downloaded given as single</span>
+<span class="sd">        value or iterable list</span>
+<span class="sd">    :param str directory: path to root directory for ERA5 downloads</span>
+<span class="sd">    :param str: variable to be downloaded, chosen from:</span>
+<span class="sd">        temp {Default} -- dry bulb temperataure, corresponds to ERA5 variable &quot;2m_temperature&quot;</span>
+<span class="sd">        dewpt -- dew point temperature, corresponds to ERA5 variable &quot;2m_dewpoint_temperature&quot;</span>
+<span class="sd">        pres -- surface pressure, corresponds to ERA5 variable &quot;surface_pressure&quot;</span>
+<span class="sd">    :raises ValueError: if the ``variable`` name is invalid or if any values in</span>
+<span class="sd">        ``years`` are outside of the valid range.</span>
+<span class="sd">    :raises Exception: if the cdsapi package is not configured properly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Check variable input and get associated ERA5 variable name</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">variable_era5</span> <span class="o">=</span> <span class="n">variable_names</span><span class="p">[</span><span class="n">variable</span><span class="p">][</span><span class="s2">&quot;era5&quot;</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid variable name: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Make single year input iterable</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">years</span><span class="p">,</span> <span class="s2">&quot;__iter__&quot;</span><span class="p">):</span>
+        <span class="n">years</span> <span class="o">=</span> <span class="p">[</span><span class="n">years</span><span class="p">]</span>
+
+    <span class="c1"># Error if &quot;years&quot; includes any years prior to 1950</span>
+    <span class="k">if</span> <span class="nb">min</span><span class="p">(</span><span class="n">years</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1950</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Input years must be 1950 or later&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Note if prior to 1979, preliminary version of reanalysis back extension</span>
+    <span class="k">if</span> <span class="nb">min</span><span class="p">(</span><span class="n">years</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1979</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">&quot;Data for years 1950-1979 are a preliminary version of reanalysis back extension&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">cdsapi</span><span class="o">.</span><span class="n">Client</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span>
+            <span class="s2">&quot;cdsapi is not configured properly, see https://cds.climate.copernicus.eu/api-how-to&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Create folder to store data for given variable if it doesn&quot;t yet exist</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">variable</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">year</span> <span class="ow">in</span> <span class="n">years</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">year</span> <span class="o">&lt;</span> <span class="mi">1979</span><span class="p">:</span>
+            <span class="n">dataset</span> <span class="o">=</span> <span class="s2">&quot;reanalysis-era5-single-levels-preliminary-back-extension&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dataset</span> <span class="o">=</span> <span class="s2">&quot;reanalysis-era5-single-levels&quot;</span>
+
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Retrieving ERA5 </span><span class="si">{</span><span class="n">variable_era5</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> input variable) dataset for </span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="n">c</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span>
+            <span class="n">dataset</span><span class="p">,</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;product_type&quot;</span><span class="p">:</span> <span class="s2">&quot;reanalysis&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;netcdf&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;variable&quot;</span><span class="p">:</span> <span class="n">variable_era5</span><span class="p">,</span>
+                <span class="s2">&quot;year&quot;</span><span class="p">:</span> <span class="s2">&quot;</span><span class="si">{:04d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">year</span><span class="p">),</span>
+                <span class="s2">&quot;month&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;</span><span class="si">{:02d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">)],</span>
+                <span class="s2">&quot;day&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;</span><span class="si">{:02d}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">32</span><span class="p">)],</span>
+                <span class="s2">&quot;time&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;</span><span class="si">{:02d}</span><span class="s2">:00&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">24</span><span class="p">)],</span>
+                <span class="s2">&quot;area&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">50</span><span class="p">,</span> <span class="o">-</span><span class="mi">128</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="o">-</span><span class="mi">62</span><span class="p">],</span>
+            <span class="p">},</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">variable</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2">s_era5_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.nc&quot;</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="create_era5_pumas"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.weather_data_agg.create_era5_pumas">[docs]</a><span class="k">def</span> <span class="nf">create_era5_pumas</span><span class="p">(</span>
+    <span class="n">years</span><span class="p">,</span> <span class="n">tract_puma_mapping</span><span class="p">,</span> <span class="n">tract_pop</span><span class="p">,</span> <span class="n">tract_lat_lon</span><span class="p">,</span> <span class="n">directory</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="s2">&quot;temp&quot;</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create {variable}s_pumas_{state}_{year}.csv or dewpt_pumas_{state}_{year} for all</span>
+<span class="sd">        CONUS states and input year(s)</span>
+
+<span class="sd">    :param iterable year: year(s) for which data files to be produced</span>
+<span class="sd">    :param pandas.Series tract_puma_mapping: tract to puma mapping.</span>
+<span class="sd">    :param pandas.Series tract_pop: population, indexed by tract.</span>
+<span class="sd">    :param pandas.DataFrame tract_lat_lon: data frame, indexed by tract, with columns</span>
+<span class="sd">        &quot;state&quot;, &quot;lat&quot;, and &quot;lon&quot;.</span>
+<span class="sd">    :param str directory: path to root directory for ERA5 downloads (not including variable name)</span>
+<span class="sd">    :param str: variable to produce</span>
+<span class="sd">        temp {Default} -- dry bulb temperataure, corresponds to ERA5 variable &quot;2m_temperature&quot;</span>
+<span class="sd">        dewpt -- dew point temperature, corresponds to ERA5 variable &quot;2m_dewpoint_temperature&quot;</span>
+<span class="sd">        pres -- surface pressure, corresponds to ERA5 variable &quot;surface_pressure&quot;</span>
+<span class="sd">    :raises ValueError: if the ``variable`` name is invalid.</span>
+<span class="sd">    :raises FileNotFoundError: if not all required files are present.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Function to convert latitude and longitude to cartesian coordinates</span>
+    <span class="k">def</span> <span class="nf">lon_lat_to_cartesian</span><span class="p">(</span><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">):</span>
+        <span class="c1"># WGS 84 reference coordinate system parameters</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="mf">6378.137</span>  <span class="c1"># major axis [km]</span>
+        <span class="n">e2</span> <span class="o">=</span> <span class="mf">6.69437999014e-3</span>  <span class="c1"># eccentricity squared</span>
+
+        <span class="n">lon_rad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">lon</span><span class="p">)</span>
+        <span class="n">lat_rad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">lat</span><span class="p">)</span>
+        <span class="c1"># convert to cartesian coordinates</span>
+        <span class="n">r_n</span> <span class="o">=</span> <span class="n">a</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">e2</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)))</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">r_n</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">lon_rad</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">r_n</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">lon_rad</span><span class="p">)</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">r_n</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">e2</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">lat_rad</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span>
+
+    <span class="c1"># Check variable input and get associated ERA5 variable name</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">variable_era5</span> <span class="o">=</span> <span class="n">variable_names</span><span class="p">[</span><span class="n">variable</span><span class="p">][</span><span class="s2">&quot;era5&quot;</span><span class="p">]</span>
+        <span class="n">variable_nc</span> <span class="o">=</span> <span class="n">variable_names</span><span class="p">[</span><span class="n">variable</span><span class="p">][</span><span class="s2">&quot;nc&quot;</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid variable name: </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Make single year input iterable</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">years</span><span class="p">,</span> <span class="s2">&quot;__iter__&quot;</span><span class="p">):</span>
+        <span class="n">years</span> <span class="o">=</span> <span class="p">[</span><span class="n">years</span><span class="p">]</span>
+
+    <span class="c1"># Check if ERA5 files exist for all input years</span>
+    <span class="n">n_missing</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">year</span> <span class="ow">in</span> <span class="n">years</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">variable</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2">s_era5_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.nc&quot;</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing file </span><span class="si">{</span><span class="n">variable_era5</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.nc&quot;</span><span class="p">)</span>
+            <span class="n">n_missing</span> <span class="o">=</span> <span class="n">n_missing</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">n_missing</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Confirmed: All required ERA5 input files present&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Create folder to store data for given variable if it doesn&quot;t yet exist</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="s2">&quot;pumas&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Combine tract-level data into single data frame</span>
+    <span class="n">tract_data</span> <span class="o">=</span> <span class="n">tract_lat_lon</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">pop_2010</span><span class="o">=</span><span class="n">tract_pop</span><span class="p">,</span> <span class="n">puma</span><span class="o">=</span><span class="n">tract_puma_mapping</span><span class="p">)</span>
+    <span class="c1"># Filter to census tracts with building area data in included states</span>
+    <span class="n">tract_data</span> <span class="o">=</span> <span class="n">tract_data</span><span class="p">[</span><span class="n">tract_data</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">state_list</span><span class="p">)]</span>
+
+    <span class="c1"># Loop through input years</span>
+    <span class="k">for</span> <span class="n">year</span> <span class="ow">in</span> <span class="n">years</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Processing puma-level </span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2"> time series for </span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="c1"># Load ERA5 dataset</span>
+        <span class="n">ds_era5</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">variable</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2">s_era5_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.nc&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Get latitude and longitude from ERA5 dataset and make 2D arrays</span>
+        <span class="n">lats_era5</span> <span class="o">=</span> <span class="n">ds_era5</span><span class="o">.</span><span class="n">variables</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">][:]</span>
+        <span class="n">lons_era5</span> <span class="o">=</span> <span class="n">ds_era5</span><span class="o">.</span><span class="n">variables</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">][:]</span>
+        <span class="n">lons_era5_2d</span><span class="p">,</span> <span class="n">lats_era5_2d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">lons_era5</span><span class="p">,</span> <span class="n">lats_era5</span><span class="p">)</span>
+
+        <span class="n">x_era5</span><span class="p">,</span> <span class="n">y_era5</span><span class="p">,</span> <span class="n">z_era5</span> <span class="o">=</span> <span class="n">lon_lat_to_cartesian</span><span class="p">(</span>
+            <span class="n">lons_era5_2d</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">lats_era5_2d</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">x_tracts</span><span class="p">,</span> <span class="n">y_tracts</span><span class="p">,</span> <span class="n">z_tracts</span> <span class="o">=</span> <span class="n">lon_lat_to_cartesian</span><span class="p">(</span>
+            <span class="n">tract_data</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">],</span> <span class="n">tract_data</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Create KD-tree from ERA5 dataset coordinates</span>
+        <span class="n">tree_era5</span> <span class="o">=</span> <span class="n">cKDTree</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">x_era5</span><span class="p">,</span> <span class="n">y_era5</span><span class="p">,</span> <span class="n">z_era5</span><span class="p">)))</span>
+
+        <span class="c1"># Create tracts values time series data frame with interpoltion using inverse distance-squared weighting for 4 nearest neighbors</span>
+        <span class="n">d</span><span class="p">,</span> <span class="n">inds</span> <span class="o">=</span> <span class="n">tree_era5</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">((</span><span class="n">x_tracts</span><span class="p">,</span> <span class="n">y_tracts</span><span class="p">,</span> <span class="n">z_tracts</span><span class="p">)),</span> <span class="n">k</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">d</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">vals_tracts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8760</span><span class="p">))</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">ds_era5</span><span class="p">[</span><span class="n">variable_nc</span><span class="p">][</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">flatten</span><span class="p">()[</span><span class="n">inds</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="o">/</span> <span class="n">w</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                <span class="n">index</span><span class="o">=</span><span class="n">tract_data</span><span class="o">.</span><span class="n">index</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">state_pumas</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">puma_data</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;state&quot;</span><span class="p">)</span>
+
+        <span class="n">weighted_values</span> <span class="o">=</span> <span class="n">tract_data</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;puma&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">(</span><span class="n">vals_tracts</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">index</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="s2">&quot;pop_2010&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="o">/</span> <span class="n">x</span><span class="p">[</span><span class="s2">&quot;pop_2010&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="c1"># Convert units if needed (Kelvin to Celsius)</span>
+        <span class="k">if</span> <span class="n">variable</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;temp&quot;</span><span class="p">,</span> <span class="s2">&quot;dewpt&quot;</span><span class="p">}:</span>
+            <span class="n">weighted_values</span> <span class="o">-=</span> <span class="mf">273.15</span>
+        <span class="c1"># Loop through states</span>
+        <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">const</span><span class="o">.</span><span class="n">state_list</span><span class="p">:</span>
+            <span class="n">state_values</span> <span class="o">=</span> <span class="n">weighted_values</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">state_pumas</span><span class="o">.</span><span class="n">get_group</span><span class="p">(</span><span class="n">state</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+            <span class="n">state_values</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                    <span class="n">directory</span><span class="p">,</span>
+                    <span class="s2">&quot;pumas&quot;</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">variable</span><span class="si">}</span><span class="s2">s_pumas_</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">,</span>
+                <span class="p">),</span>
+                <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="dark_fractions"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.weather_data_agg.dark_fractions">[docs]</a><span class="k">def</span> <span class="nf">dark_fractions</span><span class="p">(</span><span class="n">puma</span><span class="p">,</span> <span class="n">puma_data</span><span class="p">,</span> <span class="n">year</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute annual time series of fraction of each hour that is dark for a given puma</span>
+
+<span class="sd">    :param str puma: puma name</span>
+<span class="sd">    :param pandas.DataFrame puma_data: puma data for lat, long, and timezone</span>
+<span class="sd">    :param int year: year of desired dark fractions</span>
+
+<span class="sd">    :return: (*list*) -- hourly dark fractions for the year</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">latitude</span> <span class="o">=</span> <span class="n">puma_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">puma</span><span class="p">,</span> <span class="s2">&quot;latitude&quot;</span><span class="p">]</span>
+    <span class="n">longitude</span> <span class="o">=</span> <span class="n">puma_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">puma</span><span class="p">,</span> <span class="s2">&quot;longitude&quot;</span><span class="p">]</span>
+
+    <span class="n">puma_timezone</span> <span class="o">=</span> <span class="n">puma_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">puma</span><span class="p">,</span> <span class="s2">&quot;timezone&quot;</span><span class="p">]</span>
+    <span class="n">hours_local</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span>
+        <span class="n">start</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">-01-01&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">year</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">-01-01&quot;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">&quot;H&quot;</span><span class="p">,</span> <span class="n">tz</span><span class="o">=</span><span class="s2">&quot;UTC&quot;</span>
+    <span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">tz_convert</span><span class="p">(</span><span class="n">puma_timezone</span><span class="p">)</span>
+
+    <span class="n">sun</span> <span class="o">=</span> <span class="n">Sun</span><span class="p">(</span><span class="n">latitude</span><span class="p">,</span> <span class="n">longitude</span><span class="p">)</span>
+
+    <span class="n">sunrise</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">hours_local</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">sun</span><span class="o">.</span><span class="n">get_local_sunrise_time</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">local_time_zone</span><span class="o">=</span><span class="n">tz</span><span class="o">.</span><span class="n">gettz</span><span class="p">(</span><span class="n">puma_timezone</span><span class="p">))</span>
+    <span class="p">)</span>
+    <span class="n">sunset</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">hours_local</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">sun</span><span class="o">.</span><span class="n">get_local_sunset_time</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">local_time_zone</span><span class="o">=</span><span class="n">tz</span><span class="o">.</span><span class="n">gettz</span><span class="p">(</span><span class="n">puma_timezone</span><span class="p">))</span>
+    <span class="p">)</span>
+
+    <span class="n">sun_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span><span class="s2">&quot;sunrise&quot;</span><span class="p">:</span> <span class="n">sunrise</span><span class="p">,</span> <span class="s2">&quot;sunset&quot;</span><span class="p">:</span> <span class="n">sunset</span><span class="p">,</span> <span class="s2">&quot;hour_local&quot;</span><span class="p">:</span> <span class="n">hours_local</span><span class="o">.</span><span class="n">hour</span><span class="p">}</span>
+    <span class="p">)</span>
+
+    <span class="n">sun_df</span><span class="p">[</span><span class="s2">&quot;sunrise_hour&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sun_df</span><span class="p">[</span><span class="s2">&quot;sunrise&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">hour</span><span class="p">)</span>
+    <span class="n">sun_df</span><span class="p">[</span><span class="s2">&quot;sunset_hour&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sun_df</span><span class="p">[</span><span class="s2">&quot;sunset&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">hour</span><span class="p">)</span>
+
+    <span class="n">sun_df</span><span class="p">[</span><span class="s2">&quot;sunrise_dark_frac&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sun_df</span><span class="p">[</span><span class="s2">&quot;sunrise&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">minute</span> <span class="o">/</span> <span class="mi">60</span><span class="p">)</span>
+    <span class="n">sun_df</span><span class="p">[</span><span class="s2">&quot;sunset_dark_frac&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sun_df</span><span class="p">[</span><span class="s2">&quot;sunset&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">x</span><span class="o">.</span><span class="n">minute</span> <span class="o">/</span> <span class="mi">60</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">dark_hour</span><span class="p">(</span><span class="n">local</span><span class="p">,</span> <span class="n">sunrise</span><span class="p">,</span> <span class="n">sunset</span><span class="p">,</span> <span class="n">sunrise_frac</span><span class="p">,</span> <span class="n">sunset_frac</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return fraction of hour that is dark. 0 if completely light, 1 if completely dark</span>
+
+<span class="sd">        :param pandas.DateTime local: local hour</span>
+<span class="sd">        :param pandas.DateTime sunrise: local sunrise time</span>
+<span class="sd">        :param pandas.DateTime sunset: local sunset time</span>
+<span class="sd">        :param float sunrise_frac: fraction of the day&#39;s sunrise hour that is dark</span>
+<span class="sd">        :param float sunset_frac: fraction of the day&#39;s sunset hour that is dark</span>
+
+<span class="sd">        :return: (*float*) -- hour darkness fraction</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">local</span> <span class="o">==</span> <span class="n">sunrise</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sunrise_frac</span>
+        <span class="k">elif</span> <span class="n">local</span> <span class="o">==</span> <span class="n">sunset</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sunset_frac</span>
+        <span class="k">elif</span> <span class="n">local</span> <span class="o">&gt;</span> <span class="n">sunrise</span> <span class="ow">and</span> <span class="n">local</span> <span class="o">&lt;</span> <span class="n">sunset</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">1</span>
+
+    <span class="n">sun_df</span><span class="p">[</span><span class="s2">&quot;dark_hour_frac&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sun_df</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">dark_hour</span><span class="p">(</span>
+            <span class="n">x</span><span class="p">[</span><span class="s2">&quot;hour_local&quot;</span><span class="p">],</span>
+            <span class="n">x</span><span class="p">[</span><span class="s2">&quot;sunrise_hour&quot;</span><span class="p">],</span>
+            <span class="n">x</span><span class="p">[</span><span class="s2">&quot;sunset_hour&quot;</span><span class="p">],</span>
+            <span class="n">x</span><span class="p">[</span><span class="s2">&quot;sunrise_dark_frac&quot;</span><span class="p">],</span>
+            <span class="n">x</span><span class="p">[</span><span class="s2">&quot;sunset_dark_frac&quot;</span><span class="p">],</span>
+        <span class="p">),</span>
+        <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">sun_df</span><span class="p">[</span><span class="s2">&quot;dark_hour_frac&quot;</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="generate_dark_fracs"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.weather_data_agg.generate_dark_fracs">[docs]</a><span class="k">def</span> <span class="nf">generate_dark_fracs</span><span class="p">(</span><span class="n">year</span><span class="p">,</span> <span class="n">directory</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate puma level hourly time series of darkness fractions for all pumas within a state</span>
+
+<span class="sd">    :param int year: year of desired dark fractions</span>
+<span class="sd">    :param str directory: path to local root directory for weather data</span>
+
+<span class="sd">    :export: (*csv*) -- statewide hourly dark fractions for every puma</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Create folder to store dark_frac output if it doesn&quot;t yet exist</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="s2">&quot;pumas&quot;</span><span class="p">,</span> <span class="s2">&quot;dark_frac&quot;</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">puma_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;data/puma_data.csv&quot;</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="s2">&quot;puma&quot;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">const</span><span class="o">.</span><span class="n">state_list</span><span class="p">:</span>
+        <span class="n">puma_data_it</span> <span class="o">=</span> <span class="n">puma_data</span><span class="p">[</span><span class="n">puma_data</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">state</span><span class="p">]</span>
+        <span class="n">puma_dark_frac</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">puma_data_it</span><span class="o">.</span><span class="n">index</span><span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">puma_dark_frac</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+            <span class="n">puma_dark_frac</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">dark_fractions</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">puma_data</span><span class="p">,</span> <span class="n">year</span><span class="p">)</span>
+
+        <span class="n">puma_dark_frac</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">directory</span><span class="p">,</span> <span class="s2">&quot;pumas&quot;</span><span class="p">,</span> <span class="s2">&quot;dark_frac&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;dark_frac_pumas_</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span>
+            <span class="p">),</span>
+            <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="t_to_twb"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.weather_data_agg.t_to_twb">[docs]</a><span class="k">def</span> <span class="nf">t_to_twb</span><span class="p">(</span><span class="n">temp_values</span><span class="p">,</span> <span class="n">dwpt_values</span><span class="p">,</span> <span class="n">press_values</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute wetbulb temperature from drybulb, dewpoint, and pressure</span>
+
+<span class="sd">    :param list temp_values: drybulb temperatures, C</span>
+<span class="sd">    :param list dwpt_values: dewpoint temperatures, C</span>
+<span class="sd">    :param list press_values: pressures, Pa</span>
+
+<span class="sd">    :return: (*list*) -- wetbulb temperatures</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">[</span>
+        <span class="n">psychrolib</span><span class="o">.</span><span class="n">GetTWetBulbFromTDewPoint</span><span class="p">(</span>
+            <span class="n">temp_values</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="nb">min</span><span class="p">(</span><span class="n">temp_values</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">dwpt_values</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">press_values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dwpt_values</span><span class="p">))</span>
+    <span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="generate_wetbulb_temps"><a class="viewcode-back" href="../../../../../prereise.gather.demanddata.bldg_electrification.html#prereise.gather.demanddata.bldg_electrification.weather_data_agg.generate_wetbulb_temps">[docs]</a><span class="k">def</span> <span class="nf">generate_wetbulb_temps</span><span class="p">(</span><span class="n">year</span><span class="p">,</span> <span class="n">directory</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate puma level hourly time series of wetbulb temperatures for all pumas within a state</span>
+
+<span class="sd">    :param int year: year of desired dark fractions</span>
+<span class="sd">    :param str directory: path to local root directory for weather data</span>
+
+<span class="sd">    :export: (*csv*) -- statewide hourly wetbulb temperatures for every puma</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Create folder to store dark_frac output if it doesn&quot;t yet exist</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="s2">&quot;pumas&quot;</span><span class="p">,</span> <span class="s2">&quot;temps_wetbulb&quot;</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">const</span><span class="o">.</span><span class="n">state_list</span><span class="p">:</span>
+        <span class="n">temps</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;https://besciences.blob.core.windows.net/datasets/bldg_el/pumas/temps/temps_pumas_</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span>
+        <span class="p">)</span>
+        <span class="n">dwpts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;https://besciences.blob.core.windows.net/datasets/bldg_el/pumas/dewpoints/dewpts_pumas_</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span>
+        <span class="p">)</span>
+        <span class="n">press</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;https://besciences.blob.core.windows.net/datasets/bldg_el/pumas/press/press_pumas_</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span>
+        <span class="p">)</span>
+
+        <span class="n">temps_wetbulb</span> <span class="o">=</span> <span class="n">temps</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">t_to_twb</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dwpts</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">name</span><span class="p">],</span> <span class="n">press</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">name</span><span class="p">]))</span>
+
+        <span class="n">temps_wetbulb</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">directory</span><span class="p">,</span>
+                <span class="s2">&quot;pumas&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;temps_wetbulb&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;temps_wetbulb_pumas_</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">year</span><span class="si">}</span><span class="s2">.csv&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../../../../../index.html">
+    <img class="logo" src="../../../../../_static/img/BE_Sciences_RGB_Horizontal_Color.svg" alt="Logo"/>
+    
+  </a>
+</p>
+
+
+
+<p class="blurb">Modeling a clean energy future for the United States</p>
+
+
+
+
+<p>
+<iframe src="https://ghbtns.com/github-btn.html?user=Breakthrough-Energy&repo=docs&type=watch&count=true&size=large&v=2"
+  allowtransparency="true" frameborder="0" scrolling="0" width="200px" height="35px"></iframe>
+</p>
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/installation_guide.html">1. Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../communication/code_of_conduct.html">2. Code of Conduct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dev/contribution_guide.html">3. Contribution Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../user/git_guide.html">4. Working with Git/GitHub</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../powersimdata/index.html">5. PowerSimData</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../prereise/index.html">6. PreREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../postreise/index.html">7. PostREISE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../reisejl/index.html">8. REISE.jl</a></li>
+</ul>
+
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul><h3>Useful Links</h3>
+<ul>
+  <li><a href="https://www.breakthroughenergy.org/">Breakthrough Energy</a></li>
+  <li><a href="https://science.breakthroughenergy.org/">Breakthrough Energy Sciences</a></li>
+  <li><a href="https://arxiv.org/abs/2002.06155">publication</a></li>
+  <li><a href="https://zenodo.org/record/3530898">data @ zenodo</a></li>
+</ul>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><ul>
+<h3>Code</h3>
+<a href="../../../../../py-modindex.html">Module Index</a>
+</ul>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Breakthrough Energy Foundation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 6.2.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

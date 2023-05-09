@@ -47,34 +47,14 @@
 <span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
 
 
-<div class="viewcode-block" id="get_bus_pos"><a class="viewcode-back" href="../../../../../prereise.gather.flexibilitydata.doe.html#prereise.gather.flexibilitydata.doe.bus_data.get_bus_pos">[docs]</a><span class="k">def</span> <span class="nf">get_bus_pos</span><span class="p">(</span><span class="n">network_path</span><span class="p">):</span>
+<div class="viewcode-block" id="get_bus_pos"><a class="viewcode-back" href="../../../../../prereise.gather.flexibilitydata.doe.html#prereise.gather.flexibilitydata.doe.bus_data.get_bus_pos">[docs]</a><span class="k">def</span> <span class="nf">get_bus_pos</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Read raw files of synthetic grid and extract the lat/lon coordinate of all buses</span>
 
-<span class="sd">    :param str network_path: path to folder of raw data of a power network</span>
-<span class="sd">    :return: (*pandas.DataFrame*) -- (n x 3) dataframe containing bus coordinates</span>
+<span class="sd">    :param powersimdata.input.grid.Grid grid: a Grid instance</span>
+<span class="sd">    :return: (*pandas.DataFrame*) -- a data frame of bus position</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">try</span><span class="p">:</span>
-        <span class="n">sub_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">network_path</span><span class="p">,</span> <span class="s2">&quot;sub.csv&quot;</span><span class="p">))</span>
-    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Can&#39;t find sub.csv file in </span><span class="si">{</span><span class="n">network_path</span><span class="si">}</span><span class="s2"> folder&quot;</span><span class="p">)</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="n">bus2sub_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">network_path</span><span class="p">,</span> <span class="s2">&quot;bus2sub.csv&quot;</span><span class="p">))</span>
-    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Can&#39;t find bus2sub.csv file in </span><span class="si">{</span><span class="n">network_path</span><span class="si">}</span><span class="s2"> folder&quot;</span><span class="p">)</span>
-
-    <span class="n">bus_pos</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
-
-    <span class="n">bus_pos</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bus2sub_df</span><span class="p">[</span><span class="s2">&quot;bus_id&quot;</span><span class="p">]</span>
-
-    <span class="n">bus_pos</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">sub_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">sub_df</span><span class="p">[</span><span class="s2">&quot;sub_id&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;lat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">bus2sub_df</span><span class="p">[</span><span class="s2">&quot;sub_id&quot;</span><span class="p">]</span>
-    <span class="p">]</span>
-    <span class="n">bus_pos</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">sub_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">sub_df</span><span class="p">[</span><span class="s2">&quot;sub_id&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">bus2sub_df</span><span class="p">[</span><span class="s2">&quot;sub_id&quot;</span><span class="p">]</span>
-    <span class="p">]</span>
-
-    <span class="k">return</span> <span class="n">bus_pos</span></div>
+    <span class="k">return</span> <span class="n">grid</span><span class="o">.</span><span class="n">bus</span><span class="p">[[</span><span class="s2">&quot;lat&quot;</span><span class="p">,</span> <span class="s2">&quot;lon&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span></div>
 
 
 <div class="viewcode-block" id="get_bus_fips"><a class="viewcode-back" href="../../../../../prereise.gather.flexibilitydata.doe.html#prereise.gather.flexibilitydata.doe.bus_data.get_bus_fips">[docs]</a><span class="k">def</span> <span class="nf">get_bus_fips</span><span class="p">(</span><span class="n">bus_pos</span><span class="p">,</span> <span class="n">cache_path</span><span class="p">,</span> <span class="n">start_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>

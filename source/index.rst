@@ -124,3 +124,4 @@ Please review our :doc:`communication/code_of_conduct` before contributing.
    prereise/index
    postreise/index
    reisejl/index
+   reliabilityassessment/index

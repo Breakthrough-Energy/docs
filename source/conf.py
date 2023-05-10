@@ -18,11 +18,13 @@ import sys
 sys.path.insert(0, os.path.abspath("../../PreREISE"))
 sys.path.insert(0, os.path.abspath("../../PowerSimData"))
 sys.path.insert(0, os.path.abspath("../../PostREISE"))
+sys.path.insert(0, os.path.abspath("../../reliability-assessment"))
 
 import warnings
 
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
+warnings.filterwarnings("ignore", message="numpy.ndarray size changed")
 warnings.filterwarnings("ignore", message="Container node skipped")
 
 # -- General configuration ---------------------------------------------------
@@ -66,10 +68,16 @@ language = "en"
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = [
     "_build",
+    "conftest.rst",
     "modules.rst",
     "setup.rst",
+    "prereise/hydro/legacy/capacity_factor.rst",
+    "prereise/renewables/solar/wind.rst",
     "prereise/demand/transportation_electrification/data.rst",
     "prereise/demand/transportation_electrification/methodology.rst",
+    "prereise.gather.flexibilitydata.doe.examples.rst",
+    "postreise/README.md"
+    "reliabilityassessment/usage.rst",
 ]
 
 # The name of the Pygments (syntax highlighting) style to use.
@@ -115,7 +123,6 @@ html_theme_options = {
     "fixed_sidebar": False,
     "sidebar_width": "20%",
     "page_width": "80%",
-    "page_width": "auto",
     "github_button": True,
     "github_user": "Breakthrough-Energy",
     "github_repo": "docs",
